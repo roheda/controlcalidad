@@ -159,28 +159,24 @@ function buildChecklist(partidaId, currentChecklist = null) {
     const id = item.code;
     const existing = currentChecklist?.find((i) => i.id === id);
 
-return template.map((item) => {
-  const id = item.code;
-  const existing = currentChecklist?.find((i) => i.id === id);
-
-  return {
-    id,
-    code: item.code,
-    label: item.label,
-    clasificacion: item.clasificacion || "menor",
-    peso: item.peso || 1,
-    resultado: existing?.resultado || "",
-    checked: existing?.checked ?? false,
-    note: existing?.note || "",
-    photos: existing?.photos || [],
-    comments: existing?.comments || [],
-  };
-});
+    return {
+      id,
+      code: item.code,
+      label: item.label,
+      clasificacion: item.clasificacion || "menor",
+      peso: item.peso || 1,
+      resultado: existing?.resultado || "",
+      checked: existing?.checked ?? false,
+      note: existing?.note || "",
+      photos: existing?.photos || [],
+      comments: existing?.comments || [],
+    };
+  });
 }
+
 function evaluarPartida(partida) {
   let totalPeso = 0;
   let puntos = 0;
-
   let criticosNC = 0;
   let criticosObs = 0;
   let faltanFotos = 0;
@@ -212,25 +208,11 @@ function evaluarPartida(partida) {
 
   const score = totalPeso > 0 ? (puntos / totalPeso) * 100 : 0;
 
-  if (criticosNC > 0) {
-    return { status: "bloqueada", score };
-  }
-
-  if (faltanFotos > 0) {
-    return { status: "pendiente_evidencia", score };
-  }
-
-  if (criticosObs > 0) {
-    return { status: "condicionada", score };
-  }
-
-  if (score >= 95) {
-    return { status: "liberada", score };
-  }
-
-  if (score >= 90) {
-    return { status: "liberada_condicionada", score };
-  }
+  if (criticosNC > 0) return { status: "bloqueada", score };
+  if (faltanFotos > 0) return { status: "pendiente_evidencia", score };
+  if (criticosObs > 0) return { status: "condicionada", score };
+  if (score >= 95) return { status: "liberada", score };
+  if (score >= 90) return { status: "liberada_condicionada", score };
 
   return { status: "no_liberada", score };
 }
