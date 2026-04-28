@@ -426,7 +426,7 @@ function ChecklistPhotoGrid({ photos, onPreview }) {
   );
 }
 
-function CommentThread({ comments }) {
+function CommentThread({ comments, onPreview }) {
   if (!comments?.length) {
     return (
       <div
@@ -469,6 +469,43 @@ function CommentThread({ comments }) {
           <div style={{ color: c.text, marginTop: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
             {comment.text}
           </div>
+
+          {(comment.photos || []).length > 0 ? (
+            <div
+              style={{
+                marginTop: 10,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))",
+                gap: 8,
+              }}
+            >
+              {(comment.photos || []).map((photo, index) => (
+                <button
+                  key={photo.id || `${photo.url}-${index}`}
+                  onClick={() => onPreview?.(photo, comment.photos || [])}
+                  style={{
+                    border: `1px solid ${c.border}`,
+                    borderRadius: 12,
+                    padding: 4,
+                    background: "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  <img
+                    src={photo.url}
+                    alt={photo.fileName || `Foto ${index + 1}`}
+                    style={{
+                      width: "100%",
+                      height: 88,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                      display: "block",
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ))}
     </div>
@@ -658,6 +695,8 @@ export default function App() {
   const [previewGallery, setPreviewGallery] = useState([]);
 const [checklistCommentDrafts, setChecklistCommentDrafts] = useState({});
 const [generalCommentDraft, setGeneralCommentDraft] = useState("");
+  const [checklistCommentPhotoDrafts, setChecklistCommentPhotoDrafts] = useState({});
+  const [checklistCommentUploading, setChecklistCommentUploading] = useState({});
   useEffect(() => {
     const onResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -811,14 +850,15 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     if (!item) return;
     await updateChecklistItem(itemId, { checked: !item.checked });
   }
-function buildNewComment(textValue) {
+function buildNewComment(textValue, extra = {}) {
   return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    id: extra.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     text: textValue.trim(),
     authorUid: authUser?.uid || null,
     authorName: profile?.name || authUser?.email || "Usuario",
     authorRole: profile?.role || "usuario",
     createdAt: new Date().toISOString(),
+    ...extra,
   };
 }
 
@@ -829,13 +869,93 @@ async function addChecklistComment(itemId) {
   const checklistItem = (selectedPartida?.checklist || []).find((item) => item.id === itemId);
   if (!checklistItem) return;
 
-  const nextComments = [...(checklistItem.comments || []), buildNewComment(draft)];
-  await updateChecklistItem(itemId, { comments: nextComments });
+  const draftPhotos = checklistCommentPhotoDrafts[itemId] || [];
+  const commentId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  setChecklistCommentUploading((prev) => ({ ...prev, [itemId]: true }));
+
+  try {
+    const uploadedPhotos = [];
+    for (const draftPhoto of draftPhotos) {
+      const file = draftPhoto.file;
+      if (!file) continue;
+      const filePath = `obras/${obraId}/${selectedHouse.id}/${selectedPartida.id}/checklist-comments/${itemId}/${commentId}/${Date.now()}-${file.name}`;
+      const storageRef = ref(storage, filePath);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+
+      uploadedPhotos.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        url,
+        fileName: file.name,
+        size: file.size,
+        storagePath: filePath,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: authUser?.uid || null,
+        uploadedByName: profile?.name || authUser?.email || "Usuario",
+      });
+    }
+
+    const nextComments = [
+      ...(checklistItem.comments || []),
+      buildNewComment(draft, {
+        id: commentId,
+        photos: uploadedPhotos,
+      }),
+    ];
+
+    const nextChecklistPhotos = [...(checklistItem.photos || []), ...uploadedPhotos];
+    await updateChecklistItem(itemId, { comments: nextComments, photos: nextChecklistPhotos });
+
+    draftPhotos.forEach((photo) => {
+      if (photo.previewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(photo.previewUrl);
+      }
+    });
+
+    setChecklistCommentPhotoDrafts((prev) => ({
+      ...prev,
+      [itemId]: [],
+    }));
+  } finally {
+    setChecklistCommentUploading((prev) => ({ ...prev, [itemId]: false }));
+  }
 
   setChecklistCommentDrafts((prev) => ({
     ...prev,
     [itemId]: "",
   }));
+}
+
+function onPickChecklistCommentPhotos(itemId, fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+
+  const previews = files.map((file) => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    file,
+    fileName: file.name,
+    previewUrl: URL.createObjectURL(file),
+  }));
+
+  setChecklistCommentPhotoDrafts((prev) => ({
+    ...prev,
+    [itemId]: [...(prev[itemId] || []), ...previews],
+  }));
+}
+
+function removeDraftChecklistCommentPhoto(itemId, draftPhotoId) {
+  setChecklistCommentPhotoDrafts((prev) => {
+    const draftPhotos = prev[itemId] || [];
+    const target = draftPhotos.find((photo) => photo.id === draftPhotoId);
+    if (target?.previewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(target.previewUrl);
+    }
+
+    return {
+      ...prev,
+      [itemId]: draftPhotos.filter((photo) => photo.id !== draftPhotoId),
+    };
+  });
 }
 
 async function addGeneralComment() {
@@ -1717,7 +1837,7 @@ const reviewBlockMessage =
         </div>
 
         <div style={{ marginTop: 14 }}>
-          <CommentThread comments={item.comments || []} />
+          <CommentThread comments={item.comments || []} onPreview={openPhotoPreview} />
         </div>
 
         <div style={{ marginTop: 14 }}>
@@ -1739,11 +1859,69 @@ const reviewBlockMessage =
           />
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-            <button onClick={() => addChecklistComment(item.id)} style={buttonStyle("primary")}>
-              Agregar comentario
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center" })}>
+                Adjuntar fotos
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(e) => onPickChecklistCommentPhotos(item.id, e.target.files)}
+                />
+              </label>
+              <button
+                onClick={() => addChecklistComment(item.id)}
+                disabled={checklistCommentUploading[item.id]}
+                style={buttonStyle("primary", {
+                  opacity: checklistCommentUploading[item.id] ? 0.6 : 1,
+                  cursor: checklistCommentUploading[item.id] ? "not-allowed" : "pointer",
+                })}
+              >
+                {checklistCommentUploading[item.id] ? "Guardando..." : "Agregar comentario"}
+              </button>
+            </div>
           </div>
         </div>
+
+        {(checklistCommentPhotoDrafts[item.id] || []).length > 0 ? (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, color: c.muted, marginBottom: 8 }}>
+              Fotos por publicar (se suben al dar clic en “Agregar comentario”)
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))",
+                gap: 8,
+              }}
+            >
+              {(checklistCommentPhotoDrafts[item.id] || []).map((draftPhoto) => (
+                <div
+                  key={draftPhoto.id}
+                  style={{
+                    border: `1px solid ${c.border}`,
+                    borderRadius: 12,
+                    padding: 6,
+                    background: "#fff",
+                  }}
+                >
+                  <img
+                    src={draftPhoto.previewUrl}
+                    alt={draftPhoto.fileName}
+                    style={{ width: "100%", height: 84, objectFit: "cover", borderRadius: 8, display: "block" }}
+                  />
+                  <button
+                    onClick={() => removeDraftChecklistCommentPhoto(item.id, draftPhoto.id)}
+                    style={buttonStyle("danger", { marginTop: 6, width: "100%", padding: "6px 8px", fontSize: 12 })}
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div style={{ marginTop: 14 }}>
           <ChecklistPhotoGrid photos={item.photos || []} onPreview={openPhotoPreview} />
