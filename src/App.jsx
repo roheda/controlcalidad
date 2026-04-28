@@ -223,6 +223,11 @@ function evaluarPartida(partida) {
 
   return { status: "no_liberada", score };
 }
+
+function hasSupervisorComment(item) {
+  return (item.comments || []).some((comment) => comment.authorRole === "supervisora" && comment.text?.trim());
+}
+
 function normalizePartida(partida) {
   return {
     ...partida,
@@ -1033,6 +1038,11 @@ async function deleteGeneralEvidence(file) {
 }
 
   async function approvePartida() {
+    if (!canSupervisorApprove) {
+      alert(supervisorApproveBlockMessage || "Primero revisa todos los puntos antes de aprobar.");
+      return;
+    }
+
     try {
       setActionLoading(true);
       await updatePartida({ status: "Aprobada" });
@@ -1046,10 +1056,15 @@ async function deleteGeneralEvidence(file) {
   }
 
   async function rejectPartida() {
+    if (!canSupervisorRequestFixes) {
+      alert("Para solicitar subsanación revisa al menos un punto con 'No cumple'.");
+      return;
+    }
+
     try {
       setActionLoading(true);
       await updatePartida({ status: "Rechazada" });
-      alert("Partida rechazada");
+      alert("Se solicitó subsanación a la constructora");
     } catch (error) {
       console.error(error);
       alert("No se pudo rechazar la partida");
@@ -1116,6 +1131,40 @@ const canSendToReview =
   checklistItems.length > 0 &&
   incompleteChecklistItems.length === 0 &&
   checklistItemsWithoutPhotos.length === 0;
+
+const checklistWithoutResult = checklistItems.filter((item) => !item.resultado);
+const allChecklistItemsEvaluated = checklistItems.length > 0 && checklistWithoutResult.length === 0;
+const checklistNoCumple = checklistItems.filter((item) => item.resultado === "no_cumple");
+const checklistObservacionWithoutComment = checklistItems.filter(
+  (item) => item.resultado === "observacion" && !hasSupervisorComment(item)
+);
+const checklistReadyForApproval = checklistItems.filter(
+  (item) =>
+    item.resultado === "cumple" || item.resultado === "observacion" || item.resultado === "na"
+);
+
+const canSupervisorApprove =
+  selectedPartida?.status === "Lista para revisión" &&
+  allChecklistItemsEvaluated &&
+  checklistNoCumple.length === 0 &&
+  checklistObservacionWithoutComment.length === 0 &&
+  checklistReadyForApproval.length === checklistItems.length;
+
+const canSupervisorRequestFixes =
+  selectedPartida?.status === "Lista para revisión" &&
+  checklistItems.length > 0 &&
+  checklistNoCumple.length > 0;
+
+const supervisorApproveBlockMessage =
+  !allChecklistItemsEvaluated
+    ? "La supervisora debe evaluar cada punto del checklist antes de aprobar."
+    : checklistNoCumple.length > 0
+    ? "No puedes aprobar porque hay puntos en 'No cumple'. Solicita subsanación."
+    : checklistObservacionWithoutComment.length > 0
+    ? "Cada punto con 'Cumple con observación' debe incluir comentario de la supervisora."
+    : checklistReadyForApproval.length !== checklistItems.length
+    ? "Solo puedes aprobar si todos los puntos están en 'Cumple', 'Cumple con observación' o 'No aplica'."
+    : "";
 
 const reviewBlockMessage =
   incompleteChecklistItems.length > 0
@@ -1339,21 +1388,27 @@ const reviewBlockMessage =
                         <>
                           <button
                             onClick={rejectPartida}
-                            disabled={actionLoading}
+                            disabled={actionLoading || !canSupervisorRequestFixes}
                             style={buttonStyle("danger", {
-                              opacity: actionLoading ? 0.6 : 1,
-                              cursor: actionLoading ? "not-allowed" : "pointer",
+                              opacity: actionLoading || !canSupervisorRequestFixes ? 0.6 : 1,
+                              cursor: actionLoading || !canSupervisorRequestFixes ? "not-allowed" : "pointer",
                             })}
+                            title={
+                              !canSupervisorRequestFixes
+                                ? "Para solicitar subsanación marca al menos un punto como 'No cumple'."
+                                : "Solicitar correcciones a la constructora"
+                            }
                           >
-                            {actionLoading ? "Procesando..." : "Rechazar"}
+                            {actionLoading ? "Procesando..." : "Solicitar subsanación"}
                           </button>
                           <button
                             onClick={approvePartida}
-                            disabled={actionLoading}
+                            disabled={actionLoading || !canSupervisorApprove}
                             style={buttonStyle("primary", {
-                              opacity: actionLoading ? 0.6 : 1,
-                              cursor: actionLoading ? "not-allowed" : "pointer",
+                              opacity: actionLoading || !canSupervisorApprove ? 0.6 : 1,
+                              cursor: actionLoading || !canSupervisorApprove ? "not-allowed" : "pointer",
                             })}
+                            title={!canSupervisorApprove ? supervisorApproveBlockMessage : "Aprobar partida completa"}
                           >
                             {actionLoading ? "Procesando..." : "Aprobar"}
                           </button>
@@ -1361,6 +1416,21 @@ const reviewBlockMessage =
                       ) : null}
                     </div>
                   </div>
+                  {isSupervisora && !canSupervisorApprove ? (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        background: c.warnBg,
+                        color: c.warnText,
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {supervisorApproveBlockMessage}
+                    </div>
+                  ) : null}
 
                   <div
                     style={{
