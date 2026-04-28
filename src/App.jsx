@@ -34,25 +34,90 @@ const storage = getStorage(app);
 const obraId = "arenna";
 
 const partidaTemplates = [
+  { id: "preliminares", name: "Preliminares", weight: 5 },
+  { id: "excavacion", name: "Excavación", weight: 5 },
   { id: "cimentacion", name: "Cimentación", weight: 10 },
-  { id: "estructura", name: "Estructura", weight: 20 },
-  { id: "muros", name: "Muros", weight: 15 },
-  { id: "instalaciones", name: "Instalaciones", weight: 15 },
-  { id: "acabados", name: "Acabados", weight: 25 },
-  { id: "carpinteria", name: "Carpintería", weight: 5 },
+  { id: "colado", name: "Colado", weight: 5 },
+  { id: "estructura", name: "Estructura", weight: 10 },
+  { id: "losa", name: "Losa", weight: 5 },
+  { id: "albanileria", name: "Albañilería", weight: 10 },
+  { id: "hidraulicas", name: "Hidráulicas", weight: 5 },
+  { id: "electricas", name: "Eléctricas", weight: 5 },
+  { id: "aplanados", name: "Aplanados", weight: 5 },
+  { id: "pisos", name: "Pisos", weight: 10 },
+  { id: "impermeabilizante", name: "Impermeabilizante", weight: 5 },
   { id: "canceleria", name: "Cancelería", weight: 5 },
-  { id: "detalles_finales", name: "Detalles finales", weight: 5 },
+  { id: "general", name: "General", weight: 5 },
 ];
 
 const checklistByPartida = {
-  cimentacion: ["Trazo validado", "Excavación terminada", "Acero revisado", "Colado ejecutado", "Curado evidenciado"],
-  estructura: ["Cimbra correcta", "Acero revisado", "Instalaciones embebidas", "Colado ejecutado", "Descimbra correcta"],
-  muros: ["Alineación", "Plomo", "Castillos completos", "Vanos correctos", "Juntas limpias"],
-  instalaciones: ["Hidrosanitario probado", "Eléctrico canalizado", "Fotos por zona", "Etiquetado", "Checklist firmado"],
-  acabados: ["Superficie uniforme", "Detalles corregidos", "Esquinas limpias", "Fotos finales", "Video recorrido"],
-  carpinteria: ["Medidas correctas", "Nivelación", "Herrajes", "Detalles resanados", "Ajuste final"],
-  canceleria: ["Plomos correctos", "Sellos", "Ajuste de hojas", "Limpieza", "Prueba de cierre"],
-  detalles_finales: ["Limpieza general", "Pendientes cerrados", "Bitácora actualizada", "Video final", "Checklist final"],
+  preliminares: [
+    { code: "AC-PL-01", label: "El trazo coincide con planos autorizados." },
+    { code: "AC-PL-02", label: "Los niveles de desplante fueron verificados." },
+    { code: "AC-PL-03", label: "Ejes y referencias se encuentran protegidos." },
+  ],
+  excavacion: [
+    { code: "AC-EX-01", label: "Profundidad y dimensiones cumplen especificación." },
+    { code: "AC-EX-02", label: "Fondo firme y libre de material suelto." },
+  ],
+  cimentacion: [
+    { code: "AC-CI-01", label: "Plantilla de concreto aplicada antes de armado." },
+    { code: "AC-CI-02", label: "Acero de refuerzo conforme a diámetro y separación." },
+    { code: "AC-CI-03", label: "Traslapes y amarres correctamente ejecutados." },
+    { code: "AC-CI-04", label: "Recubrimiento mínimo respetado." },
+    { code: "AC-CI-05", label: "Instalaciones cruzando cimentación protegidas." },
+  ],
+  colado: [
+    { code: "AC-CO-01", label: "Concreto con revenimiento adecuado." },
+    { code: "AC-CO-02", label: "Vibrado correcto sin segregación." },
+    { code: "AC-CO-03", label: "Curado aplicado posterior al colado." },
+  ],
+  estructura: [
+    { code: "AC-ES-01", label: "Columnas y castillos plomados." },
+    { code: "AC-ES-02", label: "Dalas y trabes con dimensiones correctas." },
+    { code: "AC-ES-03", label: "Cimbra alineada y firme antes de colado." },
+  ],
+  losa: [
+    { code: "AC-LO-01", label: "Instalaciones colocadas antes de colado de losa." },
+    { code: "AC-LO-02", label: "Espesor de losa conforme a proyecto." },
+  ],
+  albanileria: [
+    { code: "AC-AL-01", label: "Muros alineados y plomados." },
+    { code: "AC-AL-02", label: "Juntas uniformes y correctamente rellenas." },
+    { code: "AC-AL-03", label: "Vanos conforme a dimensiones de proyecto." },
+  ],
+  hidraulicas: [
+    { code: "AC-IH-01", label: "Prueba de presión en instalaciones hidráulicas antes de tapar." },
+    { code: "AC-IH-02", label: "Pendientes de drenaje verificadas." },
+  ],
+  electricas: [
+    { code: "AC-IE-01", label: "Canalizaciones completas antes de aplanado." },
+    { code: "AC-IE-02", label: "Centro de carga correctamente instalado y señalizado." },
+  ],
+  aplanados: [
+    { code: "AC-AP-01", label: "Superficie limpia antes de aplicar." },
+    { code: "AC-AP-02", label: "Plomos y niveles verificados." },
+  ],
+  pisos: [
+    { code: "AC-PI-01", label: "Base nivelada antes de colocación." },
+    { code: "AC-PI-02", label: "Adhesivo adecuado aplicado uniformemente." },
+    { code: "AC-PI-03", label: "Colocación de mármol conforme a especificación técnica." },
+    { code: "AC-PI-04", label: "Preparación de superficies para colocación de mármol." },
+    { code: "AC-PI-05", label: "Aplicación de boquilla en recubrimientos de mármol." },
+  ],
+  impermeabilizante: [
+    { code: "AC-IM-01", label: "Superficie preparada antes de aplicación." },
+    { code: "AC-IM-02", label: "Traslapes y sellos correctamente ejecutados." },
+  ],
+  canceleria: [
+    { code: "AC-CA-01", label: "Marcos alineados antes de fijación definitiva." },
+    { code: "AC-CA-02", label: "Preinstalaciones verificadas antes de cerrar muros." },
+    { code: "AC-CA-03", label: "Vano y elementos de cancelería conforme a especificación técnica." },
+  ],
+  general: [
+    { code: "AC-GE-01", label: "Limpieza de área previa a cada partida." },
+    { code: "AC-GE-02", label: "Evidencia fotográfica y registro documental realizado." },
+  ],
 };
 
 const c = {
@@ -87,19 +152,21 @@ function slugify(text = "") {
     .replace(/^_+|_+$/g, "");
 }
 
-function buildChecklist(partidaId, currentChecklist = null, checkedItems = []) {
+function buildChecklist(partidaId, currentChecklist = null) {
   const template = checklistByPartida[partidaId] || [];
-  return template.map((label) => {
-    const id = slugify(label);
-    const existing = currentChecklist?.find((item) => item.id === id || item.label === label);
+
+  return template.map((item) => {
+    const id = item.code;
+    const existing = currentChecklist?.find((i) => i.id === id);
 
     return {
       id,
-      label,
-      checked: existing?.checked ?? checkedItems.includes(label),
+      code: item.code,
+      label: item.label,
+      checked: existing?.checked ?? false,
       note: existing?.note || "",
-      photos: Array.isArray(existing?.photos) ? existing.photos : [],
-      comments: Array.isArray(existing?.comments) ? existing.comments : [],
+      photos: existing?.photos || [],
+      comments: existing?.comments || [],
     };
   });
 }
@@ -1467,7 +1534,7 @@ const reviewBlockMessage =
               }}
             >
               <span style={{ fontSize: 20 }}>{item.checked ? "✅" : "⬜"}</span>
-              <span style={{ fontWeight: 800, color: c.text }}>{item.label}</span>
+              <span style={{ fontWeight: 800, color: c.text }}>{item.code} · {item.label}</span>
             </button>
 
             <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>
