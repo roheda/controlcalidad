@@ -159,18 +159,81 @@ function buildChecklist(partidaId, currentChecklist = null) {
     const id = item.code;
     const existing = currentChecklist?.find((i) => i.id === id);
 
-    return {
-      id,
-      code: item.code,
-      label: item.label,
-      checked: existing?.checked ?? false,
-      note: existing?.note || "",
-      photos: existing?.photos || [],
-      comments: existing?.comments || [],
-    };
-  });
-}
+return template.map((item) => {
+  const id = item.code;
+  const existing = currentChecklist?.find((i) => i.id === id);
 
+  return {
+    id,
+    code: item.code,
+    label: item.label,
+    clasificacion: item.clasificacion || "menor",
+    peso: item.peso || 1,
+    resultado: existing?.resultado || "",
+    checked: existing?.checked ?? false,
+    note: existing?.note || "",
+    photos: existing?.photos || [],
+    comments: existing?.comments || [],
+  };
+});
+}
+function evaluarPartida(partida) {
+  let totalPeso = 0;
+  let puntos = 0;
+
+  let criticosNC = 0;
+  let criticosObs = 0;
+  let faltanFotos = 0;
+
+  (partida.checklist || []).forEach((item) => {
+    if (item.resultado === "na") return;
+
+    const factor = {
+      cumple: 1,
+      observacion: 0.7,
+      no_cumple: 0,
+    }[item.resultado] ?? 0;
+
+    const peso = item.peso || 1;
+    const clasificacion = item.clasificacion || "menor";
+
+    totalPeso += peso;
+    puntos += peso * factor;
+
+    if (clasificacion === "critico") {
+      if (item.resultado === "no_cumple") criticosNC++;
+      if (item.resultado === "observacion") criticosObs++;
+    }
+
+    if ((item.photos?.length || 0) < 3 && item.resultado !== "na") {
+      faltanFotos++;
+    }
+  });
+
+  const score = totalPeso > 0 ? (puntos / totalPeso) * 100 : 0;
+
+  if (criticosNC > 0) {
+    return { status: "bloqueada", score };
+  }
+
+  if (faltanFotos > 0) {
+    return { status: "pendiente_evidencia", score };
+  }
+
+  if (criticosObs > 0) {
+    return { status: "condicionada", score };
+  }
+
+  if (score >= 95) {
+    return { status: "liberada", score };
+  }
+
+  if (score >= 90) {
+    return { status: "liberada_condicionada", score };
+  }
+
+  return { status: "no_liberada", score };
+}
 function normalizePartida(partida) {
   return {
     ...partida,
@@ -1054,6 +1117,7 @@ async function deleteGeneralEvidence(file) {
   const checklistCompleted = (selectedPartida?.checklist || []).filter((item) => item.checked).length;
   const checklistTotal = (selectedPartida?.checklist || []).length;
   const checklistWithPhotos = (selectedPartida?.checklist || []).filter((item) => (item.photos || []).length > 0).length;
+  const evaluacion = selectedPartida ? evaluarPartida(selectedPartida) : null;
 const checklistItems = selectedPartida?.checklist || [];
 
 const incompleteChecklistItems = checklistItems.filter((item) => !item.checked);
@@ -1245,6 +1309,11 @@ const reviewBlockMessage =
                       <div style={{ color: c.muted, marginTop: 4 }}>
                         Aprobación final por partida · checklist con notas y fotos por punto de control
                       </div>
+                      {evaluacion ? (
+  <div style={{ marginTop: 10, fontWeight: 800, color: c.text }}>
+    Estatus de calidad: {evaluacion.status} · {evaluacion.score.toFixed(1)}%
+  </div>
+) : null}
                     </div>
 
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
