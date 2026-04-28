@@ -177,11 +177,17 @@ function buildChecklist(partidaId, currentChecklist = null) {
 function evaluarPartida(partida) {
   let totalPeso = 0;
   let puntos = 0;
+  let pendientes = 0;
   let criticosNC = 0;
   let criticosObs = 0;
   let faltanFotos = 0;
 
   (partida.checklist || []).forEach((item) => {
+    if (!item.resultado) {
+      pendientes++;
+      return;
+    }
+
     if (item.resultado === "na") return;
 
     const factor = {
@@ -201,7 +207,7 @@ function evaluarPartida(partida) {
       if (item.resultado === "observacion") criticosObs++;
     }
 
-    if ((item.photos?.length || 0) < 3 && item.resultado !== "na") {
+    if ((item.photos?.length || 0) < 3) {
       faltanFotos++;
     }
   });
@@ -209,6 +215,7 @@ function evaluarPartida(partida) {
   const score = totalPeso > 0 ? (puntos / totalPeso) * 100 : 0;
 
   if (criticosNC > 0) return { status: "bloqueada", score };
+  if (pendientes > 0) return { status: "pendiente_revision", score };
   if (faltanFotos > 0) return { status: "pendiente_evidencia", score };
   if (criticosObs > 0) return { status: "condicionada", score };
   if (score >= 95) return { status: "liberada", score };
@@ -1586,6 +1593,25 @@ const reviewBlockMessage =
             >
               <span style={{ fontSize: 20 }}>{item.checked ? "✅" : "⬜"}</span>
               <span style={{ fontWeight: 800, color: c.text }}>{item.code} · {item.label}</span>
+              {isSupervisora ? (
+  <div style={{ marginTop: 10, maxWidth: 280 }}>
+    <select
+      value={item.resultado || ""}
+      onChange={(e) => updateChecklistItem(item.id, { resultado: e.target.value })}
+      style={inputStyle()}
+    >
+      <option value="">Pendiente de evaluar</option>
+      <option value="cumple">Cumple</option>
+      <option value="observacion">Cumple con observación</option>
+      <option value="no_cumple">No cumple</option>
+      <option value="na">No aplica</option>
+    </select>
+  </div>
+) : (
+  <div style={{ marginTop: 8, fontSize: 13, color: c.muted }}>
+    Resultado: {item.resultado || "Pendiente de evaluar"}
+  </div>
+)}
             </button>
 
             <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>
