@@ -158,6 +158,8 @@ div[style*="2px solid #111827"] {
 }
 
 /* Action buttons from buttonStyle(). */
+button[style*="fontWeight"],
+label[style*="fontWeight"],
 button[style*="font-weight"],
 label[style*="font-weight"] {
   border-radius: 999px !important;
@@ -167,14 +169,14 @@ label[style*="font-weight"] {
 
 button[style*="background: rgb(17, 24, 39)"],
 button[style*="background: #111827"],
-button[style*="background: var"],
 button[style*="background-color: rgb(17, 24, 39)"] {
   background: linear-gradient(180deg, var(--ios-blue) 0%, var(--ios-blue-dark) 100%) !important;
   border-color: rgba(0, 122, 255, 0.36) !important;
   color: #ffffff !important;
 }
 
-span[style*="border-radius: 999"] {
+span[style*="border-radius: 999"],
+span[style*="borderRadius: 999"] {
   border: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
@@ -183,7 +185,8 @@ img {
   user-select: none;
 }
 
-img[style*="object-fit: cover"] {
+img[style*="object-fit: cover"],
+img[style*="objectFit: cover"] {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36);
 }
 
@@ -228,7 +231,9 @@ div[style*="background: #f8fafc"] {
     border-radius: 22px !important;
   }
 
+  button[style*="fontWeight"],
   button[style*="font-weight"],
+  label[style*="fontWeight"],
   label[style*="font-weight"] {
     min-height: 44px;
   }
