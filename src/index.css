@@ -167,14 +167,6 @@ label[style*="font-weight"] {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
 }
 
-button[style*="background: rgb(17, 24, 39)"],
-button[style*="background: #111827"],
-button[style*="background-color: rgb(17, 24, 39)"] {
-  background: linear-gradient(180deg, var(--ios-blue) 0%, var(--ios-blue-dark) 100%) !important;
-  border-color: rgba(0, 122, 255, 0.36) !important;
-  color: #ffffff !important;
-}
-
 span[style*="border-radius: 999"],
 span[style*="borderRadius: 999"] {
   border: 1px solid rgba(255, 255, 255, 0.55);
