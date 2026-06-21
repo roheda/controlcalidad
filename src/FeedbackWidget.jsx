@@ -12,6 +12,31 @@ function getCurrentContext() {
   return `${window.location.pathname}${window.location.search || ""}`;
 }
 
+const floatingButtonStyle = {
+  position: "fixed",
+  right: 16,
+  bottom: "calc(88px + env(safe-area-inset-bottom, 0px))",
+  zIndex: 2147483647,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 9,
+  minHeight: 52,
+  border: "2px solid rgba(255,255,255,0.9)",
+  borderRadius: 999,
+  padding: "13px 18px",
+  background: "linear-gradient(180deg, #007aff 0%, #005ecb 100%)",
+  color: "#fff",
+  fontWeight: 900,
+  fontSize: 15,
+  letterSpacing: -0.1,
+  cursor: "pointer",
+  boxShadow: "0 18px 48px rgba(0, 122, 255, 0.42), 0 4px 14px rgba(0,0,0,0.18)",
+  WebkitBackdropFilter: "blur(18px)",
+  backdropFilter: "blur(18px)",
+  pointerEvents: "auto",
+};
+
 export default function FeedbackWidget() {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState(feedbackTypes[0]);
@@ -70,26 +95,7 @@ export default function FeedbackWidget() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Generar feedback para mejorar"
-        style={{
-          position: "fixed",
-          right: 22,
-          bottom: 22,
-          zIndex: 950,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 10,
-          border: "1px solid rgba(255,255,255,0.62)",
-          borderRadius: 999,
-          padding: "13px 18px",
-          background: "linear-gradient(180deg, #007aff 0%, #005ecb 100%)",
-          color: "#fff",
-          fontWeight: 800,
-          fontSize: 14,
-          letterSpacing: -0.1,
-          cursor: "pointer",
-          boxShadow: "0 16px 40px rgba(0, 122, 255, 0.34)",
-          backdropFilter: "blur(18px)",
-        }}
+        style={floatingButtonStyle}
       >
         <span style={{ fontSize: 18, lineHeight: 1 }}>✦</span>
         Feedback
@@ -104,12 +110,13 @@ export default function FeedbackWidget() {
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 1200,
+            zIndex: 2147483647,
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            padding: 18,
+            padding: "18px 18px calc(18px + env(safe-area-inset-bottom, 0px))",
             background: "rgba(29, 29, 31, 0.38)",
+            WebkitBackdropFilter: "blur(16px)",
             backdropFilter: "blur(16px)",
           }}
         >
@@ -119,7 +126,7 @@ export default function FeedbackWidget() {
               width: "min(100%, 520px)",
               border: "1px solid rgba(255, 255, 255, 0.64)",
               borderRadius: 28,
-              background: "rgba(255, 255, 255, 0.92)",
+              background: "rgba(255, 255, 255, 0.96)",
               boxShadow: "0 24px 70px rgba(0, 0, 0, 0.18)",
               overflow: "hidden",
             }}
