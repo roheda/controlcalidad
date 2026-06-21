@@ -144,10 +144,13 @@ div[style*="box-shadow"],
 button[style*="box-shadow"] {
   border-color: var(--ios-border) !important;
   border-radius: var(--ios-radius-lg) !important;
-  background: var(--ios-surface) !important;
   box-shadow: var(--ios-shadow-soft) !important;
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+
+div[style*="box-shadow"] {
+  background: var(--ios-surface) !important;
 }
 
 button[style*="2px solid"],
