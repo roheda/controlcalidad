@@ -47,38 +47,6 @@ const buttonBase = {
   whiteSpace: "nowrap",
 };
 
-const sideBarStyle = {
-  position: "fixed",
-  left: 0,
-  top: 0,
-  bottom: 0,
-  width: 232,
-  zIndex: 2147483643,
-  padding: "22px 14px",
-  background: "rgba(255,255,255,0.94)",
-  borderRight: "1px solid rgba(60,60,67,0.12)",
-  boxShadow: "18px 0 50px rgba(0,0,0,0.08)",
-  WebkitBackdropFilter: "blur(22px) saturate(180%)",
-  backdropFilter: "blur(22px) saturate(180%)",
-};
-
-const mobileMenuButtonStyle = {
-  position: "fixed",
-  left: 16,
-  top: "calc(76px + env(safe-area-inset-top, 0px))",
-  zIndex: 2147483644,
-  width: 46,
-  height: 46,
-  border: "1px solid rgba(60,60,67,0.14)",
-  borderRadius: 16,
-  background: "rgba(255,255,255,0.92)",
-  color: "#1d1d1f",
-  fontSize: 22,
-  fontWeight: 950,
-  cursor: "pointer",
-  boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
-};
-
 const conceptSeed = [
   { clave: "PRE-001", partida: "Preliminares", concepto: "Trazo y nivelación", unidad: "lote", cantidad: 1, precioUnitario: 8500, fechaEntrega: "" },
   { clave: "CIM-001", partida: "Cimentación", concepto: "Excavación, acero, cimbra y colado de cimentación", unidad: "lote", cantidad: 1, precioUnitario: 145000, fechaEntrega: "" },
@@ -92,24 +60,129 @@ function money(value) {
 }
 
 function parseNumber(value) {
-  const parsed = Number(String(value || "").replace(/,/g, ""));
+  const cleaned = String(value ?? "")
+    .replace(/\$/g, "")
+    .replace(/,/g, "")
+    .replace(/\s/g, "")
+    .trim();
+  const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function slugify(text = "") {
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function cleanText(text = "") {
+  return String(text)
+    .replace(/Ã“/g, "Ó")
+    .replace(/Ã‰/g, "É")
+    .replace(/Ã/g, "Á")
+    .replace(/Ã/g, "Í")
+    .replace(/Ãš/g, "Ú")
+    .replace(/Ã‘/g, "Ñ")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã­/g, "í")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/Â´/g, "´")
+    .replace(/Â/g, "")
+    .trim();
+}
+
 function normalizeCatalogItem(item, index = 0) {
-  const cantidad = parseNumber(item.cantidad ?? item.cantidadContratada ?? 1);
-  const precioUnitario = parseNumber(item.precioUnitario ?? item.precio_unitario ?? item.pu ?? 0);
+  const cantidad = parseNumber(item.cantidad ?? item.Unidades ?? item.unidades ?? item.cantidadContratada ?? 1);
+  const precioUnitario = parseNumber(item.precioUnitario ?? item["P.U."] ?? item.pu ?? item.PU ?? item.precio_unitario ?? 0);
+  const clave = cleanText(item.clave || item.Clave || item.id || `CON-${index + 1}`);
+  const partida = cleanText(item.partida || item.PARTIDA || item.capitulo || "General");
+  const concepto = cleanText(item.concepto || item.descripcion || item.Descripcion || item.descripción || item.description || "Concepto sin nombre");
+  const unidad = cleanText(item.unidad || item.Unidad || "lote");
+  const rowNumber = Number(item.rowNumber || index + 1);
   return {
-    id: item.id || item.clave || `concepto-${index + 1}`,
-    clave: item.clave || item.id || `CON-${index + 1}`,
-    partida: item.partida || item.capitulo || "General",
-    concepto: item.concepto || item.descripcion || item.description || "Concepto sin nombre",
-    unidad: item.unidad || "lote",
+    id: item.id || `${slugify(partida || "general")}-${slugify(clave || "concepto")}-${String(rowNumber).padStart(4, "0")}`,
+    clave,
+    partida,
+    concepto,
+    descripcion: concepto,
+    unidad,
     cantidad,
     precioUnitario,
     importe: cantidad * precioUnitario,
     fechaEntrega: item.fechaEntrega || item.fecha_entrega || "",
+    rowNumber,
+    sourceFileName: item.sourceFileName || "",
   };
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(current);
+      current = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") i += 1;
+      row.push(current);
+      if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
+      row = [];
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  row.push(current);
+  if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
+  return rows;
+}
+
+function rowsToCatalog(rows, sourceFileName = "") {
+  if (!rows.length) return [];
+  const headers = rows[0].map((header) => cleanText(header));
+  return rows.slice(1).map((row, index) => {
+    const raw = {};
+    headers.forEach((header, columnIndex) => {
+      raw[header] = row[columnIndex] ?? "";
+    });
+    return normalizeCatalogItem({
+      PARTIDA: raw.PARTIDA,
+      clave: raw.clave || raw.Clave,
+      descripcion: raw.descripcion || raw.Descripcion || raw.DESCRIPCION || raw.DESCRIPCIÓN,
+      Unidades: raw.Unidades || raw.unidades || raw.Cantidad || raw.cantidad,
+      unidad: raw.unidad || raw.Unidad,
+      "P.U.": raw["P.U."] || raw.PU || raw["Precio Unitario"] || raw.precioUnitario,
+      rowNumber: index + 2,
+      sourceFileName,
+    }, index);
+  }).filter((item) => item.clave && item.concepto && item.precioUnitario > 0);
 }
 
 function Field({ label, children }) {
@@ -141,32 +214,8 @@ function Metric({ label, value, helper }) {
   );
 }
 
-function MenuItem({ active, title, subtitle, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: "100%",
-        textAlign: "left",
-        border: active ? "2px solid #007aff" : "1px solid rgba(60,60,67,0.12)",
-        borderRadius: 18,
-        padding: 13,
-        background: active ? "rgba(0,122,255,0.08)" : "#fff",
-        color: "#1d1d1f",
-        cursor: "pointer",
-        marginBottom: 8,
-      }}
-    >
-      <div style={{ fontWeight: 950, fontSize: 14 }}>{title}</div>
-      {subtitle ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{subtitle}</div> : null}
-    </button>
-  );
-}
-
 export default function EstimacionesWidget() {
   const [open, setOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [obras, setObras] = useState([]);
   const [houses, setHouses] = useState([]);
   const [catalog, setCatalog] = useState([]);
@@ -175,6 +224,8 @@ export default function EstimacionesWidget() {
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [activeTab, setActiveTab] = useState("captura");
   const [loading, setLoading] = useState(false);
+  const [importingCatalog, setImportingCatalog] = useState(false);
+  const [catalogImportInfo, setCatalogImportInfo] = useState(null);
   const [advanceDrafts, setAdvanceDrafts] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
   const [periodForm, setPeriodForm] = useState({ periodo: new Date().toISOString().slice(0, 7), anticipoPorcentaje: 30, multaDiaria: 0, retencionPorcentaje: 0 });
@@ -202,15 +253,22 @@ export default function EstimacionesWidget() {
   }, [catalog, houses.length, houseEstimaciones, estimaciones, periodForm]);
 
   useEffect(() => {
+    const handler = () => {
+      setOpen(true);
+      setActiveTab((previous) => previous || "captura");
+    };
+    window.addEventListener("triton-open-estimaciones", handler);
+    window.addEventListener("triton-module-estimaciones", handler);
+    return () => {
+      window.removeEventListener("triton-open-estimaciones", handler);
+      window.removeEventListener("triton-module-estimaciones", handler);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     loadData();
   }, [open, selectedObraId]);
-
-  useEffect(() => {
-    const handler = () => setOpen(true);
-    window.addEventListener("triton-open-estimaciones", handler);
-    return () => window.removeEventListener("triton-open-estimaciones", handler);
-  }, []);
 
   async function loadData() {
     setLoading(true);
@@ -242,6 +300,38 @@ export default function EstimacionesWidget() {
       await setDoc(doc(db, "obras", selectedObraId, "catalogoConceptos", concept.id), { ...concept, createdAt: serverTimestamp() }, { merge: true });
     }
     await loadData();
+  }
+
+  async function importCatalogFile(file) {
+    if (!file) return;
+    setImportingCatalog(true);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      const imported = rowsToCatalog(rows, file.name);
+      if (!imported.length) {
+        alert("No pude leer conceptos válidos. Revisa que el CSV tenga columnas: PARTIDA, clave, descripcion, Unidades, unidad, P.U.");
+        return;
+      }
+      for (const concept of imported) {
+        await setDoc(doc(db, "obras", selectedObraId, "catalogoConceptos", concept.id), {
+          ...concept,
+          sourceFileName: file.name,
+          importedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        }, { merge: true });
+      }
+      const total = imported.reduce((acc, item) => acc + Number(item.importe || 0), 0);
+      const partidas = Array.from(new Set(imported.map((item) => item.partida))).length;
+      setCatalogImportInfo({ rows: imported.length, total, partidas, fileName: file.name });
+      alert(`Catálogo importado: ${imported.length} conceptos · ${money(total)} por unidad/casa.`);
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      alert("Ocurrió un error al importar el catálogo.");
+    } finally {
+      setImportingCatalog(false);
+    }
   }
 
   async function addManualConcept() {
@@ -329,48 +419,8 @@ export default function EstimacionesWidget() {
     lista_administracion: "Lista administración",
   };
 
-  const openEstimaciones = () => {
-    setOpen(true);
-    setMobileMenuOpen(false);
-  };
-
   return (
     <>
-      <style>{`
-        @media (max-width: 900px) {
-          .triton-desktop-sidebar { display: none !important; }
-          .triton-mobile-est-menu { display: inline-flex !important; }
-        }
-        @media (min-width: 901px) {
-          .triton-mobile-est-menu { display: none !important; }
-        }
-      `}</style>
-
-      <aside className="triton-desktop-sidebar" style={sideBarStyle}>
-        <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f", marginBottom: 4 }}>Triton OS</div>
-        <div style={{ color: "#6e6e73", fontSize: 12, marginBottom: 18 }}>Módulos operativos</div>
-        <MenuItem active={!open} title="Calidad" subtitle="Checklist y evidencias" onClick={() => setOpen(false)} />
-        <MenuItem active={open} title="Estimaciones" subtitle="Avance, revisión y pago" onClick={openEstimaciones} />
-      </aside>
-
-      <button className="triton-mobile-est-menu" type="button" onClick={() => setMobileMenuOpen(true)} style={{ ...mobileMenuButtonStyle, display: "none" }}>☰</button>
-
-      {mobileMenuOpen ? (
-        <div onClick={() => setMobileMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2147483646, background: "rgba(29,29,31,0.32)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)" }}>
-          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 340px)", height: "100%", padding: 16, background: "rgba(255,255,255,0.97)", borderRight: "1px solid rgba(60,60,67,0.12)", boxShadow: "20px 0 60px rgba(0,0,0,0.18)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 950 }}>Menú</div>
-                <div style={{ color: "#6e6e73", fontSize: 13 }}>Módulos</div>
-              </div>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} style={{ ...buttonBase, background: "#fff" }}>×</button>
-            </div>
-            <MenuItem active={!open} title="Calidad" subtitle="Checklist y evidencias" onClick={() => { setOpen(false); setMobileMenuOpen(false); }} />
-            <MenuItem active={open} title="Estimaciones" subtitle="Avance, revisión y pago" onClick={openEstimaciones} />
-          </div>
-        </div>
-      ) : null}
-
       {open ? (
         <div style={{ position: "fixed", inset: 0, zIndex: 2147483645, background: "#f5f5f7", overflow: "auto" }}>
           <div style={{ maxWidth: 1240, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 40px", paddingLeft: "min(264px, 22vw)" }}>
@@ -414,7 +464,7 @@ export default function EstimacionesWidget() {
                   const current = houseEstimaciones.find((item) => item.conceptId === concept.id);
                   return <div key={concept.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff", marginBottom: 10 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.3fr) 110px 110px 160px", gap: 12, alignItems: "center" }}>
-                      <div><div style={{ fontWeight: 950 }}>{concept.clave} · {concept.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{concept.partida} · {concept.unidad} · {money(concept.importe)}</div></div>
+                      <div><div style={{ fontWeight: 950 }}>{concept.clave} · {concept.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{concept.partida} · {concept.cantidad} {concept.unidad} · PU {money(concept.precioUnitario)} · {money(concept.importe)}</div></div>
                       <input type="number" min="0" max="100" placeholder={current ? `${current.avanceSolicitado}%` : "% avance"} value={advanceDrafts[concept.id] || ""} onChange={(e) => setAdvanceDrafts({ ...advanceDrafts, [concept.id]: e.target.value })} style={inputBase} />
                       <div style={{ fontSize: 12, fontWeight: 850, color: current?.status === "rechazado_supervision" ? "#ff3b30" : "#1d1d1f" }}>{statusLabel[current?.status] || "Sin enviar"}</div>
                       <button type="button" onClick={() => saveAdvance(concept)} style={{ ...buttonBase, background: "#007aff", color: "#fff" }}>Enviar avance</button>
@@ -445,13 +495,18 @@ export default function EstimacionesWidget() {
 
             {activeTab === "catalogo" ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
-                <Card title="Cargar catálogo" subtitle="Base para cargar conceptos. Después conectamos importación directa desde Excel."><button type="button" onClick={seedCatalog} style={{ ...buttonBase, background: "#007aff", color: "#fff" }}>Cargar catálogo demo</button></Card>
-                <Card title="Agregar concepto manual" subtitle="Usa esto para ajustes rápidos mientras integramos Excel.">
-                  {[['clave','Clave'],['partida','Partida'],['concepto','Concepto'],['unidad','Unidad'],['cantidad','Cantidad'],['precioUnitario','Precio unitario'],['fechaEntrega','Fecha oficial de entrega']].map(([key,label]) => <Field key={key} label={label}><input type={key === 'fechaEntrega' ? 'date' : key === 'cantidad' || key === 'precioUnitario' ? 'number' : 'text'} value={manualConcept[key]} onChange={(e) => setManualConcept({ ...manualConcept, [key]: e.target.value })} style={inputBase} /></Field>)}
+                <Card title="Importar catálogo CSV" subtitle="Formato esperado: PARTIDA, clave, descripcion, Unidades, unidad, P.U. Las claves repetidas se conservan por renglón.">
+                  <input type="file" accept=".csv,text/csv" onChange={(event) => importCatalogFile(event.target.files?.[0])} disabled={importingCatalog} style={{ marginBottom: 12 }} />
+                  <div style={{ color: "#6e6e73", fontSize: 13, marginBottom: 12 }}>Este importador está ajustado al catálogo de prueba que compartiste. Calcula el importe como Unidades × P.U.</div>
+                  {catalogImportInfo ? <div style={{ padding: 12, borderRadius: 14, background: "rgba(52,199,89,0.10)", color: "#157347", fontSize: 13, fontWeight: 850 }}>{catalogImportInfo.rows} conceptos importados · {catalogImportInfo.partidas} partidas · {money(catalogImportInfo.total)}</div> : null}
+                  <button type="button" onClick={seedCatalog} style={{ ...buttonBase, background: "#fff", color: "#007aff", marginTop: 12 }}>Cargar catálogo demo</button>
+                </Card>
+                <Card title="Agregar concepto manual" subtitle="Usa esto para ajustes rápidos o conceptos extraordinarios.">
+                  {[["clave", "Clave"], ["partida", "Partida"], ["concepto", "Concepto"], ["unidad", "Unidad"], ["cantidad", "Cantidad"], ["precioUnitario", "Precio unitario"], ["fechaEntrega", "Fecha oficial de entrega"]].map(([key, label]) => <Field key={key} label={label}><input type={key === "fechaEntrega" ? "date" : key === "cantidad" || key === "precioUnitario" ? "number" : "text"} value={manualConcept[key]} onChange={(e) => setManualConcept({ ...manualConcept, [key]: e.target.value })} style={inputBase} /></Field>)}
                   <button type="button" onClick={addManualConcept} style={{ ...buttonBase, background: "#007aff", color: "#fff" }}>Guardar concepto</button>
                 </Card>
                 <Card title="Conceptos cargados" subtitle={`${catalog.length} conceptos activos`}>
-                  {catalog.map((item) => <div key={item.id} style={{ padding: 10, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 14, marginBottom: 8, background: "#fff" }}><div style={{ fontWeight: 900 }}>{item.clave} · {item.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12 }}>{item.partida} · {item.unidad} · {money(item.importe)}</div></div>)}
+                  {catalog.map((item) => <div key={item.id} style={{ padding: 10, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 14, marginBottom: 8, background: "#fff" }}><div style={{ fontWeight: 900 }}>{item.clave} · {item.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12 }}>{item.partida} · {item.cantidad} {item.unidad} · PU {money(item.precioUnitario)} · {money(item.importe)}</div></div>)}
                 </Card>
               </div>
             ) : null}
