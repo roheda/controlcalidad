@@ -47,25 +47,36 @@ const buttonBase = {
   whiteSpace: "nowrap",
 };
 
-const launcherStyle = {
+const sideBarStyle = {
+  position: "fixed",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  width: 232,
+  zIndex: 2147483643,
+  padding: "22px 14px",
+  background: "rgba(255,255,255,0.94)",
+  borderRight: "1px solid rgba(60,60,67,0.12)",
+  boxShadow: "18px 0 50px rgba(0,0,0,0.08)",
+  WebkitBackdropFilter: "blur(22px) saturate(180%)",
+  backdropFilter: "blur(22px) saturate(180%)",
+};
+
+const mobileMenuButtonStyle = {
   position: "fixed",
   left: 16,
   top: "calc(76px + env(safe-area-inset-top, 0px))",
   zIndex: 2147483644,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 8,
-  minHeight: 46,
+  width: 46,
+  height: 46,
   border: "1px solid rgba(60,60,67,0.14)",
   borderRadius: 16,
-  padding: "10px 13px",
-  background: "rgba(255,255,255,0.94)",
+  background: "rgba(255,255,255,0.92)",
   color: "#1d1d1f",
+  fontSize: 22,
   fontWeight: 950,
   cursor: "pointer",
   boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
-  WebkitBackdropFilter: "blur(18px)",
-  backdropFilter: "blur(18px)",
 };
 
 const conceptSeed = [
@@ -130,8 +141,32 @@ function Metric({ label, value, helper }) {
   );
 }
 
+function MenuItem({ active, title, subtitle, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        border: active ? "2px solid #007aff" : "1px solid rgba(60,60,67,0.12)",
+        borderRadius: 18,
+        padding: 13,
+        background: active ? "rgba(0,122,255,0.08)" : "#fff",
+        color: "#1d1d1f",
+        cursor: "pointer",
+        marginBottom: 8,
+      }}
+    >
+      <div style={{ fontWeight: 950, fontSize: 14 }}>{title}</div>
+      {subtitle ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{subtitle}</div> : null}
+    </button>
+  );
+}
+
 export default function EstimacionesWidget() {
   const [open, setOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [obras, setObras] = useState([]);
   const [houses, setHouses] = useState([]);
   const [catalog, setCatalog] = useState([]);
@@ -146,7 +181,6 @@ export default function EstimacionesWidget() {
   const [manualConcept, setManualConcept] = useState({ clave: "", partida: "", concepto: "", unidad: "", cantidad: "", precioUnitario: "", fechaEntrega: "" });
 
   const selectedHouse = houses.find((house) => house.id === selectedHouseId) || null;
-
   const houseEstimaciones = useMemo(() => estimaciones.filter((item) => item.houseId === selectedHouseId), [estimaciones, selectedHouseId]);
 
   const summary = useMemo(() => {
@@ -158,14 +192,13 @@ export default function EstimacionesWidget() {
       return acc + Number(concept.importe || 0) * (avance / 100);
     }, 0);
     const estimadoGlobal = estimaciones.reduce((acc, item) => acc + Number(item.importeSolicitado || 0), 0);
-    const anticipoCasa = totalCasa * (Number(periodForm.anticipoPorcentaje || 0) / 100);
-    const amortizacionCasa = Math.min(anticipoCasa, estimadoCasa * (Number(periodForm.anticipoPorcentaje || 0) / 100));
+    const amortizacionCasa = Math.min(totalCasa * (Number(periodForm.anticipoPorcentaje || 0) / 100), estimadoCasa * (Number(periodForm.anticipoPorcentaje || 0) / 100));
     const retencionCasa = estimadoCasa * (Number(periodForm.retencionPorcentaje || 0) / 100);
     const multasCasa = houseEstimaciones.reduce((acc, item) => acc + Number(item.multa || 0), 0);
     const netoCasa = Math.max(0, estimadoCasa - amortizacionCasa - retencionCasa - multasCasa);
     const avanceGlobal = totalContrato ? (estimadoGlobal / totalContrato) * 100 : 0;
     const avanceCasa = totalCasa ? (estimadoCasa / totalCasa) * 100 : 0;
-    return { totalContrato, totalCasa, estimadoCasa, estimadoGlobal, anticipoCasa, amortizacionCasa, retencionCasa, multasCasa, netoCasa, avanceGlobal, avanceCasa };
+    return { totalContrato, totalCasa, estimadoCasa, estimadoGlobal, amortizacionCasa, retencionCasa, multasCasa, netoCasa, avanceGlobal, avanceCasa };
   }, [catalog, houses.length, houseEstimaciones, estimaciones, periodForm]);
 
   useEffect(() => {
@@ -173,12 +206,19 @@ export default function EstimacionesWidget() {
     loadData();
   }, [open, selectedObraId]);
 
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("triton-open-estimaciones", handler);
+    return () => window.removeEventListener("triton-open-estimaciones", handler);
+  }, []);
+
   async function loadData() {
     setLoading(true);
     try {
       const obrasSnap = await getDocs(collection(db, "obras"));
       const nextObras = obrasSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
       setObras(nextObras);
+
       const housesSnap = await getDocs(query(collection(db, "obras", selectedObraId, "casas"), orderBy("number", "asc")));
       const nextHouses = housesSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
       setHouses(nextHouses);
@@ -217,15 +257,14 @@ export default function EstimacionesWidget() {
 
   async function saveAdvance(concept) {
     if (!selectedHouse) return;
-    const draftValue = advanceDrafts[concept.id] ?? "";
-    const avance = Math.min(100, Math.max(0, parseNumber(draftValue)));
+    const avance = Math.min(100, Math.max(0, parseNumber(advanceDrafts[concept.id] ?? "")));
     const today = new Date();
     const entrega = concept.fechaEntrega ? new Date(concept.fechaEntrega) : null;
     const diasAtraso = entrega && today > entrega ? Math.ceil((today - entrega) / (1000 * 60 * 60 * 24)) : 0;
     const multa = diasAtraso * parseNumber(periodForm.multaDiaria);
     const importeSolicitado = Number(concept.importe || 0) * (avance / 100);
     const id = `${selectedHouse.id}-${concept.id}`;
-    const payload = {
+    await setDoc(doc(db, "obras", selectedObraId, "estimaciones", id), {
       id,
       obraId: selectedObraId,
       houseId: selectedHouse.id,
@@ -243,8 +282,7 @@ export default function EstimacionesWidget() {
       multa,
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
-    };
-    await setDoc(doc(db, "obras", selectedObraId, "estimaciones", id), payload, { merge: true });
+    }, { merge: true });
     setAdvanceDrafts((prev) => ({ ...prev, [concept.id]: "" }));
     setCommentDrafts((prev) => ({ ...prev, [concept.id]: "" }));
     await loadData();
@@ -291,14 +329,53 @@ export default function EstimacionesWidget() {
     lista_administracion: "Lista administración",
   };
 
+  const openEstimaciones = () => {
+    setOpen(true);
+    setMobileMenuOpen(false);
+  };
+
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} style={launcherStyle}>Σ Estimaciones</button>
+      <style>{`
+        @media (max-width: 900px) {
+          .triton-desktop-sidebar { display: none !important; }
+          .triton-mobile-est-menu { display: inline-flex !important; }
+        }
+        @media (min-width: 901px) {
+          .triton-mobile-est-menu { display: none !important; }
+        }
+      `}</style>
+
+      <aside className="triton-desktop-sidebar" style={sideBarStyle}>
+        <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f", marginBottom: 4 }}>Triton OS</div>
+        <div style={{ color: "#6e6e73", fontSize: 12, marginBottom: 18 }}>Módulos operativos</div>
+        <MenuItem active={!open} title="Calidad" subtitle="Checklist y evidencias" onClick={() => setOpen(false)} />
+        <MenuItem active={open} title="Estimaciones" subtitle="Avance, revisión y pago" onClick={openEstimaciones} />
+      </aside>
+
+      <button className="triton-mobile-est-menu" type="button" onClick={() => setMobileMenuOpen(true)} style={{ ...mobileMenuButtonStyle, display: "none" }}>☰</button>
+
+      {mobileMenuOpen ? (
+        <div onClick={() => setMobileMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2147483646, background: "rgba(29,29,31,0.32)", WebkitBackdropFilter: "blur(8px)", backdropFilter: "blur(8px)" }}>
+          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(100%, 340px)", height: "100%", padding: 16, background: "rgba(255,255,255,0.97)", borderRight: "1px solid rgba(60,60,67,0.12)", boxShadow: "20px 0 60px rgba(0,0,0,0.18)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 950 }}>Menú</div>
+                <div style={{ color: "#6e6e73", fontSize: 13 }}>Módulos</div>
+              </div>
+              <button type="button" onClick={() => setMobileMenuOpen(false)} style={{ ...buttonBase, background: "#fff" }}>×</button>
+            </div>
+            <MenuItem active={!open} title="Calidad" subtitle="Checklist y evidencias" onClick={() => { setOpen(false); setMobileMenuOpen(false); }} />
+            <MenuItem active={open} title="Estimaciones" subtitle="Avance, revisión y pago" onClick={openEstimaciones} />
+          </div>
+        </div>
+      ) : null}
+
       {open ? (
         <div style={{ position: "fixed", inset: 0, zIndex: 2147483645, background: "#f5f5f7", overflow: "auto" }}>
-          <div style={{ maxWidth: 1240, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 40px" }}>
+          <div style={{ maxWidth: 1240, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 40px", paddingLeft: "min(264px, 22vw)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap" }}>
-              <div style={{ paddingLeft: 54 }}>
+              <div>
                 <div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Estimaciones</div>
                 <div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Catálogo de conceptos, avance por casa, aprobación de supervisión y cierre mensual para pago.</div>
               </div>
@@ -350,36 +427,31 @@ export default function EstimacionesWidget() {
             ) : null}
 
             {activeTab === "supervision" ? (
-              <Card title="Revisión de supervisión" subtitle="Supervisión valida que los conceptos efectivamente estén concluidos antes del cierre mensual.">
-                {estimaciones.filter((item) => item.status === "enviado_supervision").length ? estimaciones.filter((item) => item.status === "enviado_supervision").map((item) => <div key={item.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff", marginBottom: 10 }}><div style={{ fontWeight: 950 }}>{item.houseName} · {item.clave} · {item.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>Avance {item.avanceSolicitado}% · {money(item.importeSolicitado)} · Multa {money(item.multa)}</div><div style={{ marginTop: 8, color: "#1d1d1f", fontSize: 13 }}>Constructora: {item.comentarioConstructora || "Sin comentario"}</div><div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}><button type="button" onClick={() => reviewEstimate(item, false)} style={{ ...buttonBase, background: "#ff3b30", color: "#fff" }}>Rechazar</button><button type="button" onClick={() => reviewEstimate(item, true)} style={{ ...buttonBase, background: "#34c759", color: "#fff" }}>Aprobar</button></div></div>) : <div style={{ color: "#6e6e73" }}>No hay avances pendientes de revisión.</div>}
+              <Card title="Revisión de supervisión" subtitle="Supervisión valida que los conceptos estén concluidos antes del cierre mensual.">
+                {estimaciones.filter((item) => item.status === "enviado_supervision").length ? estimaciones.filter((item) => item.status === "enviado_supervision").map((item) => <div key={item.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff", marginBottom: 10 }}><div style={{ fontWeight: 950 }}>{item.houseName} · {item.clave} · {item.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>Avance {item.avanceSolicitado}% · {money(item.importeSolicitado)} · Multa {money(item.multa)}</div><div style={{ marginTop: 8, color: "#1d1d1f", fontSize: 13 }}>Constructora: {item.comentarioConstructora || "Sin comentario"}</div><div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}><button type="button" onClick={() => reviewEstimate(item, false)} style={{ ...buttonBase, background: "#ff3b30", color: "#fff" }}>Rechazar</button><button type="button" onClick={() => reviewEstimate(item, true)} style={{ ...buttonBase, background: "#34c759", color: "#fff" }}>Aprobar</button></div></div>) : <div style={{ color: "#6e6e73" }}>No hay avances pendientes de supervisión.</div>}
               </Card>
             ) : null}
 
             {activeTab === "cierre" ? (
-              <Card title="Cierre mensual para administración" subtitle="Al cierre de mes, genera la estimación aprobada con amortización, retenciones, multas y neto a pagar.">
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
-                  <Metric label="Aprobado del periodo" value={money(estimaciones.filter((item) => item.periodo === periodForm.periodo && item.status === "aprobado_supervision").reduce((acc, item) => acc + Number(item.importeSolicitado || 0), 0))} />
-                  <Metric label="Pendiente revisión" value={estimaciones.filter((item) => item.periodo === periodForm.periodo && item.status === "enviado_supervision").length} />
-                  <Metric label="Rechazados" value={estimaciones.filter((item) => item.periodo === periodForm.periodo && item.status === "rechazado_supervision").length} />
+              <Card title="Cierre mensual" subtitle="Cuando supervisión aprueba los conceptos, se prepara la estimación para administración y programación de pago.">
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  <Metric label="Subtotal aprobado" value={money(estimaciones.filter((item) => item.periodo === periodForm.periodo && item.status === "aprobado_supervision").reduce((acc, item) => acc + Number(item.importeSolicitado || 0), 0))} />
+                  <Metric label="Pendientes supervisión" value={estimaciones.filter((item) => item.status === "enviado_supervision").length} />
+                  <Metric label="Rechazados" value={estimaciones.filter((item) => item.status === "rechazado_supervision").length} />
                 </div>
-                <button type="button" onClick={closeMonthlyEstimate} style={{ ...buttonBase, background: "#1d1d1f", color: "#fff" }}>Cerrar estimación y enviar a administración</button>
+                <button type="button" onClick={closeMonthlyEstimate} style={{ ...buttonBase, background: "#007aff", color: "#fff", marginTop: 16 }}>Cerrar estimación mensual</button>
               </Card>
             ) : null}
 
             {activeTab === "catalogo" ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
-                <Card title="Catálogo de conceptos" subtitle="Puedes sembrar una base o capturar conceptos. La carga real desde Excel se conecta en el alta de obra.">
-                  <button type="button" onClick={seedCatalog} style={{ ...buttonBase, background: "#007aff", color: "#fff", marginBottom: 12 }}>Cargar catálogo base demo</button>
-                  {catalog.map((item) => <div key={item.id} style={{ padding: 10, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 14, background: "#fff", marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{item.clave} · {item.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12 }}>{item.partida} · {item.cantidad} {item.unidad} · {money(item.precioUnitario)} PU · {money(item.importe)}</div></div>)}
+                <Card title="Cargar catálogo" subtitle="Base para cargar conceptos. Después conectamos importación directa desde Excel."><button type="button" onClick={seedCatalog} style={{ ...buttonBase, background: "#007aff", color: "#fff" }}>Cargar catálogo demo</button></Card>
+                <Card title="Agregar concepto manual" subtitle="Usa esto para ajustes rápidos mientras integramos Excel.">
+                  {[['clave','Clave'],['partida','Partida'],['concepto','Concepto'],['unidad','Unidad'],['cantidad','Cantidad'],['precioUnitario','Precio unitario'],['fechaEntrega','Fecha oficial de entrega']].map(([key,label]) => <Field key={key} label={label}><input type={key === 'fechaEntrega' ? 'date' : key === 'cantidad' || key === 'precioUnitario' ? 'number' : 'text'} value={manualConcept[key]} onChange={(e) => setManualConcept({ ...manualConcept, [key]: e.target.value })} style={inputBase} /></Field>)}
+                  <button type="button" onClick={addManualConcept} style={{ ...buttonBase, background: "#007aff", color: "#fff" }}>Guardar concepto</button>
                 </Card>
-                <Card title="Agregar concepto manual" subtitle="Estructura esperada del Excel: clave, partida, concepto, unidad, cantidad, precio unitario, fecha entrega.">
-                  <Field label="Clave"><input value={manualConcept.clave} onChange={(e) => setManualConcept({ ...manualConcept, clave: e.target.value })} style={inputBase} /></Field>
-                  <Field label="Partida"><input value={manualConcept.partida} onChange={(e) => setManualConcept({ ...manualConcept, partida: e.target.value })} style={inputBase} /></Field>
-                  <Field label="Concepto"><textarea value={manualConcept.concepto} onChange={(e) => setManualConcept({ ...manualConcept, concepto: e.target.value })} style={{ ...inputBase, resize: "vertical" }} /></Field>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><Field label="Cantidad"><input type="number" value={manualConcept.cantidad} onChange={(e) => setManualConcept({ ...manualConcept, cantidad: e.target.value })} style={inputBase} /></Field><Field label="Precio unitario"><input type="number" value={manualConcept.precioUnitario} onChange={(e) => setManualConcept({ ...manualConcept, precioUnitario: e.target.value })} style={inputBase} /></Field></div>
-                  <Field label="Unidad"><input value={manualConcept.unidad} onChange={(e) => setManualConcept({ ...manualConcept, unidad: e.target.value })} style={inputBase} /></Field>
-                  <Field label="Fecha entrega oficial"><input type="date" value={manualConcept.fechaEntrega} onChange={(e) => setManualConcept({ ...manualConcept, fechaEntrega: e.target.value })} style={inputBase} /></Field>
-                  <button type="button" onClick={addManualConcept} style={{ ...buttonBase, background: "#007aff", color: "#fff" }}>Agregar concepto</button>
+                <Card title="Conceptos cargados" subtitle={`${catalog.length} conceptos activos`}>
+                  {catalog.map((item) => <div key={item.id} style={{ padding: 10, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 14, marginBottom: 8, background: "#fff" }}><div style={{ fontWeight: 900 }}>{item.clave} · {item.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12 }}>{item.partida} · {item.unidad} · {money(item.importe)}</div></div>)}
                 </Card>
               </div>
             ) : null}
