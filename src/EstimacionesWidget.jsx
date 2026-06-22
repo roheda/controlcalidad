@@ -80,6 +80,11 @@ const draftStatuses = ["borrador", "borrador_observado"];
 const adminStatuses = ["lista_administracion", "administracion_revision", "pago_programado", "pagada"];
 const approvedLotStatuses = adminStatuses;
 const statusOptions = Object.entries(statusLabel);
+const approvalRowStatusOptions = [
+  ["en_aprobacion", "Pendientes de aprobar"],
+  ["aprobada_supervision", "Aprobadas"],
+  ["observada_supervision", "Observadas"],
+];
 
 function getDb() {
   const app = getApps()[0];
@@ -237,14 +242,14 @@ function Metric({ label, value, helper }) {
   );
 }
 
-function FilterBar({ search, setSearch, status, setStatus, house, setHouse, houses, partida, setPartida, partidas, showStatus = false, showHouse = false, showPartida = false }) {
+function FilterBar({ search, setSearch, status, setStatus, house, setHouse, houses, partida, setPartida, partidas, showStatus = false, showHouse = false, showPartida = false, customStatusOptions = statusOptions }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
       <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por lote, casa, partida, clave, concepto o comentario" style={inputBase} />
       {showStatus ? (
         <select value={status} onChange={(event) => setStatus(event.target.value)} style={inputBase}>
           <option value="todos">Todos los estatus</option>
-          {statusOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          {customStatusOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       ) : null}
       {showHouse ? (
@@ -406,6 +411,21 @@ export default function EstimacionesWidget() {
     return `${lot?.nombre || ""} ${lot?.draftCode || ""} ${lot?.officialCode || ""} ${statusLabel[lot?.status] || lot?.status || ""} ${house?.houseName || ""} ${row.partida || ""} ${row.clave || ""} ${row.concepto || ""} ${row.comentarioConstructora || ""} ${row.comentarioSupervision || ""} ${row.respuestaConstructora || ""}`.toLowerCase();
   }
 
+  function sanitizeLotAgainstCatalog(lot, catalogList) {
+    const validIds = new Set((catalogList || []).map((item) => item.id));
+    if (!validIds.size) return lot;
+    const housesObject = {};
+    Object.entries(lot.houses || {}).forEach(([houseId, house]) => {
+      const rows = (house.rows || []).filter((row) => validIds.has(row.conceptId));
+      housesObject[houseId] = {
+        ...house,
+        rows,
+        totals: computeRowsTotals(rows, lot.status !== "borrador" && lot.status !== "borrador_observado"),
+      };
+    });
+    return { ...lot, houses: housesObject, totals: lotTotals(housesObject) };
+  }
+
   function lotMatches(lot, search = "", status = "todos", houseFilter = "todas") {
     if (status !== "todos" && lot.status !== status) return false;
     if (houseFilter !== "todas" && !lot.houses?.[houseFilter]) return false;
@@ -455,10 +475,11 @@ export default function EstimacionesWidget() {
       if (!selectedHouseId && nextHouses.length) setSelectedHouseId(nextHouses[0].id);
 
       const catalogSnap = await getDocs(query(collection(db, "obras", selectedObraId, "catalogoConceptos"), orderBy("partida", "asc")));
-      setCatalog(catalogSnap.docs.map((item, index) => normalizeCatalogItem({ id: item.id, ...item.data() }, index)));
+      const nextCatalog = catalogSnap.docs.map((item, index) => normalizeCatalogItem({ id: item.id, ...item.data() }, index));
+      setCatalog(nextCatalog);
 
       const lotsSnap = await getDocs(query(collection(db, "obras", selectedObraId, "estimacionLotes"), orderBy("createdAt", "desc")));
-      const nextLots = lotsSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
+      const nextLots = lotsSnap.docs.map((item) => sanitizeLotAgainstCatalog({ id: item.id, ...item.data() }, nextCatalog));
       setLots(nextLots);
       if (selectedLotId && !nextLots.some((item) => item.id === selectedLotId)) setSelectedLotId("");
     } catch (error) {
@@ -582,7 +603,7 @@ export default function EstimacionesWidget() {
         ...patch,
         avanceSolicitado: nextPercent,
         importeSolicitado: Number(concept.importe || row.importeConcepto || 0) * (nextPercent / 100),
-        status: row.status === "observada_supervision" ? "borrador" : row.status,
+        status: row.status,
         correctedAt: row.status === "observada_supervision" ? new Date().toISOString() : row.correctedAt,
       };
     });
@@ -760,8 +781,8 @@ export default function EstimacionesWidget() {
     let totalRows = 0;
     Object.entries(lot.houses || {}).forEach(([houseId, house]) => {
       const rows = (house.rows || [])
-        .filter((row) => !["observada_supervision", "quitada_constructora"].includes(row.status) && Number(row.avanceSolicitado || 0) > 0)
-        .map((row) => ({ ...row, status: "en_aprobacion" }));
+        .filter((row) => row.status !== "quitada_constructora" && Number(row.avanceSolicitado || 0) > 0)
+        .map((row) => ({ ...row, status: "en_aprobacion", comentarioSupervision: row.status === "observada_supervision" ? row.comentarioSupervision : row.comentarioSupervision || "" }));
       totalRows += rows.length;
       housesObject[houseId] = { ...house, rows, status: "en_aprobacion", totals: computeRowsTotals(rows, false) };
     });
@@ -795,12 +816,14 @@ export default function EstimacionesWidget() {
     const rows = (house.rows || []).map((row) => {
       const id = row.rowId || row.conceptId;
       if (!rowIds.includes(id)) return row;
+      const approvedPercent = clampPercent(row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+      const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || 0), 1) * 100) || 0;
       return {
         ...row,
         status: approved ? "aprobada_supervision" : "observada_supervision",
-        avanceAprobado: approved ? Number(row.avanceSolicitado || 0) : 0,
-        importeAprobado: approved ? Number(row.importeSolicitado || 0) : 0,
-        comentarioSupervision: approved ? row.comentarioSupervision || "" : comment,
+        avanceAprobado: approved ? approvedPercent : approvedPercent,
+        importeAprobado: approved ? baseAmount * (approvedPercent / 100) : 0,
+        comentarioSupervision: approved ? "" : comment,
         reviewedAt: new Date().toISOString(),
       };
     });
@@ -821,6 +844,29 @@ export default function EstimacionesWidget() {
       approved ? `${rowIds.length} concepto(s) aprobado(s).` : `${rowIds.length} concepto(s) observado(s): ${comment}`
     );
     setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: [] }));
+  }
+
+  async function updateReviewRow(lot, houseId, rowId, patch) {
+    if (!lot || !houseId || !rowId) return;
+    const housesObject = { ...(lot.houses || {}) };
+    const house = housesObject[houseId];
+    if (!house) return;
+    const rows = (house.rows || []).map((row) => {
+      const id = row.rowId || row.conceptId;
+      if (id !== rowId) return row;
+      const percent = patch.avanceAprobado !== undefined ? clampPercent(patch.avanceAprobado) : clampPercent(row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+      const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || 0), 1) * 100) || 0;
+      return {
+        ...row,
+        ...patch,
+        avanceAprobado: percent,
+        importeAprobado: baseAmount * (percent / 100),
+        status: row.status,
+        editedBySupervisionAt: new Date().toISOString(),
+      };
+    });
+    housesObject[houseId] = { ...house, rows, status: "en_aprobacion", totals: computeRowsTotals(rows, false) };
+    await saveLotPatch(lot, housesObject, "en_aprobacion", "Ajuste de revisión", `Se ajustó una partida de ${house.houseName || houseId} antes de cerrar la revisión.`);
   }
 
   async function finishEngineeringReview(lot) {
@@ -1085,7 +1131,10 @@ export default function EstimacionesWidget() {
             </div>
           ) : null}
         </Card>
-        {Object.entries(lot.houses || {}).sort(([, a], [, b]) => Number((b.rows || []).some((row) => row.status === "observada_supervision")) - Number((a.rows || []).some((row) => row.status === "observada_supervision"))).map(([houseId, house]) => (
+        {Object.entries(lot.houses || {})
+          .filter(([, house]) => lot.status !== "borrador_observado" || (house.rows || []).some((row) => row.status === "observada_supervision"))
+          .sort(([, a], [, b]) => Number((b.rows || []).some((row) => row.status === "observada_supervision")) - Number((a.rows || []).some((row) => row.status === "observada_supervision")))
+          .map(([houseId, house]) => (
           <Card key={houseId} title={house.houseName || houseId} subtitle={`Estatus casa: ${statusLabel[house.status] || house.status || lot.status}`}>
             {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
               <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
@@ -1155,11 +1204,22 @@ export default function EstimacionesWidget() {
   }
 
   function renderAprobacion() {
-    const approvalLots = lots.filter((lot) => lot.status === "en_aprobacion").filter((lot) => lotMatches(lot, filters.aprobacion, "todos", filters.house));
+    const approvalLots = lots
+      .filter((lot) => lot.status === "en_aprobacion")
+      .filter((lot) => lotMatches(lot, filters.aprobacion, "todos", filters.house));
     const lot = selectedLot && selectedLot.status === "en_aprobacion" ? selectedLot : approvalLots[0];
 
+    const rowPassesApprovalFilters = (row, house, currentLot) => {
+      if (filters.partida !== "todas" && row.partida !== filters.partida) return false;
+      if (filters.status !== "todos" && row.status !== filters.status) return false;
+      const q = (filters.aprobacion || "").trim().toLowerCase();
+      if (!q) return true;
+      return rowSearchText(row, house, currentLot).includes(q);
+    };
+
     const reviewableIds = (house) => (house.rows || [])
-      .filter((row) => row.status === "en_aprobacion")
+      .filter((row) => ["en_aprobacion", "aprobada_supervision", "observada_supervision"].includes(row.status))
+      .filter((row) => rowPassesApprovalFilters(row, house, lot))
       .map((row) => row.rowId || row.conceptId);
 
     const toggleHouseSelection = (houseId, house) => {
@@ -1174,13 +1234,13 @@ export default function EstimacionesWidget() {
 
     const approvalTh = {
       ...th,
-      padding: "9px 8px",
-      fontSize: 11,
+      padding: "8px 7px",
+      fontSize: 10.5,
       lineHeight: 1.15,
     };
     const approvalTd = {
       ...td,
-      padding: "10px 8px",
+      padding: "9px 7px",
       verticalAlign: "top",
       fontSize: 12,
       lineHeight: 1.28,
@@ -1188,42 +1248,62 @@ export default function EstimacionesWidget() {
 
     return (
       <>
-        <Card title="Aprobación ingeniería" subtitle="Revisa por casa. Selecciona todo lo correcto, aprueba la selección y observa manualmente solo lo que tenga detalle.">
-          <FilterBar search={filters.aprobacion} setSearch={(value) => setFilters((prev) => ({ ...prev, aprobacion: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showHouse />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{approvalLots.map((item) => <button key={item.id} onClick={() => setSelectedLotId(item.id)} style={{ ...buttonBase, background: item.id === lot?.id ? "#111827" : "#fff", color: item.id === lot?.id ? "#fff" : "#1d1d1f" }}>{item.officialCode || item.nombre}</button>)}</div>
+        <Card title="Aprobación ingeniería" subtitle="Revisa por casa. Puedes aprobar, observar y volver a cambiar cualquier decisión antes de terminar la revisión del lote.">
+          <FilterBar
+            search={filters.aprobacion}
+            setSearch={(value) => setFilters((prev) => ({ ...prev, aprobacion: value }))}
+            status={filters.status}
+            setStatus={(value) => setFilters((prev) => ({ ...prev, status: value }))}
+            house={filters.house}
+            setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))}
+            houses={houses}
+            partida={filters.partida}
+            setPartida={(value) => setFilters((prev) => ({ ...prev, partida: value }))}
+            partidas={partidas}
+            showStatus
+            showHouse
+            showPartida
+            customStatusOptions={approvalRowStatusOptions}
+          />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{approvalLots.map((item) => <button key={item.id} onClick={() => { setSelectedLotId(item.id); setSelectedReviewRowIds({}); }} style={{ ...buttonBase, background: item.id === lot?.id ? "#111827" : "#fff", color: item.id === lot?.id ? "#fff" : "#1d1d1f" }}>{item.officialCode || item.nombre}</button>)}</div>
           {lot ? (
             <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <button type="button" onClick={() => finishEngineeringReview(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Terminar revisión del lote</button>
-              <span style={{ color: "#6e6e73", fontSize: 12 }}>No podrás terminar si queda algún concepto sin aprobar u observar.</span>
+              <span style={{ color: "#6e6e73", fontSize: 12 }}>No podrás terminar si queda algún concepto pendiente. Las decisiones se pueden modificar antes de cerrar.</span>
             </div>
           ) : null}
         </Card>
-        {lot ? Object.entries(lot.houses || {}).map(([houseId, house]) => {
-          const pendingIds = reviewableIds(house);
+        {lot ? Object.entries(lot.houses || {})
+          .filter(([houseId]) => filters.house === "todas" || filters.house === houseId)
+          .map(([houseId, house]) => {
+          const visibleRows = (house.rows || []).filter((row) => rowPassesApprovalFilters(row, house, lot));
+          if (!visibleRows.length) return null;
+          const selectableIds = reviewableIds(house);
           const selectedIds = selectedReviewRowIds[houseId] || [];
-          const selectedValidIds = selectedIds.filter((id) => pendingIds.includes(id));
-          const allPendingSelected = pendingIds.length > 0 && pendingIds.every((id) => selectedIds.includes(id));
+          const selectedValidIds = selectedIds.filter((id) => selectableIds.includes(id));
+          const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
+          const pendingCount = (house.rows || []).filter((row) => row.status === "en_aprobacion").length;
           const approvedCount = (house.rows || []).filter((row) => row.status === "aprobada_supervision").length;
           const observedCount = (house.rows || []).filter((row) => row.status === "observada_supervision").length;
 
           return (
-            <Card key={houseId} title={house.houseName || houseId} subtitle={`${pendingIds.length} pendiente(s) · ${approvedCount} aprobada(s) · ${observedCount} observada(s)`}>
+            <Card key={houseId} title={house.houseName || houseId} subtitle={`${pendingCount} pendiente(s) · ${approvedCount} aprobada(s) · ${observedCount} observada(s)`}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
-                <button type="button" onClick={() => toggleHouseSelection(houseId, house)} disabled={!pendingIds.length} style={{ ...buttonBase, background: allPendingSelected ? "#eef2ff" : "#fff", color: allPendingSelected ? "#3730a3" : "#1d1d1f", opacity: pendingIds.length ? 1 : 0.55 }}>{allPendingSelected ? "Quitar selección" : "Seleccionar todo"}</button>
+                <button type="button" onClick={() => toggleHouseSelection(houseId, house)} disabled={!selectableIds.length} style={{ ...buttonBase, background: allSelected ? "#eef2ff" : "#fff", color: allSelected ? "#3730a3" : "#1d1d1f", opacity: selectableIds.length ? 1 : 0.55 }}>{allSelected ? "Quitar selección" : "Seleccionar visible"}</button>
                 <button type="button" onClick={() => reviewRows(lot, houseId, selectedValidIds, true)} disabled={!selectedValidIds.length} style={{ ...buttonBase, background: selectedValidIds.length ? "#e8f7ed" : "#f4f4f5", color: selectedValidIds.length ? "#157347" : "#98a2b3" }}>Aprobar selección ({selectedValidIds.length})</button>
                 <button type="button" onClick={() => reviewRows(lot, houseId, selectedValidIds, false)} disabled={!selectedValidIds.length} style={{ ...buttonBase, background: selectedValidIds.length ? "#fff3cd" : "#f4f4f5", color: selectedValidIds.length ? "#9a6700" : "#98a2b3" }}>Observar selección</button>
-                <span style={{ color: "#6e6e73", fontSize: 12 }}>Consejo: selecciona todo, desmarca lo que tenga detalle y aprueba el resto.</span>
+                <span style={{ color: "#6e6e73", fontSize: 12 }}>Puedes volver a seleccionar una aprobada u observada para cambiarla antes de terminar.</span>
               </div>
               <div style={{ overflowX: "visible" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <colgroup>
-                    <col style={{ width: 44 }} />
-                    <col style={{ width: 112 }} />
-                    <col style={{ width: 110 }} />
-                    <col style={{ width: 92 }} />
+                    <col style={{ width: 42 }} />
+                    <col style={{ width: 102 }} />
+                    <col style={{ width: 100 }} />
+                    <col style={{ width: 72 }} />
                     <col />
-                    <col style={{ width: 68 }} />
-                    <col style={{ width: 98 }} />
+                    <col style={{ width: 82 }} />
+                    <col style={{ width: 96 }} />
                     <col style={{ width: 150 }} />
                   </colgroup>
                   <thead>
@@ -1233,18 +1313,20 @@ export default function EstimacionesWidget() {
                       <th style={approvalTh}>Partida</th>
                       <th style={approvalTh}>Clave</th>
                       <th style={approvalTh}>Concepto</th>
-                      <th style={approvalTh}>%</th>
+                      <th style={approvalTh}>% a aprobar</th>
                       <th style={approvalTh}>Importe</th>
                       <th style={approvalTh}>Observación</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(house.rows || []).map((row) => {
+                    {visibleRows.map((row) => {
                       const id = row.rowId || row.conceptId;
-                      const canSelect = row.status === "en_aprobacion";
+                      const canSelect = ["en_aprobacion", "aprobada_supervision", "observada_supervision"].includes(row.status);
                       const selected = selectedIds.includes(id);
+                      const percent = row.avanceAprobado ?? row.avanceSolicitado ?? 0;
+                      const rowBg = row.status === "aprobada_supervision" ? "#f6fff8" : row.status === "observada_supervision" ? "#fffaf0" : selected ? "#f8fbff" : "#fff";
                       return (
-                        <tr key={id} style={{ background: selected ? "#f8fbff" : "#fff" }}>
+                        <tr key={id} style={{ background: rowBg }}>
                           <td style={approvalTd}><input type="checkbox" disabled={!canSelect} checked={selected && canSelect} onChange={(event) => setSelectedReviewRowIds((prev) => {
                             const current = prev[houseId] || [];
                             return { ...prev, [houseId]: event.target.checked ? Array.from(new Set([...current, id])) : current.filter((item) => item !== id) };
@@ -1253,8 +1335,18 @@ export default function EstimacionesWidget() {
                           <td style={approvalTd}>{row.partida}</td>
                           <td style={approvalTd}>{row.clave}</td>
                           <td style={approvalTd}><ConceptText text={row.concepto} /></td>
-                          <td style={approvalTd}>{row.avanceSolicitado}%</td>
-                          <td style={approvalTd}>{money(row.importeSolicitado)}</td>
+                          <td style={approvalTd}>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={percent}
+                              onWheel={(event) => event.currentTarget.blur()}
+                              onBlur={(event) => updateReviewRow(lot, houseId, id, { avanceAprobado: event.target.value })}
+                              style={{ ...inputBase, minHeight: 36, padding: "7px 8px", textAlign: "center" }}
+                            />
+                            <div style={{ fontSize: 10.5, color: "#6e6e73", marginTop: 3 }}>Solicitado {row.avanceSolicitado}%</div>
+                          </td>
+                          <td style={approvalTd}>{money(row.importeAprobado || row.importeSolicitado)}</td>
                           <td style={approvalTd}>{row.comentarioSupervision || "—"}</td>
                         </tr>
                       );
