@@ -992,14 +992,13 @@ export default function EstimacionesWidget() {
       return;
     }
 
-    const activeRows = allRows.filter((row) => row.status !== "quitada_constructora");
-    const allClosed = activeRows.every((row) => row.status === "aprobada_supervision");
-    if (!allClosed) {
-      alert("Todavía hay partidas pendientes u observadas fuera del ciclo actual. Revisa el lote antes de enviarlo a administración.");
-      return;
-    }
-
-    await saveLotPatch(lot, housesObject, "lista_administracion", "Revisión terminada y aprobada", "Todos los conceptos activos del lote fueron aprobados por ingeniería.");
+    await saveLotPatch(
+      lot,
+      housesObject,
+      "lista_administracion",
+      "Revisión terminada y aprobada",
+      "Las partidas del ciclo actual fueron aprobadas por ingeniería. Las partidas ya aprobadas previamente se mantienen autorizadas y no vuelven a revisión."
+    );
   }
 
   async function setAdminStatus(lot, status) {
