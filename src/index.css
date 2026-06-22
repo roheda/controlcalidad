@@ -194,6 +194,53 @@ div[style*="background: #f8fafc"] {
   background: rgba(255, 255, 255, 0.56) !important;
 }
 
+/* Calidad OS workspace tuning: compact context, larger work area. */
+@media (min-width: 1024px) {
+  div[style*='grid-template-columns: 340px 1fr'] {
+    grid-template-columns: 286px minmax(0, 1fr) !important;
+    gap: 18px !important;
+  }
+
+  div[style*='grid-template-columns: 1.12fr 0.88fr'] {
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.55fr) !important;
+    gap: 16px !important;
+  }
+}
+
+/* Make the selected house/partida context feel like a compact toolbar once the work area is visible. */
+div[style*='grid-template-columns: repeat(4, minmax(0, 1fr))'] {
+  gap: 10px !important;
+}
+
+button[style*='text-align: left'][style*='padding: 16px'] {
+  padding: 12px !important;
+}
+
+button[style*='text-align: left'][style*='padding: 16px'] div[style*='font-size: 12px'] {
+  margin-top: 2px !important;
+}
+
+/* Checklist cards should read as the primary task surface. */
+div[style*='flex-direction: column'][style*='gap: 14px'] > div[style*='box-shadow'] {
+  border-radius: 22px !important;
+  border-color: rgba(0, 122, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.055) !important;
+}
+
+/* Keep the working tabs visible and easier to use on long inspections. */
+div[style*='display: flex'][style*='margin-bottom: 16px'] {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  padding: 8px;
+  border: 1px solid rgba(60, 60, 67, 0.10);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -231,6 +278,18 @@ div[style*="background: #f8fafc"] {
   label[style*="fontWeight"],
   label[style*="font-weight"] {
     min-height: 44px;
+  }
+
+  div[style*='grid-template-columns: repeat(4, minmax(0, 1fr))'] {
+    display: flex !important;
+    overflow-x: auto !important;
+    padding-bottom: 8px !important;
+    scroll-snap-type: x proximity;
+  }
+
+  div[style*='grid-template-columns: repeat(4, minmax(0, 1fr))'] > button {
+    min-width: 230px !important;
+    scroll-snap-align: start;
   }
 }
 
