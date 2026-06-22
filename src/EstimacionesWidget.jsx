@@ -184,6 +184,25 @@ function todayDelay(fechaEntrega) {
   return today > entrega ? Math.ceil((today - entrega) / (1000 * 60 * 60 * 24)) : 0;
 }
 
+function limitWords(text = "", maxWords = 50) {
+  const raw = String(text || "").trim();
+  const words = raw.split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return raw;
+  return `${words.slice(0, maxWords).join(" ")}...`;
+}
+
+function ConceptText({ text }) {
+  const raw = String(text || "—").trim();
+  const compact = limitWords(raw, 50);
+  return (
+    <span className="triton-concept-wrap">
+      <span className="triton-concept-preview">{compact}</span>
+      {raw.length > compact.length || raw !== compact ? <span className="triton-concept-tooltip">{raw}</span> : null}
+    </span>
+  );
+}
+
+
 function appendHistory(lot, action, detail, by = "Sistema") {
   const entry = { at: new Date().toISOString(), by, action, detail };
   return [...(lot?.history || []), entry];
@@ -298,13 +317,13 @@ export default function EstimacionesWidget() {
   const approvedTotal = useMemo(() => houses.reduce((houseAcc, house) => houseAcc + catalog.reduce((acc, concept) => acc + approvedAmountFor(concept, house.id), 0), 0), [houses, catalog, approvedProgress]);
 
   function allowedTabs() {
-    if (profile === "constructora") return ["captura", "borradores"];
-    if (profile === "supervision") return ["aprobacion", "borradores"];
-    return ["estatus", "borradores"];
+    if (profile === "constructora") return ["captura", "borradores", "seguimiento"];
+    if (profile === "supervision") return ["aprobacion", "seguimiento"];
+    return ["estatus", "seguimiento"];
   }
 
   function tabLabel(tab) {
-    return { captura: "Captura", borradores: "Borradores y seguimiento", aprobacion: "Aprobación ingeniería", estatus: "Administración" }[tab] || tab;
+    return { captura: "Captura", borradores: "Borradores", seguimiento: "Seguimiento", aprobacion: "Aprobación ingeniería", estatus: "Administración" }[tab] || tab;
   }
 
   function makeDraftCode() {
@@ -887,14 +906,8 @@ export default function EstimacionesWidget() {
             <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
             <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
-          </div>
+
+
           {partidas.map((partida) => {
             if (partidaFilter !== "todas" && partida !== partidaFilter) return null;
             const concepts = (catalogByPartida[partida] || []).filter((concept) => {
@@ -914,7 +927,19 @@ export default function EstimacionesWidget() {
                 {!collapsed ? (
                   <div style={{ overflowX: "visible" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                      <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unidades</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprobado</th><th style={th}>Disponible</th><th style={th}>% estimar</th><th style={th}>A estimar</th></tr></thead>
+                      <colgroup>
+                        <col style={{ width: 76 }} />
+                        <col />
+                        <col style={{ width: 54 }} />
+                        <col style={{ width: 62 }} />
+                        <col style={{ width: 82 }} />
+                        <col style={{ width: 88 }} />
+                        <col style={{ width: 68 }} />
+                        <col style={{ width: 76 }} />
+                        <col style={{ width: 170 }} />
+                        <col style={{ width: 96 }} />
+                      </colgroup>
+                      <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unid.</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprob.</th><th style={th}>Disp.</th><th style={th}>% estimar</th><th style={th}>A estimar</th></tr></thead>
                       <tbody>
                         {concepts.map((concept) => {
                           const approved = approvedFor(selectedHouseId, concept.id);
@@ -922,7 +947,7 @@ export default function EstimacionesWidget() {
                           return (
                             <tr key={concept.id}>
                               <td style={td}>{concept.clave}</td>
-                              <td style={{ ...td, wordBreak: "break-word" }}>{concept.concepto}</td>
+                              <td style={{ ...td, padding: "8px 10px" }}><ConceptText text={concept.concepto} /></td>
                               <td style={td}>{concept.unidad}</td>
                               <td style={td}>{concept.cantidad}</td>
                               <td style={td}>{money(concept.precioUnitario)}</td>
@@ -962,12 +987,12 @@ export default function EstimacionesWidget() {
     );
   }
 
-  function renderLotList(lotPool) {
+  function renderLotList(lotPool, listTitle = "Lista de borradores", listSubtitle = "Aquí se trabaja la estimación: edición, respuestas a observaciones, copia a casas y unión de borradores.") {
     const filtered = lotPool.filter((lot) => lotMatches(lot, filters.borradores, filters.status, filters.house));
     const mergeable = filtered.filter((lot) => draftStatuses.includes(lot.status));
 
     return (
-      <Card title="Lista de lotes" subtitle="Aquí se trabaja la estimación: edición, respuestas a observaciones, copia a casas, unión de borradores y seguimiento.">
+      <Card title={listTitle} subtitle={listSubtitle}>
         <FilterBar search={filters.borradores} setSearch={(value) => setFilters((prev) => ({ ...prev, borradores: value }))} status={filters.status} setStatus={(value) => setFilters((prev) => ({ ...prev, status: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showStatus showHouse />
         {mergeable.length > 1 ? (
           <div style={{ padding: 12, borderRadius: 18, background: "#f5f5f7", marginBottom: 12 }}>
@@ -1017,7 +1042,25 @@ export default function EstimacionesWidget() {
             <Metric label="Amortización" value={`-${money(lot.totals?.amortizacion)}`} />
             <Metric label="Retención" value={`-${money(lot.totals?.retencion)}`} />
             <Metric label="Multas" value={`-${money(lot.totals?.multas)}`} />
-            <Metric label="Neto lote" value={money(lot.totals?.neto)} />
+            <Metric label="Neto a cobrar" value={money(lot.totals?.neto)} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 14 }}>
+            <div style={{ padding: 12, borderRadius: 16, background: "#f5f5f7" }}>
+              <strong>Resumen por partida</strong>
+              <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                {Object.entries(groupByPartida(Object.values(lot.houses || {}).flatMap((house) => house.rows || []))).map(([partida, rows]) => (
+                  <div key={partida} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}><span>{partida}</span><strong>{money(rows.reduce((acc, row) => acc + Number(row.importeSolicitado || row.importeAprobado || 0), 0))}</strong></div>
+                ))}
+              </div>
+            </div>
+            <div style={{ padding: 12, borderRadius: 16, background: "#f5f5f7" }}>
+              <strong>Resumen por casa</strong>
+              <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                {Object.values(lot.houses || {}).map((house) => (
+                  <div key={house.houseId || house.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}><span>{house.houseName || house.houseId || house.id}</span><strong>{money(house.totals?.neto)}</strong></div>
+                ))}
+              </div>
+            </div>
           </div>
           {editable ? (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
@@ -1050,18 +1093,8 @@ export default function EstimacionesWidget() {
                 <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
               </div>
             ) : null}
-            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
-              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
-                <strong>Observaciones por corregir en esta casa</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
-              </div>
-            ) : null}
-            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
-              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
-                <strong>Observaciones por corregir en esta casa</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
-              </div>
-            ) : null}
+
+
             {editable ? (
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
                 <button type="button" onClick={() => removeHouseFromLot(lot, houseId)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Quitar casa del borrador</button>
@@ -1079,7 +1112,7 @@ export default function EstimacionesWidget() {
                         return (
                           <tr key={rowId}>
                             <td style={td}>{row.clave}</td>
-                            <td style={{ ...td, wordBreak: "break-word" }}>{row.concepto}</td>
+                            <td style={{ ...td, padding: "8px 10px" }}><ConceptText text={row.concepto} /></td>
                             <td style={td}>{editable ? <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado}%`}</td>
                             <td style={td}>{money(row.importeSolicitado)}</td>
                             <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || statusLabel[row.status] || row.status}</span></td>
@@ -1112,8 +1145,13 @@ export default function EstimacionesWidget() {
   }
 
   function renderBorradores() {
-    const lotPool = lots;
-    return <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.85fr) minmax(0, 1.35fr)", gap: 16 }} className="triton-estimaciones-two-col">{renderLotList(lotPool)}<div>{renderLotEditor(selectedLot)}</div></div>;
+    const lotPool = lots.filter((lot) => draftStatuses.includes(lot.status));
+    return <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.85fr) minmax(0, 1.35fr)", gap: 16 }} className="triton-estimaciones-two-col">{renderLotList(lotPool, "Lista de borradores", "Borradores editables: corrige observaciones, copia casas, une borradores y envía a aprobación.")}<div>{renderLotEditor(selectedLot && draftStatuses.includes(selectedLot.status) ? selectedLot : null)}</div></div>;
+  }
+
+  function renderSeguimiento() {
+    const lotPool = lots.filter((lot) => !draftStatuses.includes(lot.status));
+    return <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.85fr) minmax(0, 1.35fr)", gap: 16 }} className="triton-estimaciones-two-col">{renderLotList(lotPool, "Seguimiento de estimaciones", "Lotes que ya salieron de borrador: revisión, administración, programación de pago y pagadas.")}<div>{renderLotEditor(selectedLot && !draftStatuses.includes(selectedLot.status) ? selectedLot : null)}</div></div>;
   }
 
   function renderAprobacion() {
@@ -1262,7 +1300,13 @@ export default function EstimacionesWidget() {
 
   return (
     <div className="triton-estimaciones-module" style={{ position: "fixed", left: "var(--triton-shell-offset, 84px)", top: 0, right: 0, bottom: 0, zIndex: 2147483645, background: "#f5f5f7", overflow: "auto" }}>
-      <style>{`@media (max-width: 900px) { .triton-estimaciones-module { left: 0 !important; z-index: 2147483647 !important; } .triton-estimaciones-two-col { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`
+          @media (max-width: 900px) { .triton-estimaciones-module { left: 0 !important; z-index: 2147483647 !important; } .triton-estimaciones-two-col { grid-template-columns: 1fr !important; } }
+          .triton-concept-wrap { position: relative; display: block; min-width: 0; }
+          .triton-concept-preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.28; max-height: 3.85em; font-size: 12.2px; color: #1d1d1f; }
+          .triton-concept-tooltip { display: none; position: absolute; left: 0; top: calc(100% + 8px); z-index: 2147483647; width: min(560px, 78vw); padding: 12px 14px; border-radius: 14px; background: #fff; color: #1d1d1f; border: 1px solid rgba(60,60,67,0.16); box-shadow: 0 18px 45px rgba(0,0,0,0.18); font-size: 13px; line-height: 1.45; white-space: normal; }
+          .triton-concept-wrap:hover .triton-concept-tooltip { display: block; }
+        `}</style>
       <div style={{ maxWidth: 1480, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 42px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18, flexWrap: "wrap" }}>
           <div>
@@ -1287,6 +1331,7 @@ export default function EstimacionesWidget() {
         </div>
         {currentTab === "captura" ? renderCapture() : null}
         {currentTab === "borradores" ? renderBorradores() : null}
+        {currentTab === "seguimiento" ? renderSeguimiento() : null}
         {currentTab === "aprobacion" ? renderAprobacion() : null}
         {currentTab === "estatus" ? renderAdmin() : null}
       </div>
