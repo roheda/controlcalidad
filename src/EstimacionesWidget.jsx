@@ -812,8 +812,8 @@ export default function EstimacionesWidget() {
     const pendingRows = allRows.filter((row) => row.status === "en_aprobacion");
 
     if (pendingRows.length > 0) {
-      const proceed = window.confirm(`Quedan ${pendingRows.length} concepto(s) sin revisar. ¿Quieres terminar la revisión de todos modos?`);
-      if (!proceed) return;
+      alert(`No puedes terminar la revisión del lote. Faltan ${pendingRows.length} concepto(s) por aprobar u observar.`);
+      return;
     }
 
     if (observedRows.length > 0) {
@@ -862,6 +862,7 @@ export default function EstimacionesWidget() {
   function renderCapture() {
     const q = filters.captura.trim().toLowerCase();
     const partidaFilter = filters.partida;
+    const captureOnlyPending = filters.status === "pendientes";
 
     return (
       <>
@@ -880,9 +881,17 @@ export default function EstimacionesWidget() {
         {renderSummaryMetrics(draftSummary, "Total del borrador en captura")}
         <Card title="Catálogo por partidas" subtitle="Captura el porcentaje a estimar. El disponible descuenta lo ya aprobado en estimaciones anteriores.">
           <FilterBar search={filters.captura} setSearch={(value) => setFilters((prev) => ({ ...prev, captura: value }))} partida={filters.partida} setPartida={(value) => setFilters((prev) => ({ ...prev, partida: value }))} partidas={partidas} showPartida />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
+          </div>
           {partidas.map((partida) => {
             if (partidaFilter !== "todas" && partida !== partidaFilter) return null;
-            const concepts = (catalogByPartida[partida] || []).filter((concept) => !q || `${concept.partida} ${concept.clave} ${concept.concepto} ${concept.unidad}`.toLowerCase().includes(q));
+            const concepts = (catalogByPartida[partida] || []).filter((concept) => {
+              const available = availableFor(concept);
+              if (captureOnlyPending && available <= 0) return false;
+              return !q || `${concept.partida} ${concept.clave} ${concept.concepto} ${concept.unidad}`.toLowerCase().includes(q);
+            });
             if (!concepts.length) return null;
             const collapsed = collapsedPartidas[partida];
             const partidaSubtotal = concepts.reduce((acc, concept) => acc + plannedAmount(concept), 0);
@@ -893,8 +902,8 @@ export default function EstimacionesWidget() {
                   <span>{money(partidaSubtotal)}</span>
                 </button>
                 {!collapsed ? (
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+                  <div style={{ overflowX: "visible" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                       <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unidades</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprobado</th><th style={th}>Disponible</th><th style={th}>% estimar</th><th style={th}>A estimar</th></tr></thead>
                       <tbody>
                         {concepts.map((concept) => {
@@ -903,7 +912,7 @@ export default function EstimacionesWidget() {
                           return (
                             <tr key={concept.id}>
                               <td style={td}>{concept.clave}</td>
-                              <td style={{ ...td, minWidth: 280 }}>{concept.concepto}</td>
+                              <td style={{ ...td, wordBreak: "break-word" }}>{concept.concepto}</td>
                               <td style={td}>{concept.unidad}</td>
                               <td style={td}>{concept.cantidad}</td>
                               <td style={td}>{money(concept.precioUnitario)}</td>
@@ -911,10 +920,10 @@ export default function EstimacionesWidget() {
                               <td style={td}>{approved}%</td>
                               <td style={td}>{available}%</td>
                               <td style={td}>
-                                <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 210 }}>
-                                  <button type="button" onClick={() => setDraftPercent(concept.id, Math.min(50, available))} style={{ ...buttonBase, padding: "7px 10px", background: "#f5f5f7" }}>50%</button>
-                                  <button type="button" onClick={() => setDraftPercent(concept.id, available)} style={{ ...buttonBase, padding: "7px 10px", background: "#f5f5f7" }}>100%</button>
-                                  <input type="text" inputMode="decimal" value={draftRows[concept.id]?.percent || ""} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} onWheel={(event) => event.currentTarget.blur()} style={{ ...inputBase, width: 74, minHeight: 36 }} />
+                                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, Math.min(50, available))} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= 50 ? "#dbeafe" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f", cursor: available <= 0 ? "not-allowed" : "pointer" }}>50%</button>
+                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, available)} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= available ? "#dcfce7" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f", cursor: available <= 0 ? "not-allowed" : "pointer" }}>100%</button>
+                                  <input type="text" inputMode="decimal" disabled={available <= 0} value={draftRows[concept.id]?.percent || ""} placeholder={available <= 0 ? "100%" : "Manual"} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} onWheel={(event) => event.currentTarget.blur()} style={{ ...inputBase, width: 86, minHeight: 36, background: available <= 0 ? "#f4f4f5" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f" }} />
                                 </div>
                               </td>
                               <td style={td}><strong>{money(plannedAmount(concept))}</strong></td>
@@ -929,6 +938,16 @@ export default function EstimacionesWidget() {
             );
           })}
         </Card>
+        <div style={{ position: "sticky", bottom: 16, zIndex: 20, margin: "18px auto 0", maxWidth: 980, padding: "12px 14px", borderRadius: 22, background: "rgba(255,255,255,0.84)", border: "1px solid rgba(60,60,67,0.14)", boxShadow: "0 18px 45px rgba(0,0,0,0.14)", WebkitBackdropFilter: "blur(18px) saturate(180%)", backdropFilter: "blur(18px) saturate(180%)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <strong>{selectedHouse?.name || selectedHouseId || "Casa sin seleccionar"}</strong>
+            <div style={{ color: "#6e6e73", fontSize: 12 }}>{draftSummary.count} concepto(s) capturado(s) · Bruto {money(draftSummary.subtotal)}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ color: "#6e6e73", fontSize: 12 }}>Neto estimado</div>
+            <div style={{ fontSize: 24, fontWeight: 950 }}>{money(draftSummary.neto)}</div>
+          </div>
+        </div>
       </>
     );
   }
@@ -1013,18 +1032,24 @@ export default function EstimacionesWidget() {
             </div>
           ) : null}
         </Card>
-        {Object.entries(lot.houses || {}).map(([houseId, house]) => (
+        {Object.entries(lot.houses || {}).sort(([, a], [, b]) => Number((b.rows || []).some((row) => row.status === "observada_supervision")) - Number((a.rows || []).some((row) => row.status === "observada_supervision"))).map(([houseId, house]) => (
           <Card key={houseId} title={house.houseName || houseId} subtitle={`Estatus casa: ${statusLabel[house.status] || house.status || lot.status}`}>
+            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
+              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
+                <strong>Observaciones por corregir en esta casa</strong>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
+              </div>
+            ) : null}
             {editable ? (
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
                 <button type="button" onClick={() => removeHouseFromLot(lot, houseId)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Quitar casa del borrador</button>
               </div>
             ) : null}
-            {Object.entries(groupByPartida(house.rows || [])).map(([partida, rows]) => (
+            {Object.entries(groupByPartida((house.rows || []).slice().sort((a, b) => Number(b.status === "observada_supervision") - Number(a.status === "observada_supervision")))).map(([partida, rows]) => (
               <div key={partida} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", marginBottom: 12, background: "#fff" }}>
                 <div style={{ padding: 12, fontWeight: 950, background: "#f5f5f7" }}>{partida}</div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
+                <div style={{ overflowX: "visible" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                     <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>% solicitado</th><th style={th}>Importe</th><th style={th}>Estatus</th><th style={th}>Comentario constructora</th><th style={th}>Observación ingeniería</th><th style={th}>Respuesta / ajuste</th></tr></thead>
                     <tbody>
                       {rows.map((row) => {
@@ -1032,13 +1057,13 @@ export default function EstimacionesWidget() {
                         return (
                           <tr key={rowId}>
                             <td style={td}>{row.clave}</td>
-                            <td style={{ ...td, minWidth: 280 }}>{row.concepto}</td>
+                            <td style={{ ...td, wordBreak: "break-word" }}>{row.concepto}</td>
                             <td style={td}>{editable ? <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado}%`}</td>
                             <td style={td}>{money(row.importeSolicitado)}</td>
                             <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || statusLabel[row.status] || row.status}</span></td>
-                            <td style={td}>{editable ? <input defaultValue={row.comentarioConstructora || ""} onBlur={(event) => updateLotRow(lot, houseId, rowId, { comentarioConstructora: event.target.value })} style={{ ...inputBase, minWidth: 180 }} /> : row.comentarioConstructora}</td>
+                            <td style={td}>{editable ? <input defaultValue={row.comentarioConstructora || ""} onBlur={(event) => updateLotRow(lot, houseId, rowId, { comentarioConstructora: event.target.value })} style={{ ...inputBase, width: "100%" }} /> : row.comentarioConstructora}</td>
                             <td style={td}>{row.comentarioSupervision || "—"}</td>
-                            <td style={td}>{editable ? <input defaultValue={row.respuestaConstructora || ""} placeholder="Respuesta o comentario de corrección" onBlur={(event) => updateLotRow(lot, houseId, rowId, { respuestaConstructora: event.target.value })} style={{ ...inputBase, minWidth: 220 }} /> : row.respuestaConstructora || "—"}</td>
+                            <td style={td}>{editable ? <input defaultValue={row.respuestaConstructora || ""} placeholder="Respuesta o comentario de corrección" onBlur={(event) => updateLotRow(lot, houseId, rowId, { respuestaConstructora: event.target.value })} style={{ ...inputBase, width: "100%" }} /> : row.respuestaConstructora || "—"}</td>
                           </tr>
                         );
                       })}
@@ -1092,19 +1117,20 @@ export default function EstimacionesWidget() {
               <button type="button" onClick={() => reviewRows(lot, houseId, selectedReviewRowIds[houseId] || [], false)} style={{ ...buttonBase, background: "#fff3cd", color: "#9a6700" }}>Observar selección</button>
               <button type="button" onClick={() => reviewRows(lot, houseId, (house.rows || []).filter((row) => row.status === "en_aprobacion").map((row) => row.rowId || row.conceptId), true)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Aprobar casa completa</button>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
-                <thead><tr><th style={th}>Sel.</th><th style={th}>Partida</th><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Casa</th><th style={th}>%</th><th style={th}>Importe</th><th style={th}>Comentario</th><th style={th}>Observación</th></tr></thead>
+            <div style={{ overflowX: "visible" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                <thead><tr><th style={th}>Sel.</th><th style={th}>Estatus</th><th style={th}>Partida</th><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Casa</th><th style={th}>%</th><th style={th}>Importe</th><th style={th}>Comentario</th><th style={th}>Observación</th></tr></thead>
                 <tbody>
                   {(house.rows || []).map((row) => {
                     const id = row.rowId || row.conceptId;
                     const selected = (selectedReviewRowIds[houseId] || []).includes(id);
                     return (
                       <tr key={id}>
-                        <td style={td}><input type="checkbox" checked={selected} disabled={row.status !== "en_aprobacion"} onChange={(event) => setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: event.target.checked ? [...(prev[houseId] || []), id] : (prev[houseId] || []).filter((item) => item !== id) }))} /></td>
+                        <td style={td}><input type="checkbox" checked={selected} onChange={(event) => setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: event.target.checked ? [...(prev[houseId] || []), id] : (prev[houseId] || []).filter((item) => item !== id) }))} /></td>
+                        <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></td>
                         <td style={td}>{row.partida}</td>
                         <td style={td}>{row.clave}</td>
-                        <td style={{ ...td, minWidth: 300 }}>{row.concepto}</td>
+                        <td style={{ ...td, wordBreak: "break-word" }}>{row.concepto}</td>
                         <td style={td}>{house.houseName}</td>
                         <td style={td}>{row.avanceSolicitado}%</td>
                         <td style={td}>{money(row.importeSolicitado)}</td>
