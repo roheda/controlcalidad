@@ -1258,6 +1258,7 @@ export default function EstimacionesWidget() {
 
   if (!open) return null;
   const tabs = allowedTabs();
+  const currentTab = tabs.includes(activeTab) ? activeTab : tabs[0];
 
   return (
     <div className="triton-estimaciones-module" style={{ position: "fixed", left: "var(--triton-shell-offset, 84px)", top: 0, right: 0, bottom: 0, zIndex: 2147483645, background: "#f5f5f7", overflow: "auto" }}>
@@ -1277,17 +1278,17 @@ export default function EstimacionesWidget() {
             <button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Volver</button>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>{tabs.map((tab) => <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{ ...buttonBase, background: activeTab === tab ? "#111827" : "#fff", color: activeTab === tab ? "#fff" : "#1d1d1f" }}>{tabLabel(tab)}</button>)}</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>{tabs.map((tab) => <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{ ...buttonBase, background: currentTab === tab ? "#111827" : "#fff", color: currentTab === tab ? "#fff" : "#1d1d1f" }}>{tabLabel(tab)}</button>)}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 16 }}>
           <Metric label="Obra" value={selectedObra.name || selectedObraId} helper={loading ? "Cargando..." : `${catalog.length} conceptos`} />
           <Metric label="Contrato base" value={money(contractTotal)} helper="Catálogo × unidades" />
           <Metric label="Aprobado acumulado" value={money(approvedTotal)} />
           <Metric label="Anticipo" value={`${anticipoPorcentaje}%`} helper="Configurado en Obras" />
         </div>
-        {activeTab === "captura" ? renderCapture() : null}
-        {activeTab === "borradores" ? renderBorradores() : null}
-        {activeTab === "aprobacion" ? renderAprobacion() : null}
-        {activeTab === "estatus" ? renderAdmin() : null}
+        {currentTab === "captura" ? renderCapture() : null}
+        {currentTab === "borradores" ? renderBorradores() : null}
+        {currentTab === "aprobacion" ? renderAprobacion() : null}
+        {currentTab === "estatus" ? renderAdmin() : null}
       </div>
     </div>
   );
