@@ -13,10 +13,11 @@ import {
 } from "firebase/firestore";
 
 const defaultObraId = "arenna";
+const desktopBreakpoint = 900;
 
 const inputBase = {
   width: "100%",
-  minHeight: 42,
+  minHeight: 40,
   border: "1px solid rgba(60,60,67,0.16)",
   borderRadius: 14,
   padding: "9px 11px",
@@ -24,38 +25,28 @@ const inputBase = {
   color: "#1d1d1f",
   outline: "none",
   boxSizing: "border-box",
+  fontSize: 13,
 };
 
 const buttonBase = {
   border: "1px solid rgba(60,60,67,0.12)",
   borderRadius: 999,
-  padding: "10px 14px",
+  padding: "9px 13px",
   fontWeight: 850,
-  fontSize: 13,
+  fontSize: 12,
   cursor: "pointer",
   whiteSpace: "nowrap",
-};
-
-const th = {
-  padding: "10px",
-  fontSize: 11,
-  fontWeight: 950,
-  color: "#6e6e73",
-  textTransform: "uppercase",
-  letterSpacing: 0.35,
-  background: "rgba(242,242,247,0.96)",
-  borderBottom: "1px solid rgba(60,60,67,0.10)",
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-};
-
-const td = {
-  padding: "10px",
-  borderBottom: "1px solid rgba(60,60,67,0.10)",
-  verticalAlign: "top",
-  fontSize: 13,
+  background: "#fff",
   color: "#1d1d1f",
+};
+
+const cardStyle = {
+  border: "1px solid rgba(60,60,67,0.12)",
+  borderRadius: 22,
+  padding: 16,
+  background: "rgba(255,255,255,0.94)",
+  boxShadow: "0 8px 28px rgba(0,0,0,0.055)",
+  marginBottom: 16,
 };
 
 const statusLabel = {
@@ -79,7 +70,7 @@ const rowStatusLabel = {
 const draftStatuses = ["borrador", "borrador_observado"];
 const adminStatuses = ["lista_administracion", "administracion_revision", "pago_programado", "pagada"];
 const approvedLotStatuses = adminStatuses;
-const statusOptions = Object.entries(statusLabel);
+const followUpStatuses = ["en_aprobacion", ...adminStatuses];
 
 function getDb() {
   const app = getApps()[0];
@@ -172,7 +163,7 @@ function statusStyle(status) {
     padding: "6px 10px",
     background: bg,
     color,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 900,
   };
 }
@@ -189,6 +180,16 @@ function appendHistory(lot, action, detail, by = "Sistema") {
   return [...(lot?.history || []), entry];
 }
 
+function Card({ title, subtitle, children, style }) {
+  return (
+    <div style={{ ...cardStyle, ...style }}>
+      {title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f" }}>{title}</div> : null}
+      {subtitle ? <div style={{ marginTop: 4, color: "#6e6e73", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}
+      {children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}
+    </div>
+  );
+}
+
 function Field({ label, children }) {
   return (
     <label style={{ display: "block", marginBottom: 12 }}>
@@ -198,23 +199,21 @@ function Field({ label, children }) {
   );
 }
 
-function Card({ title, subtitle, children, style }) {
+function Metric({ label, value, helper }) {
   return (
-    <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 28px rgba(0,0,0,0.055)", marginBottom: 16, ...style }}>
-      {title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f" }}>{title}</div> : null}
-      {subtitle ? <div style={{ marginTop: 4, color: "#6e6e73", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}
-      {children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}
+    <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff" }}>
+      <div style={{ color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>{label}</div>
+      <div style={{ color: "#1d1d1f", fontSize: 22, fontWeight: 950, marginTop: 4 }}>{value}</div>
+      {helper ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}
     </div>
   );
 }
 
-function Metric({ label, value, helper }) {
+function ConceptText({ text }) {
   return (
-    <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 20, padding: 15, background: "#fff" }}>
-      <div style={{ color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>{label}</div>
-      <div style={{ color: "#1d1d1f", fontSize: 23, fontWeight: 950, marginTop: 4 }}>{value}</div>
-      {helper ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}
-    </div>
+    <span className="est-concept" title={text}>
+      {text}
+    </span>
   );
 }
 
@@ -225,7 +224,7 @@ function FilterBar({ search, setSearch, status, setStatus, house, setHouse, hous
       {showStatus ? (
         <select value={status} onChange={(event) => setStatus(event.target.value)} style={inputBase}>
           <option value="todos">Todos los estatus</option>
-          {statusOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          {Object.entries(statusLabel).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       ) : null}
       {showHouse ? (
@@ -259,10 +258,10 @@ export default function EstimacionesWidget() {
   const [draftRows, setDraftRows] = useState({});
   const [collapsedPartidas, setCollapsedPartidas] = useState({});
   const [selectedLotId, setSelectedLotId] = useState("");
-  const [selectedReviewRowIds, setSelectedReviewRowIds] = useState({});
   const [mergeLotIds, setMergeLotIds] = useState([]);
   const [lotForm, setLotForm] = useState({ numero: "", nombre: "", periodo: new Date().toISOString().slice(0, 7) });
-  const [filters, setFilters] = useState({ captura: "", borradores: "", aprobacion: "", estatus: "", status: "todos", house: "todas", partida: "todas" });
+  const [captureOnlyPending, setCaptureOnlyPending] = useState(true);
+  const [filters, setFilters] = useState({ captura: "", borradores: "", seguimiento: "", aprobacion: "", estatus: "", status: "todos", house: "todas", partida: "todas" });
 
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || {};
   const selectedHouse = houses.find((house) => house.id === selectedHouseId) || null;
@@ -298,13 +297,19 @@ export default function EstimacionesWidget() {
   const approvedTotal = useMemo(() => houses.reduce((houseAcc, house) => houseAcc + catalog.reduce((acc, concept) => acc + approvedAmountFor(concept, house.id), 0), 0), [houses, catalog, approvedProgress]);
 
   function allowedTabs() {
-    if (profile === "constructora") return ["captura", "borradores"];
-    if (profile === "supervision") return ["aprobacion", "borradores"];
-    return ["estatus", "borradores"];
+    if (profile === "constructora") return ["captura", "borradores", "seguimiento"];
+    if (profile === "supervision") return ["aprobacion", "seguimiento"];
+    return ["estatus", "seguimiento"];
   }
 
   function tabLabel(tab) {
-    return { captura: "Captura", borradores: "Borradores y seguimiento", aprobacion: "Aprobación ingeniería", estatus: "Administración" }[tab] || tab;
+    return {
+      captura: "Captura",
+      borradores: "Lista de borradores",
+      seguimiento: "Seguimiento",
+      aprobacion: "Aprobación ingeniería",
+      estatus: "Administración",
+    }[tab] || tab;
   }
 
   function makeDraftCode() {
@@ -317,7 +322,7 @@ export default function EstimacionesWidget() {
 
   function autoLotName(numero = lotForm.numero || nextNumber, periodo = lotForm.periodo) {
     const obraName = selectedObra.name || selectedObraId;
-    return `Borrador ${String(numero).padStart(2, "0")} · ${obraName} · ${periodo || new Date().toISOString().slice(0, 7)} · ${makeDraftCode()}`;
+    return `Borrador ${String(numero).padStart(2, "0")} · ${obraName} · ${periodo || new Date().toISOString().slice(0, 7)}`;
   }
 
   function approvedFor(houseId, conceptId) {
@@ -383,6 +388,22 @@ export default function EstimacionesWidget() {
     }), { subtotal: 0, amortizacion: 0, retencion: 0, multas: 0, neto: 0, houses: 0 });
   }
 
+  function summaryByPartida(rows = []) {
+    return rows.reduce((acc, row) => {
+      if (["observada_supervision", "quitada_constructora"].includes(row.status)) return acc;
+      const key = row.partida || "General";
+      acc[key] = (acc[key] || 0) + Number(row.importeSolicitado || row.importeAprobado || 0);
+      return acc;
+    }, {});
+  }
+
+  function summaryByHouse(housesObject = {}) {
+    return Object.values(housesObject).reduce((acc, house) => {
+      acc[house.houseName || house.houseId || house.id] = Number(house.totals?.neto || 0);
+      return acc;
+    }, {});
+  }
+
   function rowSearchText(row, house, lot) {
     return `${lot?.nombre || ""} ${lot?.draftCode || ""} ${lot?.officialCode || ""} ${statusLabel[lot?.status] || lot?.status || ""} ${house?.houseName || ""} ${row.partida || ""} ${row.clave || ""} ${row.concepto || ""} ${row.comentarioConstructora || ""} ${row.comentarioSupervision || ""} ${row.respuestaConstructora || ""}`.toLowerCase();
   }
@@ -397,9 +418,9 @@ export default function EstimacionesWidget() {
   }
 
   const draftSummary = useMemo(() => {
-    const rows = catalog.map((concept) => draftPercent(concept) > 0 ? { multa: todayDelay(concept.fechaEntrega) * multaDiaria } : null).filter(Boolean);
-    const subtotal = catalog.reduce((acc, concept) => acc + plannedAmount(concept), 0);
-    return { subtotal, ...computeDeductions(subtotal, rows), count: Object.values(draftRows).filter((row) => parseNumber(row.percent) > 0).length };
+    const rows = catalog.map((concept) => draftPercent(concept) > 0 ? { ...concept, partida: concept.partida, multa: todayDelay(concept.fechaEntrega) * multaDiaria, importeSolicitado: plannedAmount(concept) } : null).filter(Boolean);
+    const subtotal = rows.reduce((acc, row) => acc + Number(row.importeSolicitado || 0), 0);
+    return { subtotal, ...computeDeductions(subtotal, rows), count: rows.length, rows, byPartida: summaryByPartida(rows) };
   }, [catalog, draftRows, selectedHouseId, approvedProgress, anticipoPorcentaje, retencionPorcentaje, multaDiaria]);
 
   useEffect(() => {
@@ -484,8 +505,9 @@ export default function EstimacionesWidget() {
         avanceAprobado: 0,
         importeSolicitado: Number(concept.importe || 0) * (percent / 100),
         importeAprobado: 0,
-        comentarioConstructora: draftRows[concept.id]?.comment || "",
+        comentarioConstructora: "",
         respuestaConstructora: "",
+        comentarioSupervision: "",
         fechaEntrega: concept.fechaEntrega || "",
         diasAtraso: todayDelay(concept.fechaEntrega),
         multa,
@@ -504,7 +526,7 @@ export default function EstimacionesWidget() {
     const numero = Number(lotForm.numero || nextNumber);
     const draftCode = makeDraftCode();
     const id = `estimacion-${numero}-${Date.now()}-${shortId().toLowerCase()}`;
-    const nombre = lotForm.nombre || `Borrador ${String(numero).padStart(2, "0")} · ${selectedObra.name || selectedObraId} · ${lotForm.periodo} · ${draftCode}`;
+    const nombre = lotForm.nombre || `${autoLotName(numero, lotForm.periodo)} · ${draftCode}`;
     const houseData = housePayload(selectedHouse, rows, "borrador");
     const housesObject = { [selectedHouse.id]: houseData };
     const lot = {
@@ -527,7 +549,7 @@ export default function EstimacionesWidget() {
 
     await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", id), lot, { merge: true });
     setSelectedLotId(id);
-    alert("Borrador guardado. Ahora se trabaja desde Borradores y seguimiento.");
+    alert("Borrador guardado. Ahora se trabaja desde Lista de borradores.");
     setDraftRows({});
     localStorage.removeItem(draftStorageKey);
     await loadData();
@@ -558,13 +580,14 @@ export default function EstimacionesWidget() {
       const concept = catalog.find((item) => item.id === row.conceptId) || row;
       const max = Number(row.avanceDisponibleAntes || 100);
       const nextPercent = patch.avanceSolicitado !== undefined ? Math.min(max, clampPercent(patch.avanceSolicitado)) : Number(row.avanceSolicitado || 0);
+      const wasObserved = row.status === "observada_supervision";
       return {
         ...row,
         ...patch,
         avanceSolicitado: nextPercent,
         importeSolicitado: Number(concept.importe || row.importeConcepto || 0) * (nextPercent / 100),
-        status: row.status === "observada_supervision" ? "borrador" : row.status,
-        correctedAt: row.status === "observada_supervision" ? new Date().toISOString() : row.correctedAt,
+        status: wasObserved ? "borrador" : row.status,
+        correctedAt: wasObserved ? new Date().toISOString() : row.correctedAt,
       };
     });
     housesObject[houseId] = { ...house, rows, status: "borrador", totals: computeRowsTotals(rows, false) };
@@ -663,7 +686,6 @@ export default function EstimacionesWidget() {
     selectedLots.forEach((lot) => {
       mergedNames.push(lot.nombre || lot.draftCode || lot.id);
       Object.entries(lot.houses || {}).forEach(([houseId, house]) => {
-        const existing = housesObject[houseId];
         const cleanRows = (house.rows || []).filter((row) => !["observada_supervision", "quitada_constructora"].includes(row.status)).map((row) => ({
           ...row,
           rowId: `${row.conceptId}-${houseId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -731,106 +753,80 @@ export default function EstimacionesWidget() {
     const confirmed = window.confirm(`¿Eliminar el borrador ${lot.nombre}? Esta acción elimina el lote de trabajo.`);
     if (!confirmed) return;
     await deleteDoc(doc(db, "obras", selectedObraId, "estimacionLotes", lot.id));
-    setSelectedLotId("");
+    if (selectedLotId === lot.id) setSelectedLotId("");
     await loadData();
   }
 
   async function sendLotToApproval(lot) {
-    if (!lot) return;
+    if (!lot || !draftStatuses.includes(lot.status)) return;
     const housesObject = {};
-    let totalRows = 0;
     Object.entries(lot.houses || {}).forEach(([houseId, house]) => {
       const rows = (house.rows || [])
-        .filter((row) => !["observada_supervision", "quitada_constructora"].includes(row.status) && Number(row.avanceSolicitado || 0) > 0)
-        .map((row) => ({ ...row, status: "en_aprobacion" }));
-      totalRows += rows.length;
+        .filter((row) => row.status !== "quitada_constructora" && Number(row.avanceSolicitado || 0) > 0)
+        .map((row) => ({ ...row, status: "en_aprobacion", avanceAprobado: 0, importeAprobado: 0 }));
       housesObject[houseId] = { ...house, rows, status: "en_aprobacion", totals: computeRowsTotals(rows, false) };
     });
-
-    if (!totalRows) {
-      alert("No hay conceptos válidos para enviar a aprobación.");
-      return;
-    }
-
-    const officialCode = lot.officialCode || makeOfficialCode(lot.numero);
-    await saveLotPatch(
-      lot,
-      housesObject,
-      "en_aprobacion",
-      "Enviado a aprobación",
-      `El lote fue enviado a revisión de ingeniería con folio ${officialCode}.`,
-      { officialCode, sentToApprovalAt: serverTimestamp() }
-    );
+    const activeRows = Object.values(housesObject).reduce((acc, house) => acc + (house.rows || []).length, 0);
+    if (!activeRows) { alert("El lote no tiene partidas/conceptos activos para enviar."); return; }
+    await saveLotPatch(lot, housesObject, "en_aprobacion", "Enviado a revisión", "La constructora envió el lote a aprobación de ingeniería.", {
+      officialCode: lot.officialCode || makeOfficialCode(lot.numero),
+      submittedAt: serverTimestamp(),
+    });
+    alert("Lote enviado a revisión de ingeniería.");
   }
 
-  async function reviewRows(lot, houseId, rowIds, approved) {
-    if (!lot || !houseId || !rowIds.length) return;
-    let comment = "";
-    if (!approved) {
-      comment = window.prompt("Comentario específico de supervisión para la partida/concepto observado:") || "";
-      if (!comment.trim()) { alert("Agrega un comentario específico para poder observar."); return; }
-    }
-
+  async function setReviewDecision(lot, houseId, rowId, decision, comment = "") {
+    if (!lot || lot.status !== "en_aprobacion") return;
     const housesObject = { ...(lot.houses || {}) };
     const house = housesObject[houseId];
     const rows = (house.rows || []).map((row) => {
       const id = row.rowId || row.conceptId;
-      if (!rowIds.includes(id)) return row;
+      if (id !== rowId) return row;
+      if (decision === "aprobada_supervision") {
+        return {
+          ...row,
+          status: "aprobada_supervision",
+          avanceAprobado: Number(row.avanceSolicitado || 0),
+          importeAprobado: Number(row.importeSolicitado || 0),
+          comentarioSupervision: comment || row.comentarioSupervision || "Aprobado por ingeniería.",
+          reviewedAt: new Date().toISOString(),
+        };
+      }
       return {
         ...row,
-        status: approved ? "aprobada_supervision" : "observada_supervision",
-        avanceAprobado: approved ? Number(row.avanceSolicitado || 0) : 0,
-        importeAprobado: approved ? Number(row.importeSolicitado || 0) : 0,
-        comentarioSupervision: approved ? row.comentarioSupervision || "" : comment,
+        status: "observada_supervision",
+        avanceAprobado: 0,
+        importeAprobado: 0,
+        comentarioSupervision: comment || row.comentarioSupervision || "Observado por ingeniería.",
         reviewedAt: new Date().toISOString(),
       };
     });
-
-    housesObject[houseId] = {
-      ...house,
-      rows,
-      status: "en_aprobacion",
-      reviewedAt: new Date().toISOString(),
-      totals: computeRowsTotals(rows, false),
-    };
-
-    await saveLotPatch(
-      lot,
-      housesObject,
-      "en_aprobacion",
-      approved ? "Conceptos aprobados en revisión" : "Conceptos observados en revisión",
-      approved ? `${rowIds.length} concepto(s) aprobado(s).` : `${rowIds.length} concepto(s) observado(s): ${comment}`
-    );
-    setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: [] }));
+    const hasObserved = rows.some((row) => row.status === "observada_supervision");
+    const allReviewed = rows.filter((row) => row.status !== "quitada_constructora").every((row) => ["aprobada_supervision", "observada_supervision"].includes(row.status));
+    housesObject[houseId] = { ...house, rows, status: hasObserved ? "borrador_observado" : allReviewed ? "lista_administracion" : "en_aprobacion", totals: computeRowsTotals(rows, false) };
+    await saveLotPatch(lot, housesObject, "en_aprobacion", decision === "aprobada_supervision" ? "Concepto aprobado" : "Concepto observado", `${house.houseName || houseId}: ${decision === "aprobada_supervision" ? "aprobación" : "observación"} registrada.`);
   }
 
-  async function finishEngineeringReview(lot) {
-    if (!lot) return;
-    const housesObject = { ...(lot.houses || {}) };
-    const allRows = Object.values(housesObject).flatMap((house) => house.rows || []);
-    const observedRows = allRows.filter((row) => row.status === "observada_supervision");
-    const pendingRows = allRows.filter((row) => row.status === "en_aprobacion");
-
-    if (pendingRows.length > 0) {
-      alert(`No puedes terminar la revisión del lote. Faltan ${pendingRows.length} concepto(s) por aprobar u observar.`);
+  async function finalizeReview(lot) {
+    if (!lot || lot.status !== "en_aprobacion") return;
+    const housesObject = lot.houses || {};
+    const rows = Object.values(housesObject).flatMap((house) => house.rows || []).filter((row) => row.status !== "quitada_constructora");
+    const pending = rows.filter((row) => !["aprobada_supervision", "observada_supervision"].includes(row.status));
+    if (pending.length) {
+      alert(`Faltan ${pending.length} concepto(s) por aprobar u observar. No puedes terminar la revisión hasta completar el lote.`);
       return;
     }
-
-    if (observedRows.length > 0) {
-      Object.entries(housesObject).forEach(([houseId, house]) => {
-        const hasObserved = (house.rows || []).some((row) => row.status === "observada_supervision");
-        housesObject[houseId] = { ...house, status: hasObserved ? "borrador_observado" : "borrador" };
-      });
-      await saveLotPatch(lot, housesObject, "borrador_observado", "Revisión terminada con observaciones", `${observedRows.length} concepto(s) observados regresan a borrador para respuesta de constructora.`);
-      return;
-    }
-
-    if (!allRows.length || allRows.some((row) => row.status !== "aprobada_supervision")) {
-      alert("Para enviar a administración, todos los conceptos deben estar aprobados o el lote debe tener observaciones para regresarlo a borrador.");
-      return;
-    }
-
-    await saveLotPatch(lot, housesObject, "lista_administracion", "Revisión terminada y aprobada", "Todos los conceptos del lote fueron aprobados por ingeniería.");
+    const observed = rows.filter((row) => row.status === "observada_supervision");
+    const nextStatus = observed.length ? "borrador_observado" : "lista_administracion";
+    const nextHouses = {};
+    Object.entries(housesObject).forEach(([houseId, house]) => {
+      const houseRows = house.rows || [];
+      const houseObserved = houseRows.some((row) => row.status === "observada_supervision");
+      const totals = computeRowsTotals(houseRows, !houseObserved);
+      nextHouses[houseId] = { ...house, status: houseObserved ? "borrador_observado" : "lista_administracion", totals };
+    });
+    await saveLotPatch(lot, nextHouses, nextStatus, nextStatus === "borrador_observado" ? "Lote observado" : "Lote aprobado", nextStatus === "borrador_observado" ? `El lote regresa a borrador con ${observed.length} observación(es).` : "Todos los conceptos del lote fueron aprobados por ingeniería.");
+    alert(nextStatus === "borrador_observado" ? "El lote regresó a Borrador observado." : "Lote aprobado y enviado a Administración.");
   }
 
   async function setAdminStatus(lot, status) {
@@ -848,27 +844,56 @@ export default function EstimacionesWidget() {
   function renderSummaryMetrics(summary, title = "Resumen") {
     return (
       <Card title={title} subtitle={`Anticipo ${anticipoPorcentaje}% · Retención ${retencionPorcentaje}% · Multa diaria ${money(multaDiaria)}`}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
           <Metric label="Bruto" value={money(summary.subtotal)} />
           <Metric label="Amortización anticipo" value={`-${money(summary.amortizacion)}`} helper="Se descuenta proporcional al % de anticipo." />
           <Metric label="Retención" value={`-${money(summary.retencion)}`} />
           <Metric label="Multas" value={`-${money(summary.multas)}`} />
-          <Metric label="Neto" value={money(summary.neto)} />
+          <Metric label="Neto a cobrar" value={money(summary.neto)} />
         </div>
       </Card>
     );
   }
 
+  function renderMoneyBreakdown(title, data) {
+    const entries = Object.entries(data || {}).filter(([, value]) => Number(value || 0) !== 0);
+    if (!entries.length) return null;
+    return (
+      <div style={{ border: "1px solid rgba(60,60,67,0.10)", borderRadius: 18, padding: 12, background: "rgba(248,250,252,0.9)", marginBottom: 12 }}>
+        <div style={{ fontWeight: 950, marginBottom: 8 }}>{title}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+          {entries.map(([key, value]) => (
+            <div key={key} style={{ display: "flex", justifyContent: "space-between", gap: 8, border: "1px solid rgba(60,60,67,0.08)", background: "#fff", borderRadius: 14, padding: "8px 10px", fontSize: 12 }}>
+              <span style={{ fontWeight: 800, color: "#475467" }}>{key}</span>
+              <strong>{money(value)}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function ConceptGridHeader({ mode = "capture" }) {
+    const template = mode === "capture"
+      ? "86px minmax(300px, 2fr) 52px 64px 82px 90px 78px 82px 136px 92px"
+      : mode === "review"
+        ? "86px minmax(320px, 2fr) 88px 92px 110px minmax(190px, 1fr) 190px"
+        : "86px minmax(320px, 2fr) 92px 92px 112px minmax(190px, 1fr) 190px";
+    const labels = mode === "capture"
+      ? ["Clave", "Concepto", "Unidad", "Unid.", "P.U.", "Total", "Aprob.", "Disp.", "% estimar", "A estimar"]
+      : mode === "review"
+        ? ["Clave", "Concepto", "% solicitado", "Importe", "Estatus", "Observación ingeniería", "Acciones"]
+        : ["Clave", "Concepto", "% solicitado", "Importe", "Estatus", "Observación / respuesta", "Ajuste"];
+    return <div className="est-grid est-grid-header" style={{ gridTemplateColumns: template }}>{labels.map((label) => <div key={label}>{label}</div>)}</div>;
+  }
+
   function renderCapture() {
     const q = filters.captura.trim().toLowerCase();
     const partidaFilter = filters.partida;
-    const captureOnlyPending = filters.status === "pendientes";
-    
-    
 
     return (
       <>
-        <Card title="Captura de borrador" subtitle="Captura solo sirve para generar un borrador inicial. Si necesitas diferentes avances por grupos de casas, crea varios borradores y luego únelos desde Borradores y seguimiento.">
+        <Card title="Captura de borrador" subtitle="Captura solo sirve para generar un borrador inicial. Si necesitas diferentes avances por grupos de casas, crea varios borradores y luego únelos desde Lista de borradores.">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
             <Field label="Obra"><select value={selectedObraId} onChange={(event) => setSelectedObraId(event.target.value)} style={inputBase}>{obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id}</option>)}</select></Field>
             <Field label="Casa base"><select value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)} style={inputBase}>{houses.map((house) => <option key={house.id} value={house.id}>{house.name || house.id}</option>)}</select></Field>
@@ -881,19 +906,12 @@ export default function EstimacionesWidget() {
           <button type="button" onClick={saveDraftLot} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar borrador</button>
         </Card>
         {renderSummaryMetrics(draftSummary, "Total del borrador en captura")}
+        {renderMoneyBreakdown("Monto por partida", draftSummary.byPartida)}
         <Card title="Catálogo por partidas" subtitle="Captura el porcentaje a estimar. El disponible descuenta lo ya aprobado en estimaciones anteriores.">
           <FilterBar search={filters.captura} setSearch={(value) => setFilters((prev) => ({ ...prev, captura: value }))} partida={filters.partida} setPartida={(value) => setFilters((prev) => ({ ...prev, partida: value }))} partidas={partidas} showPartida />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
+            <button type="button" onClick={() => setCaptureOnlyPending(true)} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
+            <button type="button" onClick={() => setCaptureOnlyPending(false)} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
           </div>
           {partidas.map((partida) => {
             if (partidaFilter !== "todas" && partida !== partidaFilter) return null;
@@ -912,262 +930,250 @@ export default function EstimacionesWidget() {
                   <span>{money(partidaSubtotal)}</span>
                 </button>
                 {!collapsed ? (
-                  <div style={{ overflowX: "visible" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                      <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unidades</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprobado</th><th style={th}>Disponible</th><th style={th}>% estimar</th><th style={th}>A estimar</th></tr></thead>
-                      <tbody>
-                        {concepts.map((concept) => {
-                          const approved = approvedFor(selectedHouseId, concept.id);
-                          const available = availableFor(concept);
-                          return (
-                            <tr key={concept.id}>
-                              <td style={td}>{concept.clave}</td>
-                              <td style={{ ...td, wordBreak: "break-word" }}>{concept.concepto}</td>
-                              <td style={td}>{concept.unidad}</td>
-                              <td style={td}>{concept.cantidad}</td>
-                              <td style={td}>{money(concept.precioUnitario)}</td>
-                              <td style={td}>{money(concept.importe)}</td>
-                              <td style={td}>{approved}%</td>
-                              <td style={td}>{available}%</td>
-                              <td style={td}>
-                                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, Math.min(50, available))} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= 50 ? "#dbeafe" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f", cursor: available <= 0 ? "not-allowed" : "pointer" }}>50%</button>
-                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, available)} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= available ? "#dcfce7" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f", cursor: available <= 0 ? "not-allowed" : "pointer" }}>100%</button>
-                                  <input type="text" inputMode="decimal" disabled={available <= 0} value={draftRows[concept.id]?.percent || ""} placeholder={available <= 0 ? "100%" : "Manual"} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} onWheel={(event) => event.currentTarget.blur()} style={{ ...inputBase, width: 86, minHeight: 36, background: available <= 0 ? "#f4f4f5" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f" }} />
-                                </div>
-                              </td>
-                              <td style={td}><strong>{money(plannedAmount(concept))}</strong></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div>
+                    <ConceptGridHeader mode="capture" />
+                    {concepts.map((concept) => {
+                      const approved = approvedFor(selectedHouseId, concept.id);
+                      const available = availableFor(concept);
+                      const current = draftPercent(concept);
+                      const disabled = available <= 0;
+                      return (
+                        <div key={concept.id} className={`est-grid est-grid-row ${disabled ? "est-disabled-row" : ""}`} style={{ gridTemplateColumns: "86px minmax(300px, 2fr) 52px 64px 82px 90px 78px 82px 136px 92px" }}>
+                          <div>{concept.clave}</div>
+                          <div><ConceptText text={concept.concepto} /></div>
+                          <div>{concept.unidad}</div>
+                          <div>{concept.cantidad}</div>
+                          <div>{money(concept.precioUnitario)}</div>
+                          <div>{money(concept.importe)}</div>
+                          <div>{approved}%</div>
+                          <div>{available}%</div>
+                          <div>
+                            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                              <button type="button" disabled={disabled} onClick={() => setDraftPercent(concept.id, Math.min(50, available))} style={{ ...buttonBase, padding: "7px 9px", background: disabled ? "#f4f4f5" : current === 50 ? "#dbeafe" : "#fff", color: disabled ? "#a1a1aa" : "#1d1d1f", cursor: disabled ? "not-allowed" : "pointer" }}>50%</button>
+                              <button type="button" disabled={disabled} onClick={() => setDraftPercent(concept.id, available)} style={{ ...buttonBase, padding: "7px 9px", background: disabled ? "#f4f4f5" : current === available && current > 0 ? "#dcfce7" : "#fff", color: disabled ? "#a1a1aa" : "#1d1d1f", cursor: disabled ? "not-allowed" : "pointer" }}>100%</button>
+                              <input type="text" inputMode="decimal" disabled={disabled} value={draftRows[concept.id]?.percent || ""} placeholder={disabled ? "100%" : "Manual"} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} onWheel={(event) => event.currentTarget.blur()} style={{ ...inputBase, width: 82, minHeight: 34, background: disabled ? "#f4f4f5" : "#fff", color: disabled ? "#a1a1aa" : "#1d1d1f" }} />
+                            </div>
+                          </div>
+                          <div><strong>{money(plannedAmount(concept))}</strong></div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
             );
           })}
         </Card>
-        <div style={{ position: "sticky", bottom: 16, zIndex: 20, margin: "18px auto 0", maxWidth: 980, padding: "12px 14px", borderRadius: 22, background: "rgba(255,255,255,0.84)", border: "1px solid rgba(60,60,67,0.14)", boxShadow: "0 18px 45px rgba(0,0,0,0.14)", WebkitBackdropFilter: "blur(18px) saturate(180%)", backdropFilter: "blur(18px) saturate(180%)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <strong>{selectedHouse?.name || selectedHouseId || "Casa sin seleccionar"}</strong>
-            <div style={{ color: "#6e6e73", fontSize: 12 }}>{draftSummary.count} concepto(s) capturado(s) · Bruto {money(draftSummary.subtotal)}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ color: "#6e6e73", fontSize: 12 }}>Neto estimado</div>
-            <div style={{ fontSize: 24, fontWeight: 950 }}>{money(draftSummary.neto)}</div>
-          </div>
+        <div className="est-floating-summary">
+          <div><strong>{selectedHouse?.name || selectedHouseId || "Casa"}</strong><br /><span>{draftSummary.count} concepto(s) capturado(s) · Bruto {money(draftSummary.subtotal)}</span></div>
+          <div style={{ textAlign: "right" }}><span>Neto estimado</span><br /><strong>{money(draftSummary.neto)}</strong></div>
         </div>
       </>
     );
   }
 
-  function renderLotList(lotPool) {
-    const filtered = lotPool.filter((lot) => lotMatches(lot, filters.borradores, filters.status, filters.house));
-    const mergeable = filtered.filter((lot) => draftStatuses.includes(lot.status));
-
+  function renderLotCard(lot, editable = true) {
+    const isSelected = selectedLotId === lot.id;
+    const housesCount = Object.keys(lot.houses || {}).length;
     return (
-      <Card title="Lista de lotes" subtitle="Aquí se trabaja la estimación: edición, respuestas a observaciones, copia a casas, unión de borradores y seguimiento.">
-        <FilterBar search={filters.borradores} setSearch={(value) => setFilters((prev) => ({ ...prev, borradores: value }))} status={filters.status} setStatus={(value) => setFilters((prev) => ({ ...prev, status: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showStatus showHouse />
-        {mergeable.length > 1 ? (
-          <div style={{ padding: 12, borderRadius: 18, background: "#f5f5f7", marginBottom: 12 }}>
-            <strong>Unir borradores</strong>
-            <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>Usa esto cuando haya casas con avances diferentes. Capturas varios borradores y aquí los unes antes de enviar a aprobación. El sistema no permite unir borradores que repitan la misma unidad.</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              {mergeable.map((lot) => (
-                <label key={lot.id} style={{ display: "inline-flex", gap: 6, alignItems: "center", padding: "8px 10px", background: "#fff", borderRadius: 999, border: "1px solid rgba(60,60,67,0.12)" }}>
-                  <input type="checkbox" checked={mergeLotIds.includes(lot.id)} onChange={(event) => setMergeLotIds((prev) => event.target.checked ? [...prev, lot.id] : prev.filter((id) => id !== lot.id))} />
-                  {lot.draftCode || lot.nombre}
-                </label>
-              ))}
-            </div>
-            <button type="button" onClick={mergeDraftLots} style={{ ...buttonBase, marginTop: 10, background: "#111827", color: "#fff" }}>Unir seleccionados</button>
+      <div key={lot.id} style={{ border: isSelected ? "2px solid #007aff" : "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontWeight: 950 }}>{lot.nombre || lot.draftCode || lot.id}</div>
+            <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{lot.officialCode || lot.draftCode} · {housesCount} casa(s) · {lot.periodo}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span style={statusStyle(lot.status)}>{statusLabel[lot.status] || lot.status}</span>
+            <div style={{ fontWeight: 950, marginTop: 8 }}>{money(lot.totals?.neto)} <span style={{ color: "#6e6e73", fontSize: 12 }}>neto a cobrar</span></div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          <button type="button" onClick={() => setSelectedLotId(isSelected ? "" : lot.id)} style={{ ...buttonBase, background: isSelected ? "#eef2ff" : "#fff" }}>{isSelected ? "Cerrar detalle" : "Abrir / revisar"}</button>
+          {editable && draftStatuses.includes(lot.status) ? <button type="button" onClick={() => sendLotToApproval(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Enviar a aprobación</button> : null}
+          {editable && draftStatuses.includes(lot.status) ? <button type="button" onClick={() => deleteDraftLot(lot)} style={{ ...buttonBase, color: "#b42318" }}>Eliminar borrador</button> : null}
+        </div>
+      </div>
+    );
+  }
+
+  function sortedRowsForDraft(rows = []) {
+    return [...rows].sort((a, b) => {
+      const ao = a.status === "observada_supervision" ? 0 : 1;
+      const bo = b.status === "observada_supervision" ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      return String(a.partida || "").localeCompare(String(b.partida || ""));
+    });
+  }
+
+  function renderSelectedLotEditor(lot, editable = true) {
+    if (!lot) return null;
+    const allRows = Object.values(lot.houses || {}).flatMap((house) => (house.rows || []).map((row) => ({ ...row, houseId: house.houseId || house.id, houseName: house.houseName || house.id })));
+    const observedCount = allRows.filter((row) => row.status === "observada_supervision").length;
+    const byPartida = summaryByPartida(allRows);
+    const byHouse = summaryByHouse(lot.houses || {});
+    return (
+      <Card title={`Detalle · ${lot.nombre || lot.draftCode}`} subtitle={`${lot.officialCode || lot.draftCode || "Sin folio"} · ${statusLabel[lot.status] || lot.status}`}>
+        {observedCount ? (
+          <div style={{ border: "1px solid rgba(180,83,9,0.22)", background: "#fff7ed", color: "#9a3412", borderRadius: 18, padding: 12, marginBottom: 12, fontWeight: 850 }}>
+            Hay {observedCount} observación(es) por corregir. Las partidas observadas aparecen arriba de cada casa.
           </div>
         ) : null}
-        <div style={{ display: "grid", gap: 10 }}>
-          {filtered.map((lot) => (
-            <button key={lot.id} type="button" onClick={() => setSelectedLotId(lot.id)} style={{ border: selectedLotId === lot.id ? "2px solid #111827" : "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff", textAlign: "left", cursor: "pointer" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div>
-                  <strong>{lot.nombre}</strong>
-                  <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{lot.officialCode || lot.draftCode || `Estimación ${lot.numero}`} · {lot.obraName || selectedObraId} · {lot.periodo} · {Object.keys(lot.houses || {}).length} casa(s)</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <span style={statusStyle(lot.status)}>{statusLabel[lot.status] || lot.status}</span>
-                  <div style={{ fontWeight: 950, marginTop: 6 }}>{money(lot.totals?.neto)}</div>
-                </div>
+        {renderMoneyBreakdown("Monto por partida", byPartida)}
+        {renderMoneyBreakdown("Monto por casa", byHouse)}
+        {editable && draftStatuses.includes(lot.status) ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Copiar estimación a casas</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {houses.filter((house) => !lot.houses?.[house.id]).map((house) => (
+                  <label key={house.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 999, padding: "7px 10px", background: copyHouseIds.includes(house.id) ? "#eef2ff" : "#fff" }}>
+                    <input type="checkbox" checked={copyHouseIds.includes(house.id)} onChange={(event) => setCopyHouseIds((prev) => event.target.checked ? [...prev, house.id] : prev.filter((id) => id !== house.id))} />
+                    {house.name || house.id}
+                  </label>
+                ))}
+                <button type="button" onClick={() => copyLotToHouses(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Copiar a casas seleccionadas</button>
               </div>
-            </button>
-          ))}
+            </div>
+            {observedCount ? <button type="button" onClick={() => removeObservedRows(lot)} style={{ ...buttonBase, background: "#fff7ed", color: "#9a3412" }}>Aceptar lote sin partidas observadas</button> : null}
+          </div>
+        ) : null}
+        {Object.entries(lot.houses || {}).map(([houseId, house]) => (
+          <div key={houseId} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", marginBottom: 12, background: "#fff" }}>
+            <div style={{ padding: 14, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", borderBottom: "1px solid rgba(60,60,67,0.10)" }}>
+              <div><strong>{house.houseName || houseId}</strong><div style={{ color: "#6e6e73", fontSize: 12 }}>Neto a cobrar {money(house.totals?.neto)}</div></div>
+              {editable && draftStatuses.includes(lot.status) ? <button type="button" onClick={() => removeHouseFromLot(lot, houseId)} style={{ ...buttonBase }}>Quitar casa del borrador</button> : null}
+            </div>
+            <ConceptGridHeader mode="draft" />
+            {sortedRowsForDraft(house.rows || []).map((row) => {
+              const rowId = row.rowId || row.conceptId;
+              const isObserved = row.status === "observada_supervision";
+              return (
+                <div key={rowId} className={`est-grid est-grid-row ${isObserved ? "est-observed-row" : ""}`} style={{ gridTemplateColumns: "86px minmax(320px, 2fr) 92px 92px 112px minmax(190px, 1fr) 190px" }}>
+                  <div>{row.clave}</div>
+                  <div><ConceptText text={row.concepto} /><div style={{ color: "#6e6e73", fontSize: 11, marginTop: 4 }}>{row.partida}</div></div>
+                  <div>{row.avanceSolicitado}%</div>
+                  <div>{money(row.importeSolicitado)}</div>
+                  <div><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></div>
+                  <div>
+                    {row.comentarioSupervision ? <div style={{ color: "#9a3412", fontWeight: 850, marginBottom: 6 }}>Ing: {row.comentarioSupervision}</div> : <span style={{ color: "#6e6e73" }}>Sin observación</span>}
+                    {row.respuestaConstructora ? <div style={{ color: "#157347", marginTop: 4 }}>Resp: {row.respuestaConstructora}</div> : null}
+                  </div>
+                  <div>
+                    {editable && draftStatuses.includes(lot.status) ? (
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <input type="text" inputMode="decimal" value={row.avanceSolicitado ?? ""} onChange={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, minHeight: 34 }} />
+                        {isObserved ? <input value={row.respuestaConstructora || ""} onChange={(event) => updateLotRow(lot, houseId, rowId, { respuestaConstructora: event.target.value })} placeholder="Respuesta constructora" style={{ ...inputBase, minHeight: 34 }} /> : null}
+                      </div>
+                    ) : <span style={{ color: "#6e6e73" }}>Consulta</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+        <div style={{ borderTop: "1px solid rgba(60,60,67,0.10)", marginTop: 14, paddingTop: 14 }}>
+          <div style={{ fontWeight: 950, marginBottom: 8 }}>Historial</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(lot.history || []).slice().reverse().map((item, index) => (
+              <div key={`${item.at}-${index}`} style={{ border: "1px solid rgba(60,60,67,0.10)", borderRadius: 14, padding: 10, background: "#fff" }}>
+                <strong>{item.action}</strong> <span style={{ color: "#6e6e73" }}>· {item.by} · {item.at ? new Date(item.at).toLocaleString("es-MX") : ""}</span>
+                <div style={{ color: "#475467", marginTop: 4 }}>{item.detail}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </Card>
     );
   }
 
-  function renderLotEditor(lot) {
-    if (!lot) return <Card title="Selecciona un lote" subtitle="Abre un borrador o lote enviado para revisar su detalle." />;
-    const editable = draftStatuses.includes(lot.status) && profile === "constructora";
-    const observedCount = Object.values(lot.houses || {}).flatMap((house) => house.rows || []).filter((row) => row.status === "observada_supervision").length;
-
+  function renderDrafts() {
+    const filtered = lots.filter((lot) => draftStatuses.includes(lot.status)).filter((lot) => lotMatches(lot, filters.borradores, filters.status, filters.house));
     return (
       <>
-        <Card title={lot.nombre} subtitle={`${lot.officialCode || lot.draftCode || `Estimación ${lot.numero}`} · ${statusLabel[lot.status] || lot.status}`}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
-            <Metric label="Bruto" value={money(lot.totals?.subtotal)} />
-            <Metric label="Amortización" value={`-${money(lot.totals?.amortizacion)}`} />
-            <Metric label="Retención" value={`-${money(lot.totals?.retencion)}`} />
-            <Metric label="Multas" value={`-${money(lot.totals?.multas)}`} />
-            <Metric label="Neto lote" value={money(lot.totals?.neto)} />
+        <Card title="Lista de borradores" subtitle="Aquí se trabajan los borradores: revisar, corregir observaciones, copiar casas, unir borradores y enviar a aprobación.">
+          <FilterBar search={filters.borradores} setSearch={(value) => setFilters((prev) => ({ ...prev, borradores: value }))} status={filters.status} setStatus={(value) => setFilters((prev) => ({ ...prev, status: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showStatus showHouse />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+            {filtered.map((lot) => renderLotCard(lot, true))}
           </div>
-          {editable ? (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-              <button type="button" onClick={() => sendLotToApproval(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Enviar a aprobación</button>
-              {observedCount ? <button type="button" onClick={() => removeObservedRows(lot)} style={{ ...buttonBase, background: "#fff3cd", color: "#9a6700" }}>Aceptar sin partidas observadas</button> : null}
-              <button type="button" onClick={() => deleteDraftLot(lot)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Eliminar borrador</button>
-            </div>
-          ) : null}
-          {editable ? (
-            <div style={{ marginTop: 14, padding: 12, borderRadius: 16, background: "#f5f5f7" }}>
-              <strong>Copiar lote a otras casas</strong>
-              <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>La copia se queda en borrador. No se envía a aprobación hasta que tú lo decidas.</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                {houses.filter((house) => !lot.houses?.[house.id]).map((house) => (
-                  <label key={house.id} style={{ display: "inline-flex", gap: 6, alignItems: "center", padding: "8px 10px", background: "#fff", borderRadius: 999, border: "1px solid rgba(60,60,67,0.12)" }}>
-                    <input type="checkbox" checked={copyHouseIds.includes(house.id)} onChange={(event) => setCopyHouseIds((prev) => event.target.checked ? [...prev, house.id] : prev.filter((id) => id !== house.id))} />
-                    {house.name || house.id}
-                  </label>
-                ))}
-              </div>
-              <button type="button" onClick={() => copyLotToHouses(lot)} style={{ ...buttonBase, marginTop: 10, background: "#fff", color: "#1d1d1f" }}>Guardar copia en casas seleccionadas</button>
-            </div>
-          ) : null}
+          {!filtered.length ? <div style={{ color: "#6e6e73" }}>No hay borradores con estos filtros.</div> : null}
         </Card>
-        {Object.entries(lot.houses || {}).sort(([, a], [, b]) => Number((b.rows || []).some((row) => row.status === "observada_supervision")) - Number((a.rows || []).some((row) => row.status === "observada_supervision"))).map(([houseId, house]) => (
-          <Card key={houseId} title={house.houseName || houseId} subtitle={`Estatus casa: ${statusLabel[house.status] || house.status || lot.status}`}>
-            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
-              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
-                <strong>Observaciones por corregir en esta casa</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
-              </div>
-            ) : null}
-            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
-              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
-                <strong>Observaciones por corregir en esta casa</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
-              </div>
-            ) : null}
-            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
-              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
-                <strong>Observaciones por corregir en esta casa</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
-              </div>
-            ) : null}
-            {editable ? (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-                <button type="button" onClick={() => removeHouseFromLot(lot, houseId)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Quitar casa del borrador</button>
-              </div>
-            ) : null}
-            {Object.entries(groupByPartida((house.rows || []).slice().sort((a, b) => Number(b.status === "observada_supervision") - Number(a.status === "observada_supervision")))).map(([partida, rows]) => (
-              <div key={partida} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", marginBottom: 12, background: "#fff" }}>
-                <div style={{ padding: 12, fontWeight: 950, background: "#f5f5f7" }}>{partida}</div>
-                <div style={{ overflowX: "visible" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                    <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>% solicitado</th><th style={th}>Importe</th><th style={th}>Estatus</th><th style={th}>Comentario constructora</th><th style={th}>Observación ingeniería</th><th style={th}>Respuesta / ajuste</th></tr></thead>
-                    <tbody>
-                      {rows.map((row) => {
-                        const rowId = row.rowId || row.conceptId;
-                        return (
-                          <tr key={rowId}>
-                            <td style={td}>{row.clave}</td>
-                            <td style={{ ...td, wordBreak: "break-word" }}>{row.concepto}</td>
-                            <td style={td}>{editable ? <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado}%`}</td>
-                            <td style={td}>{money(row.importeSolicitado)}</td>
-                            <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || statusLabel[row.status] || row.status}</span></td>
-                            <td style={td}>{editable ? <input defaultValue={row.comentarioConstructora || ""} onBlur={(event) => updateLotRow(lot, houseId, rowId, { comentarioConstructora: event.target.value })} style={{ ...inputBase, width: "100%" }} /> : row.comentarioConstructora}</td>
-                            <td style={td}>{row.comentarioSupervision || "—"}</td>
-                            <td style={td}>{editable ? <input defaultValue={row.respuestaConstructora || ""} placeholder="Respuesta o comentario de corrección" onBlur={(event) => updateLotRow(lot, houseId, rowId, { respuestaConstructora: event.target.value })} style={{ ...inputBase, width: "100%" }} /> : row.respuestaConstructora || "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+        <Card title="Unir borradores" subtitle="Selecciona borradores con casas distintas. Si una casa se repite, el sistema bloquea la unión para evitar duplicar importes.">
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {lots.filter((lot) => draftStatuses.includes(lot.status)).map((lot) => (
+              <label key={lot.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 999, padding: "7px 10px", background: mergeLotIds.includes(lot.id) ? "#eef2ff" : "#fff" }}>
+                <input type="checkbox" checked={mergeLotIds.includes(lot.id)} onChange={(event) => setMergeLotIds((prev) => event.target.checked ? [...prev, lot.id] : prev.filter((id) => id !== lot.id))} />
+                {lot.draftCode || lot.nombre}
+              </label>
             ))}
-          </Card>
-        ))}
-        <Card title="Historial del lote" subtitle="Bitácora automática de movimientos.">
-          <div style={{ display: "grid", gap: 8 }}>
-            {(lot.history || []).slice().reverse().map((item, index) => (
-              <div key={`${item.at}-${index}`} style={{ padding: 12, borderRadius: 14, background: "#fff", border: "1px solid rgba(60,60,67,0.10)" }}>
-                <strong>{item.action}</strong>
-                <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{item.by} · {item.at ? new Date(item.at).toLocaleString("es-MX") : ""}</div>
-                <div style={{ marginTop: 5 }}>{item.detail}</div>
-              </div>
-            ))}
+            <button type="button" onClick={mergeDraftLots} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Unir seleccionados</button>
           </div>
         </Card>
+        {selectedLot && draftStatuses.includes(selectedLot.status) ? renderSelectedLotEditor(selectedLot, true) : null}
       </>
     );
   }
 
-  function renderBorradores() {
-    const lotPool = lots;
-    return <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.85fr) minmax(0, 1.35fr)", gap: 16 }} className="triton-estimaciones-two-col">{renderLotList(lotPool)}<div>{renderLotEditor(selectedLot)}</div></div>;
-  }
-
-  function renderAprobacion() {
-    const approvalLots = lots.filter((lot) => lot.status === "en_aprobacion").filter((lot) => lotMatches(lot, filters.aprobacion, "todos", filters.house));
-    const lot = selectedLot && selectedLot.status === "en_aprobacion" ? selectedLot : approvalLots[0];
-
+  function renderFollowUp() {
+    const filtered = lots.filter((lot) => followUpStatuses.includes(lot.status)).filter((lot) => lotMatches(lot, filters.seguimiento, filters.status, filters.house));
     return (
       <>
-        <Card title="Aprobación ingeniería" subtitle="Revisa por casa y por concepto. Puedes observar partidas sin sacar el lote de revisión; al terminar, cierra la revisión para regresarlo a borrador o mandarlo a administración.">
-          <FilterBar search={filters.aprobacion} setSearch={(value) => setFilters((prev) => ({ ...prev, aprobacion: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showHouse />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{approvalLots.map((item) => <button key={item.id} onClick={() => setSelectedLotId(item.id)} style={{ ...buttonBase, background: item.id === lot?.id ? "#111827" : "#fff", color: item.id === lot?.id ? "#fff" : "#1d1d1f" }}>{item.officialCode || item.nombre}</button>)}</div>
-          {lot ? (
-            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <button type="button" onClick={() => finishEngineeringReview(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Terminar revisión del lote</button>
-              <span style={{ color: "#6e6e73", fontSize: 12 }}>Las observaciones se guardan por partida/concepto y regresan a Borradores al terminar la revisión.</span>
-            </div>
-          ) : null}
+        <Card title="Seguimiento de estimaciones" subtitle="Consulta los lotes que ya salieron de borrador: revisión, administración y pago.">
+          <FilterBar search={filters.seguimiento} setSearch={(value) => setFilters((prev) => ({ ...prev, seguimiento: value }))} status={filters.status} setStatus={(value) => setFilters((prev) => ({ ...prev, status: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showStatus showHouse />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+            {filtered.map((lot) => renderLotCard(lot, false))}
+          </div>
+          {!filtered.length ? <div style={{ color: "#6e6e73" }}>No hay estimaciones en seguimiento con estos filtros.</div> : null}
         </Card>
-        {lot ? Object.entries(lot.houses || {}).map(([houseId, house]) => (
-          <Card key={houseId} title={house.houseName || houseId} subtitle="Selecciona conceptos para aprobar u observar.">
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-              <button type="button" onClick={() => reviewRows(lot, houseId, selectedReviewRowIds[houseId] || [], true)} style={{ ...buttonBase, background: "#e8f7ed", color: "#157347" }}>Aprobar selección</button>
-              <button type="button" onClick={() => reviewRows(lot, houseId, selectedReviewRowIds[houseId] || [], false)} style={{ ...buttonBase, background: "#fff3cd", color: "#9a6700" }}>Observar selección</button>
-              <button type="button" onClick={() => reviewRows(lot, houseId, (house.rows || []).filter((row) => row.status === "en_aprobacion").map((row) => row.rowId || row.conceptId), true)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Aprobar casa completa</button>
-            </div>
-            <div style={{ overflowX: "visible" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                <thead><tr><th style={th}>Sel.</th><th style={th}>Estatus</th><th style={th}>Partida</th><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Casa</th><th style={th}>%</th><th style={th}>Importe</th><th style={th}>Comentario</th><th style={th}>Observación</th></tr></thead>
-                <tbody>
-                  {(house.rows || []).map((row) => {
-                    const id = row.rowId || row.conceptId;
-                    const selected = (selectedReviewRowIds[houseId] || []).includes(id);
-                    return (
-                      <tr key={id}>
-                        <td style={td}><input type="checkbox" checked={selected} onChange={(event) => setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: event.target.checked ? [...(prev[houseId] || []), id] : (prev[houseId] || []).filter((item) => item !== id) }))} /></td>
-                        <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></td>
-                        <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></td>
-                        <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></td>
-                        <td style={td}>{row.partida}</td>
-                        <td style={td}>{row.clave}</td>
-                        <td style={{ ...td, wordBreak: "break-word" }}>{row.concepto}</td>
-                        <td style={td}>{house.houseName}</td>
-                        <td style={td}>{row.avanceSolicitado}%</td>
-                        <td style={td}>{money(row.importeSolicitado)}</td>
-                        <td style={td}>{row.comentarioConstructora || "—"}</td>
-                        <td style={td}>{row.comentarioSupervision || "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+        {selectedLot && followUpStatuses.includes(selectedLot.status) ? renderSelectedLotEditor(selectedLot, false) : null}
+      </>
+    );
+  }
+
+  function renderReview() {
+    const filtered = lots.filter((lot) => lot.status === "en_aprobacion").filter((lot) => lotMatches(lot, filters.aprobacion, "todos", filters.house));
+    return (
+      <>
+        <Card title="Aprobación ingeniería" subtitle="Revisa todos los conceptos. Puedes cambiar tu decisión antes de terminar la revisión del lote.">
+          <FilterBar search={filters.aprobacion} setSearch={(value) => setFilters((prev) => ({ ...prev, aprobacion: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showHouse />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>{filtered.map((lot) => renderLotCard(lot, false))}</div>
+          {!filtered.length ? <div style={{ color: "#6e6e73" }}>No hay lotes en revisión.</div> : null}
+        </Card>
+        {selectedLot && selectedLot.status === "en_aprobacion" ? (
+          <Card title={`Revisión · ${selectedLot.nombre}`} subtitle="Cada concepto debe quedar Aprobado u Observado antes de terminar la revisión.">
+            {Object.entries(selectedLot.houses || {}).map(([houseId, house]) => (
+              <div key={houseId} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", marginBottom: 12, background: "#fff" }}>
+                <div style={{ padding: 14, borderBottom: "1px solid rgba(60,60,67,0.10)", fontWeight: 950 }}>{house.houseName || houseId}</div>
+                <ConceptGridHeader mode="review" />
+                {(house.rows || []).map((row) => {
+                  const rowId = row.rowId || row.conceptId;
+                  const reviewed = ["aprobada_supervision", "observada_supervision"].includes(row.status);
+                  return (
+                    <div key={rowId} className="est-grid est-grid-row" style={{ gridTemplateColumns: "86px minmax(320px, 2fr) 88px 92px 110px minmax(190px, 1fr) 190px" }}>
+                      <div>{row.clave}</div>
+                      <div><ConceptText text={row.concepto} /><div style={{ color: "#6e6e73", fontSize: 11, marginTop: 4 }}>{row.partida}</div></div>
+                      <div>{row.avanceSolicitado}%</div>
+                      <div>{money(row.importeSolicitado)}</div>
+                      <div><span style={statusStyle(row.status)}>{reviewed ? rowStatusLabel[row.status] : "Pendiente"}</span></div>
+                      <div><textarea defaultValue={row.comentarioSupervision || ""} placeholder="Observación o comentario" data-review-comment={`${houseId}::${rowId}`} style={{ ...inputBase, minHeight: 54, resize: "vertical" }} /></div>
+                      <div style={{ display: "grid", gap: 7 }}>
+                        <button type="button" onClick={() => {
+                          const comment = document.querySelector(`[data-review-comment='${houseId}::${rowId}']`)?.value || "Aprobado por ingeniería.";
+                          setReviewDecision(selectedLot, houseId, rowId, "aprobada_supervision", comment);
+                        }} style={{ ...buttonBase, background: row.status === "aprobada_supervision" ? "#dcfce7" : "#fff" }}>Aprobar</button>
+                        <button type="button" onClick={() => {
+                          const comment = document.querySelector(`[data-review-comment='${houseId}::${rowId}']`)?.value || "";
+                          if (!comment.trim()) { alert("Escribe la observación de ingeniería antes de observar."); return; }
+                          setReviewDecision(selectedLot, houseId, rowId, "observada_supervision", comment);
+                        }} style={{ ...buttonBase, background: row.status === "observada_supervision" ? "#fff7ed" : "#fff", color: "#9a3412" }}>Observar</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <button type="button" onClick={() => finalizeReview(selectedLot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Terminar revisión del lote</button>
           </Card>
-        )) : <Card title="Sin lotes en revisión" subtitle="No hay estimaciones enviadas a aprobación." />}
+        ) : null}
       </>
     );
   }
@@ -1175,59 +1181,90 @@ export default function EstimacionesWidget() {
   function renderAdmin() {
     const filtered = lots.filter((lot) => adminStatuses.includes(lot.status)).filter((lot) => lotMatches(lot, filters.estatus, filters.status, filters.house));
     return (
-      <Card title="Estatus administración" subtitle="Vista de lotes aprobados que viajan a revisión y pago.">
-        <FilterBar search={filters.estatus} setSearch={(value) => setFilters((prev) => ({ ...prev, estatus: value }))} status={filters.status} setStatus={(value) => setFilters((prev) => ({ ...prev, status: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showStatus showHouse />
-        <div style={{ display: "grid", gap: 12 }}>
-          {filtered.map((lot) => (
-            <div key={lot.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div><strong>{lot.nombre}</strong><div style={{ color: "#6e6e73", fontSize: 12 }}>{lot.officialCode || `Estimación ${lot.numero}`} · {lot.periodo} · {Object.keys(lot.houses || {}).length} casa(s)</div></div>
-                <div style={{ textAlign: "right" }}><span style={statusStyle(lot.status)}>{statusLabel[lot.status]}</span><div style={{ fontWeight: 950, marginTop: 6 }}>{money(lot.totals?.neto)}</div></div>
+      <>
+        <Card title="Estatus administración" subtitle="Lotes aprobados que viajan a revisión, programación y pago.">
+          <FilterBar search={filters.estatus} setSearch={(value) => setFilters((prev) => ({ ...prev, estatus: value }))} status={filters.status} setStatus={(value) => setFilters((prev) => ({ ...prev, status: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showStatus showHouse />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+            {filtered.map((lot) => (
+              <div key={lot.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff" }}>
+                <div style={{ fontWeight: 950 }}>{lot.nombre}</div>
+                <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{lot.officialCode || lot.draftCode} · Neto a cobrar {money(lot.totals?.neto)}</div>
+                <div style={{ marginTop: 8 }}><span style={statusStyle(lot.status)}>{statusLabel[lot.status]}</span></div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                  <button type="button" onClick={() => setAdminStatus(lot, "administracion_revision")} style={buttonBase}>En revisión administración</button>
+                  <button type="button" onClick={() => setAdminStatus(lot, "pago_programado")} style={buttonBase}>Pago programado</button>
+                  <button type="button" onClick={() => setAdminStatus(lot, "pagada")} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Pagada</button>
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                <button onClick={() => setAdminStatus(lot, "administracion_revision")} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>En revisión administración</button>
-                <button onClick={() => setAdminStatus(lot, "pago_programado")} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Pago programado</button>
-                <button onClick={() => setAdminStatus(lot, "pagada")} style={{ ...buttonBase, background: "#e8f7ed", color: "#157347" }}>Pagada</button>
-                <button onClick={() => { setSelectedLotId(lot.id); setActiveTab("borradores"); }} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Ver detalle en seguimiento</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+          {!filtered.length ? <div style={{ color: "#6e6e73" }}>No hay lotes administrativos.</div> : null}
+        </Card>
+      </>
     );
   }
 
   if (!open) return null;
-  const tabs = allowedTabs();
 
+  const tabs = allowedTabs();
   return (
-    <div className="triton-estimaciones-module" style={{ position: "fixed", left: "var(--triton-shell-offset, 84px)", top: 0, right: 0, bottom: 0, zIndex: 2147483645, background: "#f5f5f7", overflow: "auto" }}>
-      <style>{`@media (max-width: 900px) { .triton-estimaciones-module { left: 0 !important; z-index: 2147483647 !important; } .triton-estimaciones-two-col { grid-template-columns: 1fr !important; } }`}</style>
-      <div style={{ maxWidth: 1480, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 42px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18, flexWrap: "wrap" }}>
+    <div style={{ position: "fixed", inset: 0, left: "var(--triton-shell-offset, 84px)", zIndex: 2147483642, background: "linear-gradient(180deg, #f7f8fb 0%, #eef2f7 100%)", overflow: "auto", padding: "24px 24px 120px" }}>
+      <style>{`
+        .est-grid { display: grid; align-items: stretch; width: 100%; }
+        .est-grid-header { background: rgba(242,242,247,0.98); color: #6e6e73; font-size: 10.5px; font-weight: 950; text-transform: uppercase; letter-spacing: .28px; border-bottom: 1px solid rgba(60,60,67,.10); }
+        .est-grid-header > div { padding: 9px 10px; }
+        .est-grid-row { min-height: 72px; border-bottom: 1px solid rgba(60,60,67,.09); font-size: 12.5px; color: #1d1d1f; }
+        .est-grid-row > div { padding: 10px; min-width: 0; display: flex; align-items: center; }
+        .est-concept { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.28; max-height: 4.1em; font-weight: 700; cursor: help; position: relative; }
+        .est-concept:hover::after { content: attr(title); position: fixed; z-index: 2147483647; max-width: min(520px, 70vw); white-space: normal; left: min(28vw, 460px); top: 120px; padding: 14px 16px; background: #fff; color: #1d1d1f; border: 1px solid rgba(60,60,67,.14); border-radius: 16px; box-shadow: 0 18px 55px rgba(0,0,0,.18); line-height: 1.45; font-weight: 650; }
+        .est-disabled-row { opacity: .64; background: #fafafa; }
+        .est-observed-row { background: #fff7ed; }
+        .est-floating-summary { position: fixed; left: calc(var(--triton-shell-offset, 84px) + 24px); right: 24px; bottom: 18px; z-index: 2147483644; display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 14px 18px; border-radius: 24px; background: rgba(255,255,255,.82); border: 1px solid rgba(60,60,67,.12); box-shadow: 0 18px 60px rgba(0,0,0,.16); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); }
+        .est-floating-summary span { color: #6e6e73; font-size: 12px; }
+        .est-floating-summary strong { color: #1d1d1f; font-size: 20px; }
+        @media (max-width: ${desktopBreakpoint}px) {
+          .est-grid { display: block; }
+          .est-grid-header { display: none; }
+          .est-grid-row { display: grid; grid-template-columns: 1fr; gap: 4px; padding: 12px; }
+          .est-grid-row > div { padding: 4px 0; display: block; }
+          .est-floating-summary { left: 12px; right: 12px; bottom: 12px; }
+        }
+      `}</style>
+      <div style={{ maxWidth: 1480, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18 }}>
           <div>
-            <div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Estimaciones</div>
-            <div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Captura crea borradores. Borradores da seguimiento, une lotes, copia casas y envía a aprobación.</div>
+            <div style={{ color: "#6e6e73", fontSize: 13, fontWeight: 850 }}>Triton OS · Estimaciones</div>
+            <h1 style={{ margin: "4px 0 0", fontSize: 34, lineHeight: 1.05, letterSpacing: -0.8 }}>Estimaciones de obra</h1>
+            <p style={{ margin: "8px 0 0", color: "#6e6e73" }}>Borrador → revisión ingeniería → administración → pago.</p>
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <select value={profile} onChange={(event) => setProfile(event.target.value)} style={{ ...inputBase, width: 220 }}>
-              <option value="constructora">Perfil constructora</option>
-              <option value="supervision">Perfil supervisión</option>
-              <option value="admin">Perfil administración</option>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <select value={profile} onChange={(event) => setProfile(event.target.value)} style={{ ...inputBase, width: 180 }}>
+              <option value="constructora">Constructora</option>
+              <option value="supervision">Supervisión</option>
+              <option value="admin">Administración</option>
             </select>
-            <button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Volver</button>
+            <button type="button" onClick={() => { setOpen(false); window.dispatchEvent(new Event("triton-module-calidad")); }} style={buttonBase}>Volver</button>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>{tabs.map((tab) => <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{ ...buttonBase, background: activeTab === tab ? "#111827" : "#fff", color: activeTab === tab ? "#fff" : "#1d1d1f" }}>{tabLabel(tab)}</button>)}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 16 }}>
-          <Metric label="Obra" value={selectedObra.name || selectedObraId} helper={loading ? "Cargando..." : `${catalog.length} conceptos`} />
-          <Metric label="Contrato base" value={money(contractTotal)} helper="Catálogo × unidades" />
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
+          <Metric label="Contrato estimado" value={money(contractTotal)} />
           <Metric label="Aprobado acumulado" value={money(approvedTotal)} />
-          <Metric label="Anticipo" value={`${anticipoPorcentaje}%`} helper="Configurado en Obras" />
+          <Metric label="Pendiente" value={money(Math.max(0, contractTotal - approvedTotal))} />
+          <Metric label="Lotes" value={lots.length} />
         </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          {tabs.map((tab) => (
+            <button key={tab} type="button" onClick={() => { setActiveTab(tab); setSelectedLotId(""); }} style={{ ...buttonBase, background: activeTab === tab ? "#111827" : "#fff", color: activeTab === tab ? "#fff" : "#1d1d1f" }}>{tabLabel(tab)}</button>
+          ))}
+          <button type="button" onClick={loadData} style={{ ...buttonBase, marginLeft: "auto" }}>{loading ? "Cargando..." : "Actualizar"}</button>
+        </div>
+
         {activeTab === "captura" ? renderCapture() : null}
-        {activeTab === "borradores" ? renderBorradores() : null}
-        {activeTab === "aprobacion" ? renderAprobacion() : null}
+        {activeTab === "borradores" ? renderDrafts() : null}
+        {activeTab === "seguimiento" ? renderFollowUp() : null}
+        {activeTab === "aprobacion" ? renderReview() : null}
         {activeTab === "estatus" ? renderAdmin() : null}
       </div>
     </div>
