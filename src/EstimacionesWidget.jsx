@@ -336,6 +336,10 @@ export default function EstimacionesWidget() {
     return Number(concept.importe || 0) * (draftPercent(concept) / 100);
   }
 
+  function setDraftPercent(conceptId, value) {
+    updateDraft(conceptId, { percent: String(value) });
+  }
+
   function approvedAmountFor(concept, houseId = selectedHouseId) {
     return Number(concept.importe || 0) * (approvedFor(houseId, concept.id) / 100);
   }
@@ -763,8 +767,8 @@ export default function EstimacionesWidget() {
     if (!lot || !houseId || !rowIds.length) return;
     let comment = "";
     if (!approved) {
-      comment = window.prompt("Comentario obligatorio para regresar el lote a borrador observado:") || "";
-      if (!comment.trim()) { alert("Agrega un comentario para poder observar/rechazar."); return; }
+      comment = window.prompt("Comentario específico de supervisión para la partida/concepto observado:") || "";
+      if (!comment.trim()) { alert("Agrega un comentario específico para poder observar."); return; }
     }
 
     const housesObject = { ...(lot.houses || {}) };
@@ -777,30 +781,56 @@ export default function EstimacionesWidget() {
         status: approved ? "aprobada_supervision" : "observada_supervision",
         avanceAprobado: approved ? Number(row.avanceSolicitado || 0) : 0,
         importeAprobado: approved ? Number(row.importeSolicitado || 0) : 0,
-        comentarioSupervision: comment,
+        comentarioSupervision: approved ? row.comentarioSupervision || "" : comment,
         reviewedAt: new Date().toISOString(),
       };
     });
 
-    const hasObservedInHouse = rows.some((row) => row.status === "observada_supervision");
     housesObject[houseId] = {
       ...house,
       rows,
-      status: hasObservedInHouse ? "borrador_observado" : "en_aprobacion",
-      comentarioSupervision: comment,
+      status: "en_aprobacion",
       reviewedAt: new Date().toISOString(),
       totals: computeRowsTotals(rows, false),
     };
 
-    const allRows = Object.values(housesObject).flatMap((item) => item.rows || []);
-    const nextStatus = allRows.some((row) => row.status === "observada_supervision")
-      ? "borrador_observado"
-      : allRows.every((row) => row.status === "aprobada_supervision")
-        ? "lista_administracion"
-        : "en_aprobacion";
-
-    await saveLotPatch(lot, housesObject, nextStatus, approved ? "Conceptos aprobados" : "Lote observado", approved ? `${rowIds.length} concepto(s) aprobado(s).` : comment);
+    await saveLotPatch(
+      lot,
+      housesObject,
+      "en_aprobacion",
+      approved ? "Conceptos aprobados en revisión" : "Conceptos observados en revisión",
+      approved ? `${rowIds.length} concepto(s) aprobado(s).` : `${rowIds.length} concepto(s) observado(s): ${comment}`
+    );
     setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: [] }));
+  }
+
+  async function finishEngineeringReview(lot) {
+    if (!lot) return;
+    const housesObject = { ...(lot.houses || {}) };
+    const allRows = Object.values(housesObject).flatMap((house) => house.rows || []);
+    const observedRows = allRows.filter((row) => row.status === "observada_supervision");
+    const pendingRows = allRows.filter((row) => row.status === "en_aprobacion");
+
+    if (pendingRows.length > 0) {
+      const proceed = window.confirm(`Quedan ${pendingRows.length} concepto(s) sin revisar. ¿Quieres terminar la revisión de todos modos?`);
+      if (!proceed) return;
+    }
+
+    if (observedRows.length > 0) {
+      Object.entries(housesObject).forEach(([houseId, house]) => {
+        const hasObserved = (house.rows || []).some((row) => row.status === "observada_supervision");
+        housesObject[houseId] = { ...house, status: hasObserved ? "borrador_observado" : "borrador" };
+      });
+      await saveLotPatch(lot, housesObject, "borrador_observado", "Revisión terminada con observaciones", `${observedRows.length} concepto(s) observados regresan a borrador para respuesta de constructora.`);
+      return;
+    }
+
+    if (!allRows.length || allRows.some((row) => row.status !== "aprobada_supervision")) {
+      alert("Para enviar a administración, todos los conceptos deben estar aprobados o el lote debe tener observaciones para regresarlo a borrador.");
+      return;
+    }
+
+    await saveLotPatch(lot, housesObject, "lista_administracion", "Revisión terminada y aprobada", "Todos los conceptos del lote fueron aprobados por ingeniería.");
   }
 
   async function setAdminStatus(lot, status) {
@@ -865,7 +895,7 @@ export default function EstimacionesWidget() {
                 {!collapsed ? (
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
-                      <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unidades</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprobado</th><th style={th}>Disponible</th><th style={th}>% estimar</th><th style={th}>A estimar</th><th style={th}>Comentario</th></tr></thead>
+                      <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unidades</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprobado</th><th style={th}>Disponible</th><th style={th}>% estimar</th><th style={th}>A estimar</th></tr></thead>
                       <tbody>
                         {concepts.map((concept) => {
                           const approved = approvedFor(selectedHouseId, concept.id);
@@ -880,9 +910,14 @@ export default function EstimacionesWidget() {
                               <td style={td}>{money(concept.importe)}</td>
                               <td style={td}>{approved}%</td>
                               <td style={td}>{available}%</td>
-                              <td style={td}><input type="number" min="0" max={available} value={draftRows[concept.id]?.percent || ""} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} style={{ ...inputBase, width: 95 }} /></td>
+                              <td style={td}>
+                                <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 210 }}>
+                                  <button type="button" onClick={() => setDraftPercent(concept.id, Math.min(50, available))} style={{ ...buttonBase, padding: "7px 10px", background: "#f5f5f7" }}>50%</button>
+                                  <button type="button" onClick={() => setDraftPercent(concept.id, available)} style={{ ...buttonBase, padding: "7px 10px", background: "#f5f5f7" }}>100%</button>
+                                  <input type="text" inputMode="decimal" value={draftRows[concept.id]?.percent || ""} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} onWheel={(event) => event.currentTarget.blur()} style={{ ...inputBase, width: 74, minHeight: 36 }} />
+                                </div>
+                              </td>
                               <td style={td}><strong>{money(plannedAmount(concept))}</strong></td>
-                              <td style={td}><input value={draftRows[concept.id]?.comment || ""} onChange={(event) => updateDraft(concept.id, { comment: event.target.value })} style={{ ...inputBase, minWidth: 190 }} /></td>
                             </tr>
                           );
                         })}
@@ -998,7 +1033,7 @@ export default function EstimacionesWidget() {
                           <tr key={rowId}>
                             <td style={td}>{row.clave}</td>
                             <td style={{ ...td, minWidth: 280 }}>{row.concepto}</td>
-                            <td style={td}>{editable ? <input type="number" defaultValue={row.avanceSolicitado || ""} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado}%`}</td>
+                            <td style={td}>{editable ? <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado}%`}</td>
                             <td style={td}>{money(row.importeSolicitado)}</td>
                             <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || statusLabel[row.status] || row.status}</span></td>
                             <td style={td}>{editable ? <input defaultValue={row.comentarioConstructora || ""} onBlur={(event) => updateLotRow(lot, houseId, rowId, { comentarioConstructora: event.target.value })} style={{ ...inputBase, minWidth: 180 }} /> : row.comentarioConstructora}</td>
@@ -1040,9 +1075,15 @@ export default function EstimacionesWidget() {
 
     return (
       <>
-        <Card title="Aprobación ingeniería" subtitle="Revisa por casa y por concepto. Si observas algo, el lote completo regresa a borrador observado con seguimiento.">
+        <Card title="Aprobación ingeniería" subtitle="Revisa por casa y por concepto. Puedes observar partidas sin sacar el lote de revisión; al terminar, cierra la revisión para regresarlo a borrador o mandarlo a administración.">
           <FilterBar search={filters.aprobacion} setSearch={(value) => setFilters((prev) => ({ ...prev, aprobacion: value }))} house={filters.house} setHouse={(value) => setFilters((prev) => ({ ...prev, house: value }))} houses={houses} showHouse />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{approvalLots.map((item) => <button key={item.id} onClick={() => setSelectedLotId(item.id)} style={{ ...buttonBase, background: item.id === lot?.id ? "#111827" : "#fff", color: item.id === lot?.id ? "#fff" : "#1d1d1f" }}>{item.officialCode || item.nombre}</button>)}</div>
+          {lot ? (
+            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <button type="button" onClick={() => finishEngineeringReview(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Terminar revisión del lote</button>
+              <span style={{ color: "#6e6e73", fontSize: 12 }}>Las observaciones se guardan por partida/concepto y regresan a Borradores al terminar la revisión.</span>
+            </div>
+          ) : null}
         </Card>
         {lot ? Object.entries(lot.houses || {}).map(([houseId, house]) => (
           <Card key={houseId} title={house.houseName || houseId} subtitle="Selecciona conceptos para aprobar u observar.">
@@ -1053,7 +1094,7 @@ export default function EstimacionesWidget() {
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
-                <thead><tr><th style={th}>Sel.</th><th style={th}>Partida</th><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Casa</th><th style={th}>%</th><th style={th}>Importe</th><th style={th}>Comentario</th></tr></thead>
+                <thead><tr><th style={th}>Sel.</th><th style={th}>Partida</th><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Casa</th><th style={th}>%</th><th style={th}>Importe</th><th style={th}>Comentario</th><th style={th}>Observación</th></tr></thead>
                 <tbody>
                   {(house.rows || []).map((row) => {
                     const id = row.rowId || row.conceptId;
@@ -1068,6 +1109,7 @@ export default function EstimacionesWidget() {
                         <td style={td}>{row.avanceSolicitado}%</td>
                         <td style={td}>{money(row.importeSolicitado)}</td>
                         <td style={td}>{row.comentarioConstructora || "—"}</td>
+                        <td style={td}>{row.comentarioSupervision || "—"}</td>
                       </tr>
                     );
                   })}
