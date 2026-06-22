@@ -70,11 +70,23 @@ const panelButtonStyle = {
   boxShadow: "0 18px 48px rgba(0, 122, 255, 0.42), 0 4px 14px rgba(0,0,0,0.18)",
 };
 
-const menuButtonStyle = {
-  ...panelButtonStyle,
-  bottom: "calc(152px + env(safe-area-inset-bottom, 0px))",
-  background: "linear-gradient(180deg, #1d1d1f 0%, #3a3a3c 100%)",
-  boxShadow: "0 18px 48px rgba(29,29,31,0.28), 0 4px 14px rgba(0,0,0,0.16)",
+const appMenuButtonStyle = {
+  position: "fixed",
+  left: 16,
+  top: "calc(16px + env(safe-area-inset-top, 0px))",
+  zIndex: 2147483646,
+  width: 46,
+  height: 46,
+  border: "1px solid rgba(60,60,67,0.14)",
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.92)",
+  color: "#1d1d1f",
+  fontSize: 22,
+  fontWeight: 950,
+  cursor: "pointer",
+  boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
+  WebkitBackdropFilter: "blur(18px)",
+  backdropFilter: "blur(18px)",
 };
 
 function getCurrentContext() {
@@ -148,8 +160,8 @@ function ModalShell({ title, subtitle, children, onClose }) {
       <div
         onClick={(event) => event.stopPropagation()}
         style={{
-          width: "min(100%, 980px)",
-          maxHeight: "88vh",
+          width: "min(100%, 720px)",
+          maxHeight: "82vh",
           border: "1px solid rgba(255,255,255,0.64)",
           borderRadius: 28,
           background: "rgba(255,255,255,0.96)",
@@ -168,6 +180,39 @@ function ModalShell({ title, subtitle, children, onClose }) {
             ×
           </button>
         </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DrawerShell({ children, onClose }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2147483647,
+        background: "rgba(29,29,31,0.30)",
+        WebkitBackdropFilter: "blur(8px)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: "min(100%, 420px)",
+          height: "100%",
+          background: "rgba(255,255,255,0.96)",
+          borderRight: "1px solid rgba(60,60,67,0.12)",
+          boxShadow: "20px 0 60px rgba(0,0,0,0.18)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {children}
       </div>
     </div>
@@ -220,9 +265,9 @@ export default function FeedbackWidget() {
   }, [houses]);
 
   useEffect(() => {
-    if (!panelOpen && !menuOpen) return;
+    if (!menuOpen) return;
     loadPanelData();
-  }, [panelOpen, menuOpen]);
+  }, [menuOpen]);
 
   async function loadPanelData() {
     setLoadingPanelData(true);
@@ -316,7 +361,7 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      <button type="button" onClick={() => setMenuOpen(true)} aria-label="Abrir menú" style={menuButtonStyle}>☰ Menú</button>
+      <button type="button" onClick={() => setMenuOpen(true)} aria-label="Abrir menú" style={appMenuButtonStyle}>☰</button>
       <button type="button" onClick={() => setPanelOpen(true)} aria-label="Abrir panel" style={panelButtonStyle}>● Panel</button>
 
       {panelOpen ? (
@@ -358,58 +403,68 @@ export default function FeedbackWidget() {
       ) : null}
 
       {menuOpen ? (
-        <ModalShell title="Menú" subtitle="Administración, reportes y configuración de obras." onClose={() => setMenuOpen(false)}>
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "12px 16px", borderBottom: "1px solid rgba(60,60,67,0.10)" }}>
-            {[["reportes", "Reportes"], ["admin", "Administración"], ["obras", "Obras"]].map(([id, label]) => (
-              <button key={id} type="button" onClick={() => setMenuTab(id)} style={{ ...pillButton, background: menuTab === id ? "#1d1d1f" : "#fff", color: menuTab === id ? "#fff" : "#1d1d1f", borderColor: menuTab === id ? "#1d1d1f" : "rgba(60,60,67,0.12)" }}>{label}</button>
+        <DrawerShell onClose={() => setMenuOpen(false)}>
+          <div style={{ padding: "calc(18px + env(safe-area-inset-top, 0px)) 18px 16px", borderBottom: "1px solid rgba(60,60,67,0.12)", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.5 }}>Menú</div>
+              <div style={{ color: "#6e6e73", fontSize: 13, marginTop: 3 }}>Administración del sistema</div>
+            </div>
+            <button type="button" onClick={() => setMenuOpen(false)} style={{ border: "1px solid rgba(60,60,67,0.12)", background: "#f2f2f7", borderRadius: 999, width: 36, height: 36, fontWeight: 950, cursor: "pointer" }}>×</button>
+          </div>
+
+          <div style={{ padding: 14, borderBottom: "1px solid rgba(60,60,67,0.10)", display: "grid", gap: 8 }}>
+            {[["reportes", "Reportes", "Dashboard y métricas"], ["admin", "Administración", "Usuarios, roles y módulos"], ["obras", "Obras", "Configuración de obras"]].map(([id, label, helper]) => (
+              <button key={id} type="button" onClick={() => setMenuTab(id)} style={{ textAlign: "left", border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: menuTab === id ? "#1d1d1f" : "#fff", color: menuTab === id ? "#fff" : "#1d1d1f", cursor: "pointer" }}>
+                <div style={{ fontWeight: 950, fontSize: 15 }}>{label}</div>
+                <div style={{ color: menuTab === id ? "rgba(255,255,255,0.72)" : "#6e6e73", fontSize: 12, marginTop: 3 }}>{helper}</div>
+              </button>
             ))}
           </div>
-          <div style={{ overflow: "auto", padding: 18 }}>
+
+          <div style={{ overflow: "auto", padding: 16 }}>
             {loadingPanelData ? <div style={{ color: "#6e6e73", marginBottom: 14 }}>Actualizando información...</div> : null}
 
             {menuTab === "reportes" ? (
               <div style={{ display: "grid", gap: 14 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-                  <Metric label="Avance general" value={`${reports.avgProgress}%`} helper="Promedio por vivienda" />
-                  <Metric label="Partidas aprobadas" value={reports.approved} />
-                  <Metric label="En revisión" value={reports.review} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+                  <Metric label="Avance" value={`${reports.avgProgress}%`} />
+                  <Metric label="Aprobadas" value={reports.approved} />
+                  <Metric label="Revisión" value={reports.review} />
                   <Metric label="Rechazadas" value={reports.rejected} />
-                  <Metric label="Riesgo evidencia" value={reports.evidencePending} helper="Partidas con fotos faltantes" />
                 </div>
-                <Card title="Problemáticas activas" subtitle="Partidas rechazadas o esperando revisión que requieren seguimiento.">
-                  {reports.riskPartidas.length ? reports.riskPartidas.map((partida) => <div key={`${partida.houseName}-${partida.id}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 12, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 16, background: "#fff", marginBottom: 8 }}><div><div style={{ fontWeight: 900 }}>{partida.houseName} · {partida.name}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>Fotos {partida.evidenceCount?.photos || 0} · Videos {partida.evidenceCount?.videos || 0}</div></div><div style={{ color: partida.status === "Rechazada" ? "#ff3b30" : "#9a6700", fontWeight: 900, fontSize: 12 }}>{partida.status}</div></div>) : <div style={{ color: "#6e6e73", fontSize: 14 }}>No hay partidas críticas detectadas.</div>}
+                <Card title="Problemáticas activas" subtitle="Partidas rechazadas o esperando revisión.">
+                  {reports.riskPartidas.length ? reports.riskPartidas.map((partida) => <div key={`${partida.houseName}-${partida.id}`} style={{ padding: 12, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 16, background: "#fff", marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{partida.houseName} · {partida.name}</div><div style={{ color: partida.status === "Rechazada" ? "#ff3b30" : "#9a6700", fontWeight: 900, fontSize: 12, marginTop: 4 }}>{partida.status}</div></div>) : <div style={{ color: "#6e6e73", fontSize: 14 }}>No hay partidas críticas detectadas.</div>}
                 </Card>
               </div>
             ) : null}
 
             {menuTab === "admin" ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
-                <Card title="Alta de usuarios" subtitle="Prepara usuarios con rol, módulos y acceso a obras. El alta real de contraseña requiere Firebase Auth Admin/Cloud Function.">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><Field label="Nombre"><input value={userForm.firstName} onChange={(event) => setUserForm({ ...userForm, firstName: event.target.value })} style={inputBase} /></Field><Field label="Apellido"><input value={userForm.lastName} onChange={(event) => setUserForm({ ...userForm, lastName: event.target.value })} style={inputBase} /></Field></div>
+              <div style={{ display: "grid", gap: 14 }}>
+                <Card title="Alta de usuarios" subtitle="Usuarios, roles, obras y módulos permitidos.">
+                  <Field label="Nombre"><input value={userForm.firstName} onChange={(event) => setUserForm({ ...userForm, firstName: event.target.value })} style={inputBase} /></Field>
+                  <Field label="Apellido"><input value={userForm.lastName} onChange={(event) => setUserForm({ ...userForm, lastName: event.target.value })} style={inputBase} /></Field>
                   <Field label="Correo"><input type="email" value={userForm.email} onChange={(event) => setUserForm({ ...userForm, email: event.target.value })} placeholder="correo@empresa.com" style={inputBase} /></Field>
                   <Field label="Rol"><select value={userForm.role} onChange={(event) => setUserForm({ ...userForm, role: event.target.value })} style={inputBase}>{roleOptions.map((role) => <option key={role} value={role}>{role}</option>)}</select></Field>
-                  <Field label="Obras permitidas, separadas por coma"><input value={userForm.obras} onChange={(event) => setUserForm({ ...userForm, obras: event.target.value })} style={inputBase} /></Field>
+                  <Field label="Obras permitidas"><input value={userForm.obras} onChange={(event) => setUserForm({ ...userForm, obras: event.target.value })} style={inputBase} /></Field>
                   <div style={{ marginBottom: 14 }}><div style={{ fontSize: 13, fontWeight: 850, marginBottom: 8 }}>Módulos</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{moduleOptions.map((moduleName) => <button key={moduleName} type="button" onClick={() => toggleModule(moduleName)} style={{ ...pillButton, background: userForm.modules.includes(moduleName) ? "#007aff" : "#fff", color: userForm.modules.includes(moduleName) ? "#fff" : "#1d1d1f" }}>{moduleName}</button>)}</div></div>
                   <button type="button" onClick={saveUserInvite} style={{ ...pillButton, background: "#007aff", color: "#fff", width: "100%" }}>Guardar usuario</button>
                 </Card>
-                <Card title="Usuarios actuales" subtitle="Perfiles encontrados en la colección users.">{users.length ? users.slice(0, 10).map((user) => <div key={user.id} style={{ padding: 12, borderRadius: 16, background: "#fff", border: "1px solid rgba(60,60,67,0.12)", marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{user.name || user.displayName || user.email || user.id}</div><div style={{ color: "#6e6e73", fontSize: 13, marginTop: 3 }}>{user.role || "sin rol"}</div></div>) : <div style={{ color: "#6e6e73", fontSize: 14 }}>No se encontraron perfiles cargados.</div>}</Card>
+                <Card title="Usuarios actuales" subtitle="Perfiles encontrados.">{users.length ? users.slice(0, 10).map((user) => <div key={user.id} style={{ padding: 12, borderRadius: 16, background: "#fff", border: "1px solid rgba(60,60,67,0.12)", marginBottom: 8 }}><div style={{ fontWeight: 900 }}>{user.name || user.displayName || user.email || user.id}</div><div style={{ color: "#6e6e73", fontSize: 13, marginTop: 3 }}>{user.role || "sin rol"}</div></div>) : <div style={{ color: "#6e6e73", fontSize: 14 }}>No se encontraron perfiles cargados.</div>}</Card>
               </div>
             ) : null}
 
             {menuTab === "obras" ? (
               <Card title="Configuración de obras" subtitle="Carga obras nuevas para preparar el sistema multiobra.">
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-                  <Field label="Nombre de obra"><input value={obraForm.name} onChange={(event) => setObraForm({ ...obraForm, name: event.target.value })} placeholder="Ej. Residente" style={inputBase} /></Field>
-                  <Field label="Código"><input value={obraForm.code} onChange={(event) => setObraForm({ ...obraForm, code: event.target.value })} placeholder="residente" style={inputBase} /></Field>
-                  <Field label="Ubicación"><input value={obraForm.location} onChange={(event) => setObraForm({ ...obraForm, location: event.target.value })} placeholder="Montecristo, Mérida" style={inputBase} /></Field>
-                  <Field label="Unidades"><input type="number" value={obraForm.totalUnits} onChange={(event) => setObraForm({ ...obraForm, totalUnits: event.target.value })} style={inputBase} /></Field>
-                  <Field label="Estatus"><select value={obraForm.status} onChange={(event) => setObraForm({ ...obraForm, status: event.target.value })} style={inputBase}><option value="planeacion">Planeación</option><option value="activa">Activa</option><option value="pausada">Pausada</option><option value="cerrada">Cerrada</option></select></Field>
-                </div>
+                <Field label="Nombre de obra"><input value={obraForm.name} onChange={(event) => setObraForm({ ...obraForm, name: event.target.value })} placeholder="Ej. Residente" style={inputBase} /></Field>
+                <Field label="Código"><input value={obraForm.code} onChange={(event) => setObraForm({ ...obraForm, code: event.target.value })} placeholder="residente" style={inputBase} /></Field>
+                <Field label="Ubicación"><input value={obraForm.location} onChange={(event) => setObraForm({ ...obraForm, location: event.target.value })} placeholder="Montecristo, Mérida" style={inputBase} /></Field>
+                <Field label="Unidades"><input type="number" value={obraForm.totalUnits} onChange={(event) => setObraForm({ ...obraForm, totalUnits: event.target.value })} style={inputBase} /></Field>
+                <Field label="Estatus"><select value={obraForm.status} onChange={(event) => setObraForm({ ...obraForm, status: event.target.value })} style={inputBase}><option value="planeacion">Planeación</option><option value="activa">Activa</option><option value="pausada">Pausada</option><option value="cerrada">Cerrada</option></select></Field>
                 <button type="button" onClick={saveObra} style={{ ...pillButton, background: "#007aff", color: "#fff", marginTop: 4 }}>Guardar obra</button>
               </Card>
             ) : null}
           </div>
-        </ModalShell>
+        </DrawerShell>
       ) : null}
     </>
   );
