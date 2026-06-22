@@ -435,6 +435,25 @@ export default function EstimacionesWidget() {
     return Object.values(lot.houses || {}).some((house) => (house.rows || []).some((row) => rowSearchText(row, house, lot).includes(q)));
   }
 
+  function currentReviewCycle(lot) {
+    return Number(lot?.currentReviewCycle || 0);
+  }
+
+  function isCurrentReviewRow(row, lot) {
+    const cycle = currentReviewCycle(lot);
+    const statusOk = ["en_aprobacion", "aprobada_supervision", "observada_supervision"].includes(row.status);
+    if (!statusOk) return false;
+    if (!cycle) return statusOk;
+    return Number(row.reviewCycle || 0) === cycle;
+  }
+
+  function contractorResolutionLabel(row) {
+    if (row.constructorResolution === "eliminar") return "Constructora propone eliminar esta partida de la estimación.";
+    if (row.constructorResolution === "mantener") return `Constructora acepta el ajuste sugerido por supervisión (${clampPercent(row.avanceSolicitado)}%).`;
+    if (row.constructorResolution === "modificar") return `Constructora modificó el porcentaje observado: ${clampPercent(row.porcentajeObservadoSupervision ?? row.avanceAprobado)}% → ${clampPercent(row.avanceSolicitado)}%.`;
+    return "Pendiente de solventar por constructora.";
+  }
+
   const draftSummary = useMemo(() => {
     const rows = catalog.map((concept) => draftPercent(concept) > 0 ? { multa: todayDelay(concept.fechaEntrega) * multaDiaria } : null).filter(Boolean);
     const subtotal = catalog.reduce((acc, concept) => acc + plannedAmount(concept), 0);
@@ -611,6 +630,41 @@ export default function EstimacionesWidget() {
     await saveLotPatch(lot, housesObject, "borrador", "Borrador editado", `Se editó ${house.houseName || houseId}.`);
   }
 
+
+  async function resolveObservedRow(lot, houseId, rowId, resolution, value = "") {
+    if (!lot || lot.status !== "borrador_observado" || !houseId || !rowId) return;
+    const housesObject = { ...(lot.houses || {}) };
+    const house = housesObject[houseId];
+    if (!house) return;
+    const rows = (house.rows || []).map((row) => {
+      const id = row.rowId || row.conceptId;
+      if (id !== rowId) return row;
+      const suggestedPercent = clampPercent(row.porcentajeObservadoSupervision ?? row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+      const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || suggestedPercent || 0), 1) * 100) || 0;
+      const nextPercent = resolution === "eliminar" ? 0 : resolution === "mantener" ? suggestedPercent : clampPercent(value || row.avanceSolicitado || suggestedPercent);
+      const nextRow = {
+        ...row,
+        status: "observada_supervision",
+        constructorResolution: resolution,
+        contractorResolvedAt: new Date().toISOString(),
+        avanceSolicitado: nextPercent,
+        importeSolicitado: baseAmount * (nextPercent / 100),
+        respuestaConstructora: resolution === "eliminar"
+          ? "Constructora propone eliminar esta partida/concepto observado de la estimación."
+          : resolution === "mantener"
+            ? `Constructora acepta el ajuste sugerido por supervisión (${suggestedPercent}%).`
+            : `Constructora solicita modificar el porcentaje a ${nextPercent}%.`,
+      };
+      if (resolution === "modificar") {
+        nextRow.porcentajeModificadoConstructora = nextPercent;
+        nextRow.porcentajeAnteriorAclaracion = suggestedPercent;
+      }
+      return nextRow;
+    });
+    housesObject[houseId] = { ...house, rows, status: "borrador_observado", totals: computeRowsTotals(rows, false) };
+    await saveLotPatch(lot, housesObject, "borrador_observado", "Observación solventada por constructora", `${house.houseName || houseId}: ${resolution === "eliminar" ? "eliminar" : resolution === "mantener" ? "mantener ajuste de supervisión" : "modificar porcentaje"}.`);
+  }
+
   async function removeObservedRows(lot) {
     const housesObject = {};
     Object.entries(lot.houses || {}).forEach(([houseId, house]) => {
@@ -777,18 +831,53 @@ export default function EstimacionesWidget() {
 
   async function sendLotToApproval(lot) {
     if (!lot) return;
+    const isObservedLot = lot.status === "borrador_observado";
+    const nextReviewCycle = Number(lot.currentReviewCycle || 0) + 1;
     const housesObject = {};
     let totalRows = 0;
+
     Object.entries(lot.houses || {}).forEach(([houseId, house]) => {
-      const rows = (house.rows || [])
-        .filter((row) => row.status !== "quitada_constructora" && Number(row.avanceSolicitado || 0) > 0)
-        .map((row) => ({ ...row, status: "en_aprobacion", comentarioSupervision: row.status === "observada_supervision" ? row.comentarioSupervision : row.comentarioSupervision || "" }));
-      totalRows += rows.length;
+      const sourceRows = house.rows || [];
+      const rows = sourceRows
+        .map((row) => {
+          if (row.status === "quitada_constructora") return row;
+
+          if (isObservedLot) {
+            if (row.status !== "observada_supervision") return row;
+            const resolution = row.constructorResolution || "mantener";
+            const suggestedPercent = clampPercent(row.porcentajeObservadoSupervision ?? row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+            const nextPercent = resolution === "eliminar" ? 0 : clampPercent(row.avanceSolicitado || suggestedPercent);
+            const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || suggestedPercent || 0), 1) * 100) || 0;
+            totalRows += 1;
+            return {
+              ...row,
+              status: "en_aprobacion",
+              reviewCycle: nextReviewCycle,
+              avanceSolicitado: nextPercent,
+              avanceAprobado: nextPercent,
+              importeSolicitado: baseAmount * (nextPercent / 100),
+              importeAprobado: 0,
+              respuestaConstructora: row.respuestaConstructora || contractorResolutionLabel({ ...row, constructorResolution: resolution, avanceSolicitado: nextPercent, porcentajeObservadoSupervision: suggestedPercent }),
+              contractorResolvedAt: row.contractorResolvedAt || new Date().toISOString(),
+            };
+          }
+
+          if (Number(row.avanceSolicitado || 0) <= 0) return null;
+          totalRows += 1;
+          return {
+            ...row,
+            status: "en_aprobacion",
+            reviewCycle: nextReviewCycle,
+            comentarioSupervision: row.comentarioSupervision || "",
+          };
+        })
+        .filter(Boolean);
+
       housesObject[houseId] = { ...house, rows, status: "en_aprobacion", totals: computeRowsTotals(rows, false) };
     });
 
     if (!totalRows) {
-      alert("No hay conceptos válidos para enviar a aprobación.");
+      alert(isObservedLot ? "No hay partidas observadas solventadas para reenviar a supervisión." : "No hay conceptos válidos para enviar a aprobación.");
       return;
     }
 
@@ -797,9 +886,9 @@ export default function EstimacionesWidget() {
       lot,
       housesObject,
       "en_aprobacion",
-      "Enviado a aprobación",
-      `El lote fue enviado a revisión de ingeniería con folio ${officialCode}.`,
-      { officialCode, sentToApprovalAt: serverTimestamp() }
+      isObservedLot ? "Observaciones reenviadas a supervisión" : "Enviado a aprobación",
+      isObservedLot ? `${totalRows} partida(s) observada(s) regresan a revisión. Las partidas ya aprobadas no se vuelven a revisar.` : `El lote fue enviado a revisión de ingeniería con folio ${officialCode}.`,
+      { officialCode, currentReviewCycle: nextReviewCycle, sentToApprovalAt: serverTimestamp() }
     );
   }
 
@@ -816,15 +905,22 @@ export default function EstimacionesWidget() {
     const rows = (house.rows || []).map((row) => {
       const id = row.rowId || row.conceptId;
       if (!rowIds.includes(id)) return row;
-      const approvedPercent = clampPercent(row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+      const isDeleteResolution = row.constructorResolution === "eliminar";
+      const approvedPercent = isDeleteResolution ? 0 : clampPercent(row.avanceAprobado ?? row.avanceSolicitado ?? 0);
       const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || 0), 1) * 100) || 0;
       return {
         ...row,
         status: approved ? "aprobada_supervision" : "observada_supervision",
-        avanceAprobado: approved ? approvedPercent : approvedPercent,
+        avanceSolicitado: isDeleteResolution ? 0 : row.avanceSolicitado,
+        avanceAprobado: approvedPercent,
+        importeSolicitado: isDeleteResolution ? 0 : row.importeSolicitado,
         importeAprobado: approved ? baseAmount * (approvedPercent / 100) : 0,
         comentarioSupervision: approved ? "" : comment,
+        porcentajeOriginalConstructora: approved ? row.porcentajeOriginalConstructora : clampPercent(row.avanceSolicitado),
+        porcentajeObservadoSupervision: approved ? row.porcentajeObservadoSupervision : approvedPercent,
+        constructorResolution: approved ? "" : row.constructorResolution || "",
         reviewedAt: new Date().toISOString(),
+        reviewCycle: row.reviewCycle || currentReviewCycle(lot),
       };
     });
 
@@ -873,8 +969,14 @@ export default function EstimacionesWidget() {
     if (!lot) return;
     const housesObject = { ...(lot.houses || {}) };
     const allRows = Object.values(housesObject).flatMap((house) => house.rows || []);
-    const observedRows = allRows.filter((row) => row.status === "observada_supervision");
-    const pendingRows = allRows.filter((row) => row.status === "en_aprobacion");
+    const reviewRowsCurrent = allRows.filter((row) => isCurrentReviewRow(row, lot));
+    const observedRows = reviewRowsCurrent.filter((row) => row.status === "observada_supervision");
+    const pendingRows = reviewRowsCurrent.filter((row) => row.status === "en_aprobacion");
+
+    if (!reviewRowsCurrent.length) {
+      alert("No hay partidas de este ciclo de revisión para cerrar.");
+      return;
+    }
 
     if (pendingRows.length > 0) {
       alert(`No puedes terminar la revisión del lote. Faltan ${pendingRows.length} concepto(s) por aprobar u observar.`);
@@ -883,19 +985,21 @@ export default function EstimacionesWidget() {
 
     if (observedRows.length > 0) {
       Object.entries(housesObject).forEach(([houseId, house]) => {
-        const hasObserved = (house.rows || []).some((row) => row.status === "observada_supervision");
-        housesObject[houseId] = { ...house, status: hasObserved ? "borrador_observado" : "borrador" };
+        const hasObserved = (house.rows || []).some((row) => row.status === "observada_supervision" && Number(row.reviewCycle || 0) === currentReviewCycle(lot));
+        housesObject[houseId] = { ...house, status: hasObserved ? "borrador_observado" : house.status };
       });
-      await saveLotPatch(lot, housesObject, "borrador_observado", "Revisión terminada con observaciones", `${observedRows.length} concepto(s) observados regresan a borrador para respuesta de constructora.`);
+      await saveLotPatch(lot, housesObject, "borrador_observado", "Revisión terminada con observaciones", `${observedRows.length} partida(s) observada(s) regresan a constructora. Las partidas aprobadas quedan autorizadas y no viajan de nuevo.`);
       return;
     }
 
-    if (!allRows.length || allRows.some((row) => row.status !== "aprobada_supervision")) {
-      alert("Para enviar a administración, todos los conceptos deben estar aprobados o el lote debe tener observaciones para regresarlo a borrador.");
+    const activeRows = allRows.filter((row) => row.status !== "quitada_constructora");
+    const allClosed = activeRows.every((row) => row.status === "aprobada_supervision");
+    if (!allClosed) {
+      alert("Todavía hay partidas pendientes u observadas fuera del ciclo actual. Revisa el lote antes de enviarlo a administración.");
       return;
     }
 
-    await saveLotPatch(lot, housesObject, "lista_administracion", "Revisión terminada y aprobada", "Todos los conceptos del lote fueron aprobados por ingeniería.");
+    await saveLotPatch(lot, housesObject, "lista_administracion", "Revisión terminada y aprobada", "Todos los conceptos activos del lote fueron aprobados por ingeniería.");
   }
 
   async function setAdminStatus(lot, status) {
@@ -1110,8 +1214,7 @@ export default function EstimacionesWidget() {
           </div>
           {editable ? (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-              <button type="button" onClick={() => sendLotToApproval(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Enviar a aprobación</button>
-              {observedCount ? <button type="button" onClick={() => removeObservedRows(lot)} style={{ ...buttonBase, background: "#fff3cd", color: "#9a6700" }}>Aceptar sin partidas observadas</button> : null}
+              <button type="button" onClick={() => sendLotToApproval(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>{lot.status === "borrador_observado" ? "Enviar observaciones solventadas" : "Enviar a aprobación"}</button>
               <button type="button" onClick={() => deleteDraftLot(lot)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Eliminar borrador</button>
             </div>
           ) : null}
@@ -1139,7 +1242,7 @@ export default function EstimacionesWidget() {
             {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
               <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
                 <strong>Observaciones por corregir en esta casa</strong>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Solo se muestran partidas observadas. Resuelve cada una con Eliminar, Mantener o Modificar %.</div>
               </div>
             ) : null}
 
@@ -1149,12 +1252,12 @@ export default function EstimacionesWidget() {
                 <button type="button" onClick={() => removeHouseFromLot(lot, houseId)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Quitar casa del borrador</button>
               </div>
             ) : null}
-            {Object.entries(groupByPartida((house.rows || []).slice().sort((a, b) => Number(b.status === "observada_supervision") - Number(a.status === "observada_supervision")))).map(([partida, rows]) => (
+            {Object.entries(groupByPartida((lot.status === "borrador_observado" ? (house.rows || []).filter((row) => row.status === "observada_supervision") : (house.rows || []).slice().sort((a, b) => Number(b.status === "observada_supervision") - Number(a.status === "observada_supervision"))))).map(([partida, rows]) => (
               <div key={partida} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", marginBottom: 12, background: "#fff" }}>
                 <div style={{ padding: 12, fontWeight: 950, background: "#f5f5f7" }}>{partida}</div>
                 <div style={{ overflowX: "visible" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                    <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>% solicitado</th><th style={th}>Importe</th><th style={th}>Estatus</th><th style={th}>Comentario constructora</th><th style={th}>Observación ingeniería</th><th style={th}>Respuesta / ajuste</th></tr></thead>
+                    <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>% solicitado</th><th style={th}>Importe</th><th style={th}>Estatus</th><th style={th}>Observación ingeniería</th><th style={th}>Solución constructora</th></tr></thead>
                     <tbody>
                       {rows.map((row) => {
                         const rowId = row.rowId || row.conceptId;
@@ -1162,12 +1265,23 @@ export default function EstimacionesWidget() {
                           <tr key={rowId}>
                             <td style={td}>{row.clave}</td>
                             <td style={{ ...td, padding: "8px 10px" }}><ConceptText text={row.concepto} /></td>
-                            <td style={td}>{editable ? <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado}%`}</td>
+                            <td style={td}>{editable && lot.status !== "borrador_observado" ? <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado || 0}%`}</td>
                             <td style={td}>{money(row.importeSolicitado)}</td>
                             <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || statusLabel[row.status] || row.status}</span></td>
-                            <td style={td}>{editable ? <input defaultValue={row.comentarioConstructora || ""} onBlur={(event) => updateLotRow(lot, houseId, rowId, { comentarioConstructora: event.target.value })} style={{ ...inputBase, width: "100%" }} /> : row.comentarioConstructora}</td>
-                            <td style={td}>{row.comentarioSupervision || "—"}</td>
-                            <td style={td}>{editable ? <input defaultValue={row.respuestaConstructora || ""} placeholder="Respuesta o comentario de corrección" onBlur={(event) => updateLotRow(lot, houseId, rowId, { respuestaConstructora: event.target.value })} style={{ ...inputBase, width: "100%" }} /> : row.respuestaConstructora || "—"}</td>
+                            <td style={td}>{row.comentarioSupervision || "—"}{row.porcentajeObservadoSupervision !== undefined ? <div style={{ fontSize: 11, color: "#6e6e73", marginTop: 4 }}>Ajuste sugerido: {clampPercent(row.porcentajeObservadoSupervision)}%</div> : null}</td>
+                            <td style={td}>{editable && lot.status === "borrador_observado" && row.status === "observada_supervision" ? (
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  <button type="button" onClick={() => resolveObservedRow(lot, houseId, rowId, "eliminar")} style={{ ...buttonBase, padding: "7px 9px", background: row.constructorResolution === "eliminar" ? "#fee4e2" : "#fff", color: "#b42318", fontSize: 11 }}>Eliminar</button>
+                                  <button type="button" onClick={() => resolveObservedRow(lot, houseId, rowId, "mantener")} style={{ ...buttonBase, padding: "7px 9px", background: row.constructorResolution === "mantener" ? "#e8f7ed" : "#fff", color: "#157347", fontSize: 11 }}>Mantener</button>
+                                  <button type="button" onClick={() => resolveObservedRow(lot, houseId, rowId, "modificar", row.avanceSolicitado || row.porcentajeObservadoSupervision || row.avanceAprobado || 0)} style={{ ...buttonBase, padding: "7px 9px", background: row.constructorResolution === "modificar" ? "#eef2ff" : "#fff", color: "#3730a3", fontSize: 11 }}>Modificar %</button>
+                                </div>
+                                {row.constructorResolution === "modificar" ? (
+                                  <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => resolveObservedRow(lot, houseId, rowId, "modificar", event.target.value)} style={{ ...inputBase, minHeight: 34, padding: "7px 8px", width: 110 }} />
+                                ) : null}
+                                <div style={{ fontSize: 11, color: "#6e6e73" }}>{contractorResolutionLabel(row)}</div>
+                              </div>
+                            ) : (row.respuestaConstructora || "—")}</td>
                           </tr>
                         );
                       })}
@@ -1218,7 +1332,7 @@ export default function EstimacionesWidget() {
     };
 
     const reviewableIds = (house) => (house.rows || [])
-      .filter((row) => ["en_aprobacion", "aprobada_supervision", "observada_supervision"].includes(row.status))
+      .filter((row) => isCurrentReviewRow(row, lot))
       .filter((row) => rowPassesApprovalFilters(row, house, lot))
       .map((row) => row.rowId || row.conceptId);
 
@@ -1276,15 +1390,16 @@ export default function EstimacionesWidget() {
         {lot ? Object.entries(lot.houses || {})
           .filter(([houseId]) => filters.house === "todas" || filters.house === houseId)
           .map(([houseId, house]) => {
-          const visibleRows = (house.rows || []).filter((row) => rowPassesApprovalFilters(row, house, lot));
+          const visibleRows = (house.rows || []).filter((row) => isCurrentReviewRow(row, lot)).filter((row) => rowPassesApprovalFilters(row, house, lot));
           if (!visibleRows.length) return null;
           const selectableIds = reviewableIds(house);
           const selectedIds = selectedReviewRowIds[houseId] || [];
           const selectedValidIds = selectedIds.filter((id) => selectableIds.includes(id));
           const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
-          const pendingCount = (house.rows || []).filter((row) => row.status === "en_aprobacion").length;
-          const approvedCount = (house.rows || []).filter((row) => row.status === "aprobada_supervision").length;
-          const observedCount = (house.rows || []).filter((row) => row.status === "observada_supervision").length;
+          const currentRows = (house.rows || []).filter((row) => isCurrentReviewRow(row, lot));
+          const pendingCount = currentRows.filter((row) => row.status === "en_aprobacion").length;
+          const approvedCount = currentRows.filter((row) => row.status === "aprobada_supervision").length;
+          const observedCount = currentRows.filter((row) => row.status === "observada_supervision").length;
 
           return (
             <Card key={houseId} title={house.houseName || houseId} subtitle={`${pendingCount} pendiente(s) · ${approvedCount} aprobada(s) · ${observedCount} observada(s)`}>
@@ -1321,7 +1436,7 @@ export default function EstimacionesWidget() {
                   <tbody>
                     {visibleRows.map((row) => {
                       const id = row.rowId || row.conceptId;
-                      const canSelect = ["en_aprobacion", "aprobada_supervision", "observada_supervision"].includes(row.status);
+                      const canSelect = isCurrentReviewRow(row, lot);
                       const selected = selectedIds.includes(id);
                       const percent = row.avanceAprobado ?? row.avanceSolicitado ?? 0;
                       const rowBg = row.status === "aprobada_supervision" ? "#f6fff8" : row.status === "observada_supervision" ? "#fffaf0" : selected ? "#f8fbff" : "#fff";
@@ -1347,7 +1462,7 @@ export default function EstimacionesWidget() {
                             <div style={{ fontSize: 10.5, color: "#6e6e73", marginTop: 3 }}>Solicitado {row.avanceSolicitado}%</div>
                           </td>
                           <td style={approvalTd}>{money(row.importeAprobado || row.importeSolicitado)}</td>
-                          <td style={approvalTd}>{row.comentarioSupervision || "—"}</td>
+                          <td style={approvalTd}>{row.comentarioSupervision || "—"}{row.constructorResolution ? <div style={{ marginTop: 6, padding: "6px 8px", borderRadius: 10, background: row.constructorResolution === "modificar" ? "#eef2ff" : row.constructorResolution === "eliminar" ? "#fee4e2" : "#e8f7ed", color: row.constructorResolution === "modificar" ? "#3730a3" : row.constructorResolution === "eliminar" ? "#b42318" : "#157347", fontSize: 11, fontWeight: 850 }}>{contractorResolutionLabel(row)}</div> : null}</td>
                         </tr>
                       );
                     })}
