@@ -863,6 +863,8 @@ export default function EstimacionesWidget() {
     const q = filters.captura.trim().toLowerCase();
     const partidaFilter = filters.partida;
     const captureOnlyPending = filters.status === "pendientes";
+    
+    
 
     return (
       <>
@@ -881,6 +883,14 @@ export default function EstimacionesWidget() {
         {renderSummaryMetrics(draftSummary, "Total del borrador en captura")}
         <Card title="Catálogo por partidas" subtitle="Captura el porcentaje a estimar. El disponible descuenta lo ya aprobado en estimaciones anteriores.">
           <FilterBar search={filters.captura} setSearch={(value) => setFilters((prev) => ({ ...prev, captura: value }))} partida={filters.partida} setPartida={(value) => setFilters((prev) => ({ ...prev, partida: value }))} partidas={partidas} showPartida />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
             <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
             <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
@@ -1040,6 +1050,18 @@ export default function EstimacionesWidget() {
                 <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
               </div>
             ) : null}
+            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
+              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
+                <strong>Observaciones por corregir en esta casa</strong>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
+              </div>
+            ) : null}
+            {(house.rows || []).some((row) => row.status === "observada_supervision") ? (
+              <div style={{ padding: 12, borderRadius: 16, background: "#fff3cd", color: "#7a4d00", marginBottom: 12, border: "1px solid rgba(154,103,0,0.20)" }}>
+                <strong>Observaciones por corregir en esta casa</strong>
+                <div style={{ fontSize: 12, marginTop: 4 }}>Las partidas observadas aparecen primero. Ajusta el porcentaje o escribe respuesta y se marcarán como borrador para reenviar.</div>
+              </div>
+            ) : null}
             {editable ? (
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
                 <button type="button" onClick={() => removeHouseFromLot(lot, houseId)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Quitar casa del borrador</button>
@@ -1127,6 +1149,8 @@ export default function EstimacionesWidget() {
                     return (
                       <tr key={id}>
                         <td style={td}><input type="checkbox" checked={selected} onChange={(event) => setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: event.target.checked ? [...(prev[houseId] || []), id] : (prev[houseId] || []).filter((item) => item !== id) }))} /></td>
+                        <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></td>
+                        <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></td>
                         <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || row.status}</span></td>
                         <td style={td}>{row.partida}</td>
                         <td style={td}>{row.clave}</td>
