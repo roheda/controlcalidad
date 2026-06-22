@@ -633,6 +633,20 @@ export default function EstimacionesWidget() {
   async function mergeDraftLots() {
     const selectedLots = lots.filter((lot) => mergeLotIds.includes(lot.id) && draftStatuses.includes(lot.status));
     if (selectedLots.length < 2) { alert("Selecciona al menos dos borradores para unir."); return; }
+    const duplicateHouseMap = {};
+    selectedLots.forEach((lot) => {
+      Object.entries(lot.houses || {}).forEach(([houseId, house]) => {
+        duplicateHouseMap[houseId] = [...(duplicateHouseMap[houseId] || []), house.houseName || houseId];
+      });
+    });
+    const duplicatedHouses = Object.entries(duplicateHouseMap)
+      .filter(([, occurrences]) => occurrences.length > 1)
+      .map(([, occurrences]) => occurrences[0]);
+    if (duplicatedHouses.length) {
+      alert(`No se pueden unir estos borradores porque repiten la misma unidad: ${duplicatedHouses.join(", ")}. Para evitar duplicidad de importes, elimina esa casa de uno de los borradores o ajusta el borrador antes de unir.`);
+      return;
+    }
+
     const db = getDb();
     if (!db) return;
 
@@ -652,12 +666,7 @@ export default function EstimacionesWidget() {
           status: "borrador",
           mergedFrom: lot.draftCode || lot.id,
         }));
-        if (existing) {
-          const rows = [...(existing.rows || []), ...cleanRows];
-          housesObject[houseId] = { ...existing, rows, status: "borrador", totals: computeRowsTotals(rows, false) };
-        } else {
-          housesObject[houseId] = { ...house, rows: cleanRows, status: "borrador", totals: computeRowsTotals(cleanRows, false) };
-        }
+        housesObject[houseId] = { ...house, rows: cleanRows, status: "borrador", totals: computeRowsTotals(cleanRows, false) };
       });
     });
 
@@ -688,14 +697,34 @@ export default function EstimacionesWidget() {
     alert("Borradores unidos. Revisa el nuevo lote antes de enviarlo a aprobación.");
   }
 
+  async function removeHouseFromLot(lot, houseId) {
+    if (!lot || !houseId) return;
+    if (!draftStatuses.includes(lot.status)) {
+      alert("Solo se pueden quitar casas mientras el lote está en borrador u observado.");
+      return;
+    }
+    const currentHouses = lot.houses || {};
+    const house = currentHouses[houseId];
+    if (!house) return;
+    if (Object.keys(currentHouses).length <= 1) {
+      alert("El borrador debe conservar al menos una casa. Si ya no necesitas este lote, usa Eliminar borrador.");
+      return;
+    }
+    const confirmed = window.confirm(`¿Quitar ${house.houseName || houseId} de este borrador? El resto del lote se conserva.`);
+    if (!confirmed) return;
+    const housesObject = { ...currentHouses };
+    delete housesObject[houseId];
+    await saveLotPatch(lot, housesObject, "borrador", "Casa retirada del borrador", `Se retiró ${house.houseName || houseId} del lote.`);
+  }
+
   async function deleteDraftLot(lot) {
     const db = getDb();
     if (!db || !lot) return;
     if (!draftStatuses.includes(lot.status)) {
-      alert("Solo se pueden borrar borradores que no han sido enviados a revisión.");
+      alert("Solo se pueden eliminar borradores que no han sido enviados a revisión.");
       return;
     }
-    const confirmed = window.confirm(`¿Borrar el borrador ${lot.nombre}? Esta acción elimina el lote de trabajo.`);
+    const confirmed = window.confirm(`¿Eliminar el borrador ${lot.nombre}? Esta acción elimina el lote de trabajo.`);
     if (!confirmed) return;
     await deleteDoc(doc(db, "obras", selectedObraId, "estimacionLotes", lot.id));
     setSelectedLotId("");
@@ -879,7 +908,7 @@ export default function EstimacionesWidget() {
         {mergeable.length > 1 ? (
           <div style={{ padding: 12, borderRadius: 18, background: "#f5f5f7", marginBottom: 12 }}>
             <strong>Unir borradores</strong>
-            <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>Usa esto cuando haya casas con avances diferentes. Capturas varios borradores y aquí los unes antes de enviar a aprobación.</div>
+            <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>Usa esto cuando haya casas con avances diferentes. Capturas varios borradores y aquí los unes antes de enviar a aprobación. El sistema no permite unir borradores que repitan la misma unidad.</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               {mergeable.map((lot) => (
                 <label key={lot.id} style={{ display: "inline-flex", gap: 6, alignItems: "center", padding: "8px 10px", background: "#fff", borderRadius: 999, border: "1px solid rgba(60,60,67,0.12)" }}>
@@ -930,7 +959,7 @@ export default function EstimacionesWidget() {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
               <button type="button" onClick={() => sendLotToApproval(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Enviar a aprobación</button>
               {observedCount ? <button type="button" onClick={() => removeObservedRows(lot)} style={{ ...buttonBase, background: "#fff3cd", color: "#9a6700" }}>Aceptar sin partidas observadas</button> : null}
-              <button type="button" onClick={() => deleteDraftLot(lot)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Borrar borrador</button>
+              <button type="button" onClick={() => deleteDraftLot(lot)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Eliminar borrador</button>
             </div>
           ) : null}
           {editable ? (
@@ -951,6 +980,11 @@ export default function EstimacionesWidget() {
         </Card>
         {Object.entries(lot.houses || {}).map(([houseId, house]) => (
           <Card key={houseId} title={house.houseName || houseId} subtitle={`Estatus casa: ${statusLabel[house.status] || house.status || lot.status}`}>
+            {editable ? (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+                <button type="button" onClick={() => removeHouseFromLot(lot, houseId)} style={{ ...buttonBase, background: "#fff", color: "#b42318" }}>Quitar casa del borrador</button>
+              </div>
+            ) : null}
             {Object.entries(groupByPartida(house.rows || [])).map(([partida, rows]) => (
               <div key={partida} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", marginBottom: 12, background: "#fff" }}>
                 <div style={{ padding: 12, fontWeight: 950, background: "#f5f5f7" }}>{partida}</div>
