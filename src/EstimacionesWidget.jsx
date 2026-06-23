@@ -326,12 +326,28 @@ export default function EstimacionesWidget() {
     const map = {};
     lots.forEach((lot) => {
       if (!approvedLotStatuses.includes(lot.status)) return;
-      Object.values(lot.houses || {}).forEach((house) => {
+
+      // Regla: el disponible se descuenta con base en lo APROBADO.
+      // Para evitar que un mismo lote sume dos veces el mismo concepto por ciclos de observación,
+      // primero consolidamos por lote + casa + concepto y luego sumamos entre lotes distintos.
+      const lotConceptMax = {};
+
+      Object.entries(lot.houses || {}).forEach(([houseKey, house]) => {
+        const resolvedHouseId = house.houseId || house.id || houseKey;
         (house.rows || []).forEach((row) => {
           if (row.status !== "aprobada_supervision") return;
-          const key = `${house.houseId || house.id}::${row.conceptId}`;
-          map[key] = (map[key] || 0) + Number(row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+          const conceptId = row.conceptId;
+          if (!conceptId) return;
+          const rowKey = `${resolvedHouseId}::${conceptId}`;
+          const approvedPercent = clampPercent(row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+          // Dentro del mismo lote, si por error quedó más de una fila del mismo concepto,
+          // tomamos la mayor aprobación del ciclo, no la suma.
+          lotConceptMax[rowKey] = Math.max(Number(lotConceptMax[rowKey] || 0), approvedPercent);
         });
+      });
+
+      Object.entries(lotConceptMax).forEach(([key, value]) => {
+        map[key] = (map[key] || 0) + Number(value || 0);
       });
     });
     return map;
@@ -1121,7 +1137,7 @@ export default function EstimacionesWidget() {
                         <col style={{ width: 170 }} />
                         <col style={{ width: 96 }} />
                       </colgroup>
-                      <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unid.</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprob.</th><th style={th}>Disp.</th><th style={th}>% estimar</th><th style={th}>A estimar</th></tr></thead>
+                      <thead><tr><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unid.</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Aprob. acum.</th><th style={th}>Disponible</th><th style={th}>% estimar</th><th style={th}>A estimar</th></tr></thead>
                       <tbody>
                         {concepts.map((concept) => {
                           const approved = approvedFor(selectedHouseId, concept.id);
