@@ -302,6 +302,7 @@ export default function EstimacionesWidget() {
   const [collapsedPartidas, setCollapsedPartidas] = useState({});
   const [selectedLotId, setSelectedLotId] = useState("");
   const [selectedReviewRowIds, setSelectedReviewRowIds] = useState({});
+  const [reviewPercentDrafts, setReviewPercentDrafts] = useState({});
   const [mergeLotIds, setMergeLotIds] = useState([]);
   const [lotForm, setLotForm] = useState({ numero: "", nombre: "", periodo: new Date().toISOString().slice(0, 7) });
   const [filters, setFilters] = useState({ captura: "", borradores: "", aprobacion: "", estatus: "", status: "todos", house: "todas", partida: "todas" });
@@ -467,7 +468,7 @@ export default function EstimacionesWidget() {
 
   function contractorResolutionLabel(row) {
     if (row.constructorResolution === "eliminar") return "Constructora propone eliminar esta partida de la estimación.";
-    if (row.constructorResolution === "mantener") return `Constructora acepta el ajuste sugerido por supervisión (${clampPercent(row.avanceSolicitado)}%).`;
+    if (row.constructorResolution === "mantener") return `Constructora acepta el ajuste sugerido por supervisión (${clampPercent(row.porcentajeObservadoSupervision ?? row.avanceAprobado ?? row.avanceSolicitado)}%).`;
     if (row.constructorResolution === "modificar") return `Constructora modificó el porcentaje observado: ${clampPercent(row.porcentajeObservadoSupervision ?? row.avanceAprobado)}% → ${clampPercent(row.avanceSolicitado)}%.`;
     return "Pendiente de solventar por constructora.";
   }
@@ -914,7 +915,7 @@ export default function EstimacionesWidget() {
     if (!lot || !houseId || !rowIds.length) return;
     let comment = "";
     if (!approved) {
-      comment = window.prompt("Comentario específico de supervisión para la partida/concepto observado:") || "";
+      comment = window.prompt("Comentario específico de supervisión para la partida/concepto observado. Si ajustaste el % a aprobar, ese será el ajuste sugerido:") || "";
       if (!comment.trim()) { alert("Agrega un comentario específico para poder observar."); return; }
     }
 
@@ -924,7 +925,9 @@ export default function EstimacionesWidget() {
       const id = row.rowId || row.conceptId;
       if (!rowIds.includes(id)) return row;
       const isDeleteResolution = row.constructorResolution === "eliminar";
-      const proposedApproved = clampPercent(row.avanceAprobado);
+      const draftKey = `${houseId}:${id}`;
+      const draftPercent = reviewPercentDrafts[draftKey];
+      const proposedApproved = draftPercent !== undefined ? clampPercent(draftPercent) : clampPercent(row.avanceAprobado);
       const requestedPercent = clampPercent(row.avanceSolicitado);
       const approvedPercent = isDeleteResolution ? 0 : (proposedApproved > 0 ? proposedApproved : requestedPercent);
       const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || 0), 1) * 100) || 0;
@@ -961,6 +964,11 @@ export default function EstimacionesWidget() {
         approved ? `${rowIds.length} concepto(s) aprobado(s).` : `${rowIds.length} concepto(s) observado(s): ${comment}`
       );
       setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: [] }));
+      setReviewPercentDrafts((prev) => {
+        const next = { ...prev };
+        rowIds.forEach((rowId) => delete next[`${houseId}:${rowId}`]);
+        return next;
+      });
     } catch (error) {
       console.error(error);
       alert("No se pudo guardar la decisión de supervisión. Revisa la consola para más detalle.");
@@ -1481,8 +1489,9 @@ export default function EstimacionesWidget() {
                             <input
                               type="text"
                               inputMode="decimal"
-                              defaultValue={percent}
+                              value={reviewPercentDrafts[`${houseId}:${id}`] ?? percent}
                               onWheel={(event) => event.currentTarget.blur()}
+                              onChange={(event) => setReviewPercentDrafts((prev) => ({ ...prev, [`${houseId}:${id}`]: event.target.value }))}
                               onBlur={(event) => updateReviewRow(lot, houseId, id, { avanceAprobado: event.target.value })}
                               style={{ ...inputBase, minHeight: 36, padding: "7px 8px", textAlign: "center" }}
                             />
