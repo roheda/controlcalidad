@@ -1,0 +1,21 @@
+LIMPIEZA DE DATOS PARA INICIAR DE CERO
+
+Este ZIP elimina la opción de Cargar demo Arenna del código, pero los datos ya guardados viven en Firebase/Firestore.
+
+Para dejar el sistema en blanco:
+
+1) En terminal, desde la carpeta app, ejecuta:
+
+   firebase firestore:delete obras/arenna --recursive --yes
+
+2) Si existen otras obras de prueba, bórralas igual:
+
+   firebase firestore:delete obras/NOMBRE_ID_OBRA --recursive --yes
+
+3) Alternativa manual:
+   Firebase Console > Firestore Database > colección obras > documento arenna > Delete document > incluir subcolecciones.
+
+4) No borres usuarios si quieres conservar accesos.
+
+La parte de Calidad conserva en código los puntos de checklist, pero ya no se crea Arenna automáticamente.
+Da de alta una nueva obra desde el módulo Obras y luego carga el catálogo oficial.

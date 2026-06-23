@@ -12,7 +12,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 
-const defaultObraId = "arenna";
+const defaultObraId = "";
 
 const inputBase = {
   width: "100%",
@@ -522,17 +522,26 @@ export default function EstimacionesWidget() {
       const obrasSnap = await getDocs(collection(db, "obras"));
       const nextObras = obrasSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
       setObras(nextObras);
+      const activeObraId = selectedObraId || nextObras[0]?.id || "";
+      if (activeObraId && activeObraId !== selectedObraId) setSelectedObraId(activeObraId);
+      if (!activeObraId) {
+        setHouses([]);
+        setCatalog([]);
+        setLots([]);
+        setSelectedHouseId("");
+        return;
+      }
 
-      const housesSnap = await getDocs(query(collection(db, "obras", selectedObraId, "casas"), orderBy("number", "asc")));
+      const housesSnap = await getDocs(query(collection(db, "obras", activeObraId, "casas"), orderBy("number", "asc")));
       const nextHouses = housesSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
       setHouses(nextHouses);
       if (!selectedHouseId && nextHouses.length) setSelectedHouseId(nextHouses[0].id);
 
-      const catalogSnap = await getDocs(query(collection(db, "obras", selectedObraId, "catalogoConceptos"), orderBy("partida", "asc")));
+      const catalogSnap = await getDocs(query(collection(db, "obras", activeObraId, "catalogoConceptos"), orderBy("partida", "asc")));
       const nextCatalog = catalogSnap.docs.map((item, index) => normalizeCatalogItem({ id: item.id, ...item.data() }, index));
       setCatalog(nextCatalog);
 
-      const lotsSnap = await getDocs(query(collection(db, "obras", selectedObraId, "estimacionLotes"), orderBy("createdAt", "desc")));
+      const lotsSnap = await getDocs(query(collection(db, "obras", activeObraId, "estimacionLotes"), orderBy("createdAt", "desc")));
       const nextLots = lotsSnap.docs.map((item) => sanitizeLotAgainstCatalog({ id: item.id, ...item.data() }, nextCatalog));
       setLots(nextLots);
       if (selectedLotId && !nextLots.some((item) => item.id === selectedLotId)) setSelectedLotId("");

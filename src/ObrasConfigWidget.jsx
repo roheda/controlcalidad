@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getApps } from "firebase/app";
 import { collection, doc, getDocs, getFirestore, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
 
-const defaultObraId = "arenna";
+const defaultObraId = "";
 const inputBase = { width: "100%", minHeight: 44, border: "1px solid rgba(60,60,67,0.16)", borderRadius: 14, padding: "10px 12px", background: "#fff", color: "#1d1d1f", outline: "none", boxSizing: "border-box" };
 const buttonBase = { border: "1px solid rgba(60,60,67,0.12)", borderRadius: 999, padding: "10px 14px", fontWeight: 850, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" };
 const th = { padding: "10px", fontSize: 11, fontWeight: 950, color: "#6e6e73", textTransform: "uppercase", letterSpacing: 0.35, background: "rgba(242,242,247,0.96)", borderBottom: "1px solid rgba(60,60,67,0.10)" };
@@ -86,8 +86,10 @@ export default function ObrasConfigWidget() {
       const obrasSnap = await getDocs(collection(db, "obras"));
       const nextObras = obrasSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
       setObras(nextObras);
-      if (!nextObras.some((obra) => obra.id === selectedObraId) && nextObras.length) setSelectedObraId(nextObras[0].id);
-      const catalogSnap = await getDocs(query(collection(db, "obras", selectedObraId, "catalogoConceptos"), orderBy("partida", "asc")));
+      const activeObraId = selectedObraId || nextObras[0]?.id || "";
+      if (activeObraId && activeObraId !== selectedObraId) setSelectedObraId(activeObraId);
+      if (!activeObraId) { setCatalog([]); return; }
+      const catalogSnap = await getDocs(query(collection(db, "obras", activeObraId, "catalogoConceptos"), orderBy("partida", "asc")));
       setCatalog(catalogSnap.docs.map((item, index) => normalizeCatalogItem({ id: item.id, ...item.data() }, index)));
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
@@ -138,7 +140,7 @@ export default function ObrasConfigWidget() {
     <div style={{ maxWidth: 1420, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 42px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18, flexWrap: "wrap" }}><div><div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Obras</div><div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Alta de obra, catálogo de conceptos, Fecha Entrega y configuración económica para estimaciones.</div></div><button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Volver</button></div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
-        <Card title="Obras actuales" subtitle="Selecciona la obra que vas a configurar."><Field label="Obra"><select value={selectedObraId} onChange={(e) => setSelectedObraId(e.target.value)} style={inputBase}>{obras.length ? obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id} · {obra.status || "sin estatus"}</option>) : <option value={defaultObraId}>Arenna</option>}</select></Field>{selectedObra ? <div style={{ padding: 12, borderRadius: 16, background: "#fff", border: "1px solid rgba(60,60,67,0.12)" }}><div style={{ fontWeight: 950 }}>{selectedObra.name || selectedObra.id}</div><div style={{ color: "#6e6e73", fontSize: 13, marginTop: 4 }}>{selectedObra.location || "Sin ubicación"}</div></div> : null}</Card>
+        <Card title="Obras actuales" subtitle="Selecciona la obra que vas a configurar."><Field label="Obra"><select value={selectedObraId} onChange={(e) => setSelectedObraId(e.target.value)} style={inputBase}>{obras.length ? obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id} · {obra.status || "sin estatus"}</option>) : <option value="">Sin obras cargadas</option>}</select></Field>{selectedObra ? <div style={{ padding: 12, borderRadius: 16, background: "#fff", border: "1px solid rgba(60,60,67,0.12)" }}><div style={{ fontWeight: 950 }}>{selectedObra.name || selectedObra.id}</div><div style={{ color: "#6e6e73", fontSize: 13, marginTop: 4 }}>{selectedObra.location || "Sin ubicación"}</div></div> : null}</Card>
         <Card title="Alta rápida de obra" subtitle="Crea una obra base para después cargar catálogo."><Field label="Nombre"><input value={obraForm.name} onChange={(e) => setObraForm((prev) => ({ ...prev, name: e.target.value }))} style={inputBase} /></Field><Field label="Código"><input value={obraForm.code} onChange={(e) => setObraForm((prev) => ({ ...prev, code: e.target.value }))} style={inputBase} /></Field><Field label="Ubicación"><input value={obraForm.location} onChange={(e) => setObraForm((prev) => ({ ...prev, location: e.target.value }))} style={inputBase} /></Field><Field label="Unidades"><input type="number" value={obraForm.totalUnits} onChange={(e) => setObraForm((prev) => ({ ...prev, totalUnits: e.target.value }))} style={inputBase} /></Field><button type="button" onClick={saveObra} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar obra</button></Card>
         <Card title="Configuración económica" subtitle="Estos datos se consumen en Estimaciones de forma informativa y para cálculo de neto."><Field label="Anticipo a amortizar (%)"><input type="number" value={configForm.anticipoPorcentaje} onChange={(e) => setConfigForm((prev) => ({ ...prev, anticipoPorcentaje: e.target.value }))} style={inputBase} /></Field><Field label="Retención (%)"><input type="number" value={configForm.retencionPorcentaje} onChange={(e) => setConfigForm((prev) => ({ ...prev, retencionPorcentaje: e.target.value }))} style={inputBase} /></Field><Field label="Multa diaria"><input type="number" value={configForm.multaDiaria} onChange={(e) => setConfigForm((prev) => ({ ...prev, multaDiaria: e.target.value }))} style={inputBase} /></Field><button type="button" onClick={saveEstimationConfig} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar configuración</button></Card>
       </div>

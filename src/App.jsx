@@ -512,62 +512,6 @@ function CommentThread({ comments, onPreview }) {
   );
 }
 
-async function seedProject() {
-  const obraRef = doc(db, "obras", obraId);
-  const obraSnap = await getDoc(obraRef);
-
-  if (!obraSnap.exists()) {
-    await setDoc(obraRef, {
-      name: "Arenna",
-      totalHouses: 26,
-      createdAt: serverTimestamp(),
-    });
-  }
-
-  const tasks = Array.from({ length: 26 }, async (_, i) => {
-    const n = i + 1;
-    const block = i < 5 ? "A" : i < 10 ? "B" : i < 15 ? "C" : i < 20 ? "D" : "E";
-    const houseId = `casa-${String(n).padStart(2, "0")}`;
-    const houseRef = doc(db, "obras", obraId, "casas", houseId);
-
-    await setDoc(
-      houseRef,
-      {
-        id: houseId,
-        number: n,
-        name: `Casa ${n}`,
-        block,
-        createdAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    await Promise.all(
-      partidaTemplates.map((partida) => {
-        const partidaRef = doc(db, "obras", obraId, "casas", houseId, "partidas", partida.id);
-        return setDoc(
-          partidaRef,
-          {
-            ...partida,
-            status: "Pendiente",
-            checkedItems: [],
-            checklist: buildChecklist(partida.id),
-            notes: "",
-generalComments: [],
-evidenceCount: { photos: 0, videos: 0 },
-            createdAt: serverTimestamp(),
-            lastUpdatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      })
-    );
-  });
-
-  await Promise.all(tasks);
-  alert("Arenna demo cargado");
-}
-
 function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1228,11 +1172,8 @@ async function deleteGeneralEvidence(file) {
         <div style={{ ...cardStyle(), width: "100%", maxWidth: 420, padding: 30, textAlign: "center" }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: c.text, marginBottom: 8 }}>Cargando obra...</div>
           <div style={{ color: c.muted, marginBottom: 18 }}>
-            Si todavía no existe la estructura, crea Arenna con un clic.
+            No hay datos cargados todavía. Da de alta una obra desde el módulo Obras para iniciar el proceso desde cero.
           </div>
-          <button onClick={seedProject} style={buttonStyle("secondary")}>
-            Cargar demo Arenna
-          </button>
         </div>
       </div>
     );
@@ -1315,7 +1256,7 @@ const reviewBlockMessage =
                 lineHeight: 1.1,
               }}
             >
-              Arenna · Control de calidad
+              Control de calidad
             </div>
             <div
               style={{
@@ -1332,9 +1273,6 @@ const reviewBlockMessage =
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <span style={badgeStyle(profile?.role || "Pendiente")}>Rol: {profile?.role || "sin rol"}</span>
             <span style={badgeStyle("Pendiente")}>{authUser.email}</span>
-            <button onClick={seedProject} style={buttonStyle("secondary")}>
-              Cargar demo Arenna
-            </button>
             <button onClick={() => signOut(auth)} style={buttonStyle("secondary")}>
               Salir
             </button>
@@ -1349,7 +1287,7 @@ const reviewBlockMessage =
             marginBottom: 22,
           }}
         >
-          <StatCard title="Obra" value="Arenna" />
+          <StatCard title="Obra" value="Sin obra demo" />
           <StatCard title="Casas" value={houses.length} />
           <StatCard
             title="Partidas aprobadas"
