@@ -260,6 +260,30 @@ function Metric({ label, value, helper }) {
   );
 }
 
+function ExportButtons({ lot }) {
+  if (!lot) return null;
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <button type="button" onClick={() => printLotToPdf(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Imprimir / PDF</button>
+      <button type="button" onClick={() => exportLotToExcel(lot)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Exportar Excel</button>
+    </div>
+  );
+}
+
+function FinancialAudit({ lot }) {
+  if (!lot) return null;
+  const result = validateLotFinancialIntegrity(lot);
+  const hasIssues = result.critical.length || result.warnings.length;
+  return (
+    <div style={{ marginTop: 14, padding: 12, borderRadius: 16, background: hasIssues ? "#fff7ed" : "#ecfdf3", border: `1px solid ${hasIssues ? "rgba(251,146,60,0.35)" : "rgba(21,128,61,0.22)"}`, color: hasIssues ? "#9a3412" : "#166534" }}>
+      <strong>Control de integridad financiera</strong>
+      <div style={{ fontSize: 12, marginTop: 4 }}>{hasIssues ? "Revisar antes de enviar, aprobar o pagar." : "Sin diferencias críticas detectadas en porcentajes, importes y totales."}</div>
+      {result.critical.length ? <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{result.critical.slice(0, 5).map((item, idx) => <li key={`c-${idx}`}>{item}</li>)}</ul> : null}
+      {result.warnings.length ? <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{result.warnings.slice(0, 5).map((item, idx) => <li key={`w-${idx}`}>{item}</li>)}</ul> : null}
+    </div>
+  );
+}
+
 function FilterBar({ search, setSearch, status, setStatus, house, setHouse, houses, partida, setPartida, partidas, showStatus = false, showHouse = false, showPartida = false, customStatusOptions = statusOptions }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
@@ -925,6 +949,12 @@ export default function EstimacionesWidget() {
       return;
     }
 
+    const integrity = validateLotFinancialIntegrity({ ...lot, houses: housesObject, totals: lotTotals(housesObject) });
+    if (integrity.critical.length) {
+      alert(`No se puede enviar a aprobación por diferencias críticas:\n${integrity.critical.slice(0, 4).join("\n")}`);
+      return;
+    }
+
     const officialCode = lot.officialCode || makeOfficialCode(lot.numero);
     await saveLotPatch(
       lot,
@@ -954,7 +984,7 @@ export default function EstimacionesWidget() {
       const draftPercent = reviewPercentDrafts[draftKey];
       const proposedApproved = draftPercent !== undefined ? clampPercent(draftPercent) : clampPercent(row.avanceAprobado);
       const requestedPercent = clampPercent(row.avanceSolicitado);
-      const approvedPercent = isDeleteResolution ? 0 : (proposedApproved > 0 ? proposedApproved : requestedPercent);
+      const approvedPercent = isDeleteResolution ? 0 : Math.min(requestedPercent, (proposedApproved > 0 ? proposedApproved : requestedPercent));
       const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || 0), 1) * 100) || 0;
       return {
         ...row,
@@ -1047,6 +1077,12 @@ export default function EstimacionesWidget() {
         housesObject[houseId] = { ...house, status: hasObserved ? "borrador_observado" : house.status };
       });
       await saveLotPatch(lot, housesObject, "borrador_observado", "Revisión terminada con observaciones", `${observedRows.length} partida(s) observada(s) regresan a constructora. Las partidas aprobadas quedan autorizadas y no viajan de nuevo.`);
+      return;
+    }
+
+    const integrity = validateLotFinancialIntegrity({ ...lot, houses: housesObject, status: "lista_administracion", totals: lotTotals(housesObject) });
+    if (integrity.critical.length) {
+      alert(`No se puede cerrar la revisión por diferencias críticas:\n${integrity.critical.slice(0, 4).join("\n")}`);
       return;
     }
 
@@ -1251,6 +1287,8 @@ export default function EstimacionesWidget() {
             <Metric label="Multas" value={`-${money(lot.totals?.multas)}`} />
             <Metric label="Neto a cobrar" value={money(lot.totals?.neto)} />
           </div>
+          <div style={{ marginTop: 14 }}><ExportButtons lot={lot} /></div>
+          <FinancialAudit lot={lot} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 14 }}>
             <div style={{ padding: 12, borderRadius: 16, background: "#f5f5f7" }}>
               <strong>Resumen por partida</strong>
@@ -1440,10 +1478,12 @@ export default function EstimacionesWidget() {
           {lot ? (
             <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <button type="button" onClick={() => finishEngineeringReview(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Terminar revisión del lote</button>
+              <ExportButtons lot={lot} />
               <span style={{ color: "#6e6e73", fontSize: 12 }}>No podrás terminar si queda algún concepto pendiente. Las decisiones se pueden modificar antes de cerrar.</span>
             </div>
           ) : null}
         </Card>
+        {lot ? <FinancialAudit lot={lot} /> : null}
         {lot ? Object.entries(lot.houses || {})
           .filter(([houseId]) => filters.house === "todas" || filters.house === houseId)
           .map(([houseId, house]) => {
@@ -1560,6 +1600,7 @@ export default function EstimacionesWidget() {
                 <button onClick={() => setAdminStatus(lot, "pago_programado")} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Pago programado</button>
                 <button onClick={() => setAdminStatus(lot, "pagada")} style={{ ...buttonBase, background: "#e8f7ed", color: "#157347" }}>Pagada</button>
                 <button onClick={() => { setSelectedLotId(lot.id); setActiveTab("borradores"); }} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Ver detalle en seguimiento</button>
+                <ExportButtons lot={lot} />
               </div>
             </div>
           ))}
@@ -1583,9 +1624,12 @@ export default function EstimacionesWidget() {
         `}</style>
       <div style={{ maxWidth: 1480, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 42px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Estimaciones</div>
-            <div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Captura crea borradores. Borradores da seguimiento, une lotes, copia casas y envía a aprobación.</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <img src="/triton-logo.png" alt="Triton" style={{ width: 58, height: 58, objectFit: "contain", background: "#111", borderRadius: 18, padding: 6, boxShadow: "0 10px 28px rgba(0,0,0,0.12)" }} />
+            <div>
+              <div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Estimaciones</div>
+              <div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Captura crea borradores. Borradores da seguimiento, une lotes, copia casas y envía a aprobación.</div>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <select value={profile} onChange={(event) => setProfile(event.target.value)} style={{ ...inputBase, width: 220 }}>

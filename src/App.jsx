@@ -1246,7 +1246,9 @@ const reviewBlockMessage =
             flexWrap: "wrap",
           }}
         >
-          <div>
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <img src="/triton-logo.png" alt="Triton" style={{ width: isMobile ? 48 : 60, height: isMobile ? 48 : 60, objectFit: "contain", borderRadius: 18, background: "#111", padding: 6, boxShadow: "0 10px 24px rgba(0,0,0,0.12)" }} />
+            <div>
             <div
               style={{
                 fontSize: isMobile ? 28 : 34,
@@ -1268,6 +1270,7 @@ const reviewBlockMessage =
             >
               Sistema de evidencia, revisión de partidas y checklist por punto de control
             </div>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -1287,7 +1290,7 @@ const reviewBlockMessage =
             marginBottom: 22,
           }}
         >
-          <StatCard title="Obra" value="Sin obra demo" />
+          <StatCard title="Obra" value="Sin obra activa" />
           <StatCard title="Casas" value={houses.length} />
           <StatCard
             title="Partidas aprobadas"

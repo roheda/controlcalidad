@@ -139,11 +139,16 @@ export default function MainNavigation() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "space-between", gap: 10, marginBottom: 16 }}>
         {!collapsed ? (
           <div>
-            <div style={{ fontSize: 20, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.3 }}>Triton OS</div>
-            <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 2 }}>Módulos operativos</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <img src="/triton-logo.png" alt="Triton" style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 10, background: "#111" }} />
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.3 }}>Triton OS</div>
+                <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 2 }}>Módulos operativos</div>
+              </div>
+            </div>
           </div>
         ) : (
-          <div style={{ width: 44, height: 44, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", background: "#f2f2f7", fontWeight: 950 }}>OS</div>
+          <img src="/triton-logo.png" alt="Triton" style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 16, background: "#111", padding: 5 }} />
         )}
         {isDesktop ? (
           <button
