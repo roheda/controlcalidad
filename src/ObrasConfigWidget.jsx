@@ -73,6 +73,10 @@ function downloadCatalogTemplate() {
 const documentCategories = ["Planos del proyecto", "Renders", "Detalles de arquitectura", "Ingenierías", "Especificaciones", "Acabados", "Control de cambios", "Autorizaciones", "Minutas", "Garantías / manuales", "Otros"];
 const documentScopes = ["Toda la obra", "Modelo específico", "Bloque específico", "Unidades específicas"];
 const defaultDocBatchMeta = { category: "Planos del proyecto", version: "", scope: "Toda la obra", model: "", units: "", status: "vigente", authorizedBy: "", authorizationDate: "", description: "" };
+const blockTypes = ["Bloque de obra", "Residente", "Frente de trabajo", "Etapa", "Torre / edificio", "Modelo", "Otro"];
+const blockColors = ["#007aff", "#34c759", "#ff9500", "#af52de", "#ff3b30", "#5856d6", "#111827"];
+const defaultBlockForm = { name: "", type: "Bloque de obra", responsible: "", units: "", color: "#007aff", notes: "", status: "activo" };
+function splitUnits(value = "") { return String(value).split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean); }
 function Field({ label, children }) { return <label style={{ display: "block", marginBottom: 12 }}><div style={{ fontSize: 13, fontWeight: 850, color: "#1d1d1f", marginBottom: 6 }}>{label}</div>{children}</label>; }
 function Card({ title, subtitle, children }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 28px rgba(0,0,0,0.055)", marginBottom: 16 }}>{title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f" }}>{title}</div> : null}{subtitle ? <div style={{ marginTop: 4, color: "#6e6e73", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}{children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}</div>; }
 function Metric({ label, value, helper }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 20, padding: 15, background: "#fff" }}><div style={{ color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>{label}</div><div style={{ color: "#1d1d1f", fontSize: 24, fontWeight: 950, marginTop: 4 }}>{value}</div>{helper ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}</div>; }
@@ -90,6 +94,8 @@ export default function ObrasConfigWidget() {
   const [catalogSearch, setCatalogSearch] = useState("");
   const [docBatchRows, setDocBatchRows] = useState([]);
   const [uploadingDocs, setUploadingDocs] = useState(false);
+  const [unitBlocks, setUnitBlocks] = useState([]);
+  const [blockForm, setBlockForm] = useState(defaultBlockForm);
 
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || {};
   const catalogTotal = useMemo(() => catalog.reduce((acc, item) => acc + Number(item.importe || 0), 0), [catalog]);
@@ -99,6 +105,8 @@ export default function ObrasConfigWidget() {
     if (!q) return catalog;
     return catalog.filter((item) => `${item.partida} ${item.clave} ${item.concepto} ${item.unidad} ${item.fechaEntrega || ""}`.toLowerCase().includes(q));
   }, [catalog, catalogSearch]);
+  const assignedUnits = useMemo(() => new Set(unitBlocks.flatMap((block) => Array.isArray(block.units) ? block.units : [])), [unitBlocks]);
+  const blockUnitsPreview = useMemo(() => splitUnits(blockForm.units), [blockForm.units]);
 
   useEffect(() => { const handler = () => setOpen(true); window.addEventListener("triton-open-obras-config", handler); window.addEventListener("triton-module-obras", handler); return () => { window.removeEventListener("triton-open-obras-config", handler); window.removeEventListener("triton-module-obras", handler); }; }, []);
   useEffect(() => { if (!open) return; loadData(); }, [open, selectedObraId]);
@@ -114,9 +122,11 @@ export default function ObrasConfigWidget() {
       setObras(nextObras);
       const activeObraId = selectedObraId || nextObras[0]?.id || "";
       if (activeObraId && activeObraId !== selectedObraId) setSelectedObraId(activeObraId);
-      if (!activeObraId) { setCatalog([]); return; }
+      if (!activeObraId) { setCatalog([]); setUnitBlocks([]); return; }
       const catalogSnap = await getDocs(query(collection(db, "obras", activeObraId, "catalogoConceptos"), orderBy("partida", "asc")));
       setCatalog(catalogSnap.docs.map((item, index) => normalizeCatalogItem({ id: item.id, ...item.data() }, index)));
+      const blocksSnap = await getDocs(query(collection(db, "obras", activeObraId, "unitBlocks"), orderBy("name", "asc")));
+      setUnitBlocks(blocksSnap.docs.map((item) => ({ id: item.id, ...item.data() })));
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   }
@@ -157,6 +167,43 @@ export default function ObrasConfigWidget() {
     if (!db || !selectedObraId || !concept?.id) return;
     setCatalog((prev) => prev.map((item) => item.id === concept.id ? { ...item, fechaEntrega } : item));
     await setDoc(doc(db, "obras", selectedObraId, "catalogoConceptos", concept.id), { fechaEntrega, updatedAt: serverTimestamp() }, { merge: true });
+  }
+
+  async function saveUnitBlock() {
+    const db = getDb();
+    if (!db || !selectedObraId) return;
+    const name = cleanText(blockForm.name);
+    const units = splitUnits(blockForm.units);
+    if (!name) { alert("Agrega el nombre del bloque."); return; }
+    if (!units.length) { alert("Agrega al menos una unidad al bloque."); return; }
+    const id = slugify(`${name}-${blockForm.responsible || "bloque"}`) || `bloque-${Date.now()}`;
+    await setDoc(doc(db, "obras", selectedObraId, "unitBlocks", id), {
+      id,
+      name,
+      type: blockForm.type || "Bloque de obra",
+      responsible: cleanText(blockForm.responsible || ""),
+      units,
+      color: blockForm.color || "#007aff",
+      notes: cleanText(blockForm.notes || ""),
+      status: blockForm.status || "activo",
+      unitCount: units.length,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    }, { merge: true });
+    setBlockForm(defaultBlockForm);
+    await loadData();
+  }
+  function editUnitBlock(block) {
+    setBlockForm({
+      name: block.name || "",
+      type: block.type || "Bloque de obra",
+      responsible: block.responsible || "",
+      units: Array.isArray(block.units) ? block.units.join(", ") : "",
+      color: block.color || "#007aff",
+      notes: block.notes || "",
+      status: block.status || "activo",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function handleTechnicalDocBatch(files) {
     const nextFiles = Array.from(files || []);
@@ -247,6 +294,35 @@ export default function ObrasConfigWidget() {
         </div>
         <input type="file" accept=".csv,text/csv" disabled={importing} onChange={(e) => importCatalogFile(e.target.files?.[0])} style={inputBase} />
         {importInfo ? <div style={{ marginTop: 10, color: "#157347", fontWeight: 850 }}>Última carga: {importInfo.rows} conceptos · {importInfo.partidas} partidas · {money(importInfo.total)}</div> : null}
+      </Card>
+      <Card title="Bloques de unidades / responsables" subtitle="Configura grupos de unidades para residentes, frentes de trabajo, etapas o bloques. Sirve para filtrar calidad, estimaciones, documentos y seguimiento por responsable.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          <Field label="Nombre del bloque"><input value={blockForm.name} onChange={(e) => setBlockForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Ej. Townhouses norte / Residente Juan" style={inputBase} /></Field>
+          <Field label="Tipo"><select value={blockForm.type} onChange={(e) => setBlockForm((prev) => ({ ...prev, type: e.target.value }))} style={inputBase}>{blockTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></Field>
+          <Field label="Responsable / residente"><input value={blockForm.responsible} onChange={(e) => setBlockForm((prev) => ({ ...prev, responsible: e.target.value }))} placeholder="Nombre del responsable" style={inputBase} /></Field>
+          <Field label="Estatus"><select value={blockForm.status} onChange={(e) => setBlockForm((prev) => ({ ...prev, status: e.target.value }))} style={inputBase}><option value="activo">Activo</option><option value="pausado">Pausado</option><option value="cerrado">Cerrado</option></select></Field>
+        </div>
+        <Field label="Unidades del bloque"><textarea value={blockForm.units} onChange={(e) => setBlockForm((prev) => ({ ...prev, units: e.target.value }))} rows={3} placeholder="Ej. TH01, TH02, TH03 o una unidad por línea" style={{ ...inputBase, resize: "vertical", lineHeight: 1.45 }} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          <Field label="Color"><select value={blockForm.color} onChange={(e) => setBlockForm((prev) => ({ ...prev, color: e.target.value }))} style={inputBase}>{blockColors.map((color) => <option key={color} value={color}>{color}</option>)}</select></Field>
+          <Field label="Notas"><input value={blockForm.notes} onChange={(e) => setBlockForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Notas internas del bloque" style={inputBase} /></Field>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <button type="button" onClick={saveUnitBlock} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar bloque</button>
+          <button type="button" onClick={() => setBlockForm(defaultBlockForm)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Limpiar formulario</button>
+          <div style={{ color: "#6e6e73", fontSize: 13 }}>{blockUnitsPreview.length} unidades en el formulario · {assignedUnits.size} unidades asignadas en bloques</div>
+        </div>
+        {unitBlocks.length ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+          {unitBlocks.map((block) => <div key={block.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 10, height: 10, borderRadius: 99, background: block.color || "#007aff", display: "inline-block" }} /><strong>{block.name}</strong></div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{block.type || "Bloque"} · {block.status || "activo"}</div></div>
+              <button type="button" onClick={() => editUnitBlock(block)} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Editar</button>
+            </div>
+            <div style={{ marginTop: 10, color: "#1d1d1f", fontSize: 13 }}><strong>Responsable:</strong> {block.responsible || "Sin responsable"}</div>
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>{(Array.isArray(block.units) ? block.units : []).slice(0, 18).map((unit) => <span key={unit} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 999, padding: "4px 8px", fontSize: 12, background: "rgba(242,242,247,0.82)" }}>{unit}</span>)}{Array.isArray(block.units) && block.units.length > 18 ? <span style={{ color: "#6e6e73", fontSize: 12 }}>+{block.units.length - 18} más</span> : null}</div>
+            {block.notes ? <div style={{ marginTop: 8, color: "#6e6e73", fontSize: 12 }}>{block.notes}</div> : null}
+          </div>)}
+        </div> : <div style={{ padding: 14, borderRadius: 16, background: "rgba(242,242,247,0.82)", color: "#6e6e73", fontSize: 13 }}>Todavía no hay bloques configurados para esta obra.</div>}
       </Card>
       <Card title="Documentos técnicos por lote" subtitle="Selecciona varios archivos a la vez y luego captura o ajusta sus datos antes de subirlos a la obra.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 12 }}>
