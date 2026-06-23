@@ -341,7 +341,7 @@ export default function EstimacionesWidget() {
   const retencionPorcentaje = parseNumber(config.retencionPorcentaje ?? 0);
   const multaDiaria = parseNumber(config.multaDiaria ?? 0);
   const nextNumber = useMemo(() => {
-    const numbers = lots.map((lot) => Number(lot.numero || 0)).filter(Boolean);
+    const numbers = lots.filter((lot) => approvedLotStatuses.includes(lot.status)).map((lot) => Number(lot.numero || 0)).filter(Boolean);
     return numbers.length ? Math.max(...numbers) + 1 : 1;
   }, [lots]);
   const draftStorageKey = `triton_estimacion_draft_${selectedObraId}_${selectedHouseId}_${lotForm.periodo}`;
@@ -398,9 +398,33 @@ export default function EstimacionesWidget() {
     return `EST-${String(selectedObra.code || selectedObraId).toUpperCase()}-${dateStamp()}-${String(numero || nextNumber).padStart(3, "0")}-${shortId()}`;
   }
 
+  function formatDateLongMX(value = new Date()) {
+    const date = value instanceof Date ? value : new Date(value);
+    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+    const months = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+    return `${String(safeDate.getDate()).padStart(2, "0")} ${months[safeDate.getMonth()]} ${safeDate.getFullYear()}`;
+  }
+
+  function estimationLabel(numero) {
+    return `ESTIMACION${String(numero || nextNumber).padStart(2, "0")}`;
+  }
+
+  function buildLotName(numero = nextNumber, periodo = lotForm.periodo) {
+    const obraName = String(selectedObra.name || selectedObraId || "OBRA").toUpperCase();
+    const dateText = periodo && /^\d{4}-\d{2}-\d{2}$/.test(periodo) ? formatDateLongMX(`${periodo}T00:00:00`) : formatDateLongMX(new Date());
+    return `${obraName} ${dateText} ${estimationLabel(numero)}`;
+  }
+
   function autoLotName(numero = lotForm.numero || nextNumber, periodo = lotForm.periodo) {
-    const obraName = selectedObra.name || selectedObraId;
-    return `Borrador ${String(numero).padStart(2, "0")} · ${obraName} · ${periodo || new Date().toISOString().slice(0, 7)} · ${makeDraftCode()}`;
+    return buildLotName(Number(numero || nextNumber), periodo);
+  }
+
+  function nextApprovedNumberFor(currentLotId = "") {
+    const approvedNumbers = lots
+      .filter((lot) => lot.id !== currentLotId && approvedLotStatuses.includes(lot.status))
+      .map((lot) => Number(lot.numero || 0))
+      .filter(Boolean);
+    return approvedNumbers.length ? Math.max(...approvedNumbers) + 1 : 1;
   }
 
   function approvedFor(houseId, conceptId) {
@@ -628,10 +652,10 @@ export default function EstimacionesWidget() {
     const rows = buildRowsFromDraft();
     if (!rows.length) { alert("Captura al menos un porcentaje de avance."); return; }
 
-    const numero = Number(lotForm.numero || nextNumber);
+    const numero = nextApprovedNumberFor();
     const draftCode = makeDraftCode();
     const id = `estimacion-${numero}-${Date.now()}-${shortId().toLowerCase()}`;
-    const nombre = lotForm.nombre || `Borrador ${String(numero).padStart(2, "0")} · ${selectedObra.name || selectedObraId} · ${lotForm.periodo} · ${draftCode}`;
+    const nombre = lotForm.nombre || buildLotName(numero, lotForm.periodo);
     const houseData = housePayload(selectedHouse, rows, "borrador");
     const housesObject = { [selectedHouse.id]: houseData };
     const lot = {
@@ -816,7 +840,7 @@ export default function EstimacionesWidget() {
     const db = getDb();
     if (!db) return;
 
-    const numero = nextNumber;
+    const numero = nextApprovedNumberFor();
     const draftCode = makeDraftCode();
     const id = `estimacion-${numero}-${Date.now()}-${shortId().toLowerCase()}`;
     const housesObject = {};
@@ -836,7 +860,7 @@ export default function EstimacionesWidget() {
       });
     });
 
-    const nombre = `Borrador unido ${String(numero).padStart(2, "0")} · ${selectedObra.name || selectedObraId} · ${lotForm.periodo} · ${draftCode}`;
+    const nombre = buildLotName(numero, lotForm.periodo);
     const lot = {
       id,
       obraId: selectedObraId,
@@ -1080,7 +1104,17 @@ export default function EstimacionesWidget() {
       return;
     }
 
-    const integrity = validateLotFinancialIntegrity({ ...lot, houses: housesObject, status: "lista_administracion", totals: lotTotals(housesObject) });
+    const assignedNumber = nextApprovedNumberFor(lot.id);
+    const duplicatedApproved = lots.find((item) => item.id !== lot.id && approvedLotStatuses.includes(item.status) && Number(item.numero || 0) === assignedNumber);
+    if (duplicatedApproved) {
+      alert(`No se puede aprobar con el número ${assignedNumber} porque ya existe una estimación aprobada con ese número. Recarga el módulo e intenta de nuevo.`);
+      return;
+    }
+
+    const finalLotName = buildLotName(assignedNumber, lot.periodo || lotForm.periodo);
+    const finalOfficialCode = lot.officialCode || makeOfficialCode(assignedNumber);
+    const finalTotals = lotTotals(housesObject);
+    const integrity = validateLotFinancialIntegrity({ ...lot, numero: assignedNumber, nombre: finalLotName, officialCode: finalOfficialCode, houses: housesObject, status: "lista_administracion", totals: finalTotals });
     if (integrity.critical.length) {
       alert(`No se puede cerrar la revisión por diferencias críticas:\n${integrity.critical.slice(0, 4).join("\n")}`);
       return;
@@ -1091,7 +1125,8 @@ export default function EstimacionesWidget() {
       housesObject,
       "lista_administracion",
       "Revisión terminada y aprobada",
-      "Las partidas del ciclo actual fueron aprobadas por ingeniería. Las partidas ya aprobadas previamente se mantienen autorizadas y no vuelven a revisión."
+      "Las partidas del ciclo actual fueron aprobadas por ingeniería. Las partidas ya aprobadas previamente se mantienen autorizadas y no vuelven a revisión.",
+      { numero: assignedNumber, nombre: finalLotName, officialCode: finalOfficialCode, totals: finalTotals, approvedAt: serverTimestamp() }
     );
   }
 
@@ -1135,7 +1170,7 @@ export default function EstimacionesWidget() {
             <Field label="Obra"><select value={selectedObraId} onChange={(event) => setSelectedObraId(event.target.value)} style={inputBase}>{obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id}</option>)}</select></Field>
             <Field label="Casa base"><select value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)} style={inputBase}>{houses.map((house) => <option key={house.id} value={house.id}>{house.name || house.id}</option>)}</select></Field>
             <Field label="Periodo"><input type="month" value={lotForm.periodo} onChange={(event) => setLotForm((prev) => ({ ...prev, periodo: event.target.value, nombre: "" }))} style={inputBase} /></Field>
-            <Field label="Número interno"><input value={lotForm.numero || nextNumber} onChange={(event) => setLotForm((prev) => ({ ...prev, numero: event.target.value }))} style={inputBase} /></Field>
+            <Field label="Número de estimación"><input value={nextNumber} readOnly style={{ ...inputBase, background: "#f5f5f7", color: "#6e6e73" }} /></Field>
           </div>
           <Field label="Nombre del borrador">
             <input value={lotForm.nombre || ""} placeholder="Déjalo vacío para autonombre con código único" onChange={(event) => setLotForm((prev) => ({ ...prev, nombre: event.target.value }))} style={inputBase} />

@@ -31,7 +31,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-const obraId = "arenna";
+const defaultObraId = "";
 
 const partidaTemplates = [
   { id: "preliminares", name: "Preliminares", weight: 5 },
@@ -623,8 +623,11 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [obras, setObras] = useState([]);
+  const [selectedObraId, setSelectedObraId] = useState(defaultObraId);
   const [houses, setHouses] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [qualityInitializing, setQualityInitializing] = useState(false);
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [selectedPartidaId, setSelectedPartidaId] = useState("cimentacion");
   const [tab, setTab] = useState("evidencia");
@@ -641,6 +644,9 @@ const [checklistCommentDrafts, setChecklistCommentDrafts] = useState({});
 const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   const [checklistCommentPhotoDrafts, setChecklistCommentPhotoDrafts] = useState({});
   const [checklistCommentUploading, setChecklistCommentUploading] = useState({});
+  const selectedObra = obras.find((obra) => obra.id === selectedObraId) || null;
+  const obraId = selectedObraId || selectedObra?.id || "";
+
   useEffect(() => {
     const onResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -675,11 +681,79 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
 
   useEffect(() => {
     if (!authUser) return;
+    const unsub = onSnapshot(collection(db, "obras"), (snapshot) => {
+      const nextObras = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      setObras(nextObras);
+      if (!nextObras.length) {
+        setSelectedObraId("");
+        setHouses([]);
+        setLoadingData(false);
+        return;
+      }
+      setSelectedObraId((current) => {
+        if (current && nextObras.some((obra) => obra.id === current)) return current;
+        return (nextObras.find((obra) => obra.status === "activa") || nextObras[0]).id;
+      });
+    });
+    return () => unsub();
+  }, [authUser]);
 
+  async function initializeQualityChecklistForObra(obra) {
+    if (!obra?.id || qualityInitializing) return;
+    const totalUnits = Math.max(0, Number(obra.totalUnits || 0));
+    if (!totalUnits) return;
+    setQualityInitializing(true);
+    try {
+      for (let index = 1; index <= totalUnits; index += 1) {
+        const houseId = `unidad_${String(index).padStart(2, "0")}`;
+        const houseRef = doc(db, "obras", obra.id, "casas", houseId);
+        await setDoc(houseRef, {
+          id: houseId,
+          name: `Unidad ${String(index).padStart(2, "0")}`,
+          number: index,
+          block: obra.name || obra.id,
+          model: "",
+          createdFromObra: true,
+          createdAt: serverTimestamp(),
+        }, { merge: true });
+        for (const template of partidaTemplates) {
+          await setDoc(doc(db, "obras", obra.id, "casas", houseId, "partidas", template.id), {
+            id: template.id,
+            name: template.name,
+            weight: template.weight,
+            status: "Pendiente",
+            progress: 0,
+            checklist: buildChecklist(template.id),
+            evidenceCount: { photos: 0, videos: 0 },
+            createdFromTemplate: true,
+            createdAt: serverTimestamp(),
+          }, { merge: true });
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      alert("No se pudieron activar automáticamente los checklist de calidad para la obra.");
+    } finally {
+      setQualityInitializing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!authUser || !obraId) {
+      setHouses([]);
+      setLoadingData(false);
+      return;
+    }
+
+    setLoadingData(true);
     const housesRef = collection(db, "obras", obraId, "casas");
     const q = query(housesRef, orderBy("number", "asc"));
 
     const unsub = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty && selectedObra && Number(selectedObra.totalUnits || 0) > 0 && !qualityInitializing) {
+        await initializeQualityChecklistForObra(selectedObra);
+        return;
+      }
       const data = await Promise.all(
         snapshot.docs.map(async (houseDoc) => {
           const partidasRef = collection(db, "obras", obraId, "casas", houseDoc.id, "partidas");
@@ -695,10 +769,11 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
       setHouses(data);
       setLoadingData(false);
       if (!selectedHouseId && data.length) setSelectedHouseId(data[0].id);
+      if (selectedHouseId && data.length && !data.some((house) => house.id === selectedHouseId)) setSelectedHouseId(data[0].id);
     });
 
     return () => unsub();
-  }, [authUser, selectedHouseId]);
+  }, [authUser, obraId, selectedObra?.id, selectedObra?.totalUnits, selectedHouseId, qualityInitializing]);
 
   const filteredHouses = useMemo(() => {
     return houses.filter((house) => {
@@ -1157,7 +1232,18 @@ async function deleteGeneralEvidence(file) {
 
   if (!authUser) return <LoginScreen />;
 
-  if (loadingData) {
+  if (!selectedObraId && !loadingData) {
+    return (
+      <div style={{ minHeight: "100vh", background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ ...cardStyle(), width: "100%", maxWidth: 460, padding: 30, textAlign: "center" }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: c.text, marginBottom: 8 }}>Sin obra activa</div>
+          <div style={{ color: c.muted, marginBottom: 18 }}>Da de alta una obra desde el módulo Obras para activar los checklist de calidad.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingData || qualityInitializing) {
     return (
       <div
         style={{
@@ -1172,7 +1258,7 @@ async function deleteGeneralEvidence(file) {
         <div style={{ ...cardStyle(), width: "100%", maxWidth: 420, padding: 30, textAlign: "center" }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: c.text, marginBottom: 8 }}>Cargando obra...</div>
           <div style={{ color: c.muted, marginBottom: 18 }}>
-            No hay datos cargados todavía. Da de alta una obra desde el módulo Obras para iniciar el proceso desde cero.
+            {qualityInitializing ? "Activando unidades y checklist de calidad de la obra..." : "Cargando unidades y checklist de calidad de la obra activa."}
           </div>
         </div>
       </div>
@@ -1274,6 +1360,11 @@ const reviewBlockMessage =
           </div>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            {obras.length > 1 ? (
+              <select value={selectedObraId} onChange={(event) => { setSelectedObraId(event.target.value); setSelectedHouseId(""); }} style={{ ...inputStyle(), minWidth: 220, padding: "10px 12px" }}>
+                {obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id}</option>)}
+              </select>
+            ) : null}
             <span style={badgeStyle(profile?.role || "Pendiente")}>Rol: {profile?.role || "sin rol"}</span>
             <span style={badgeStyle("Pendiente")}>{authUser.email}</span>
             <button onClick={() => signOut(auth)} style={buttonStyle("secondary")}>
@@ -1290,7 +1381,7 @@ const reviewBlockMessage =
             marginBottom: 22,
           }}
         >
-          <StatCard title="Obra" value="Sin obra activa" />
+          <StatCard title="Obra" value={selectedObra?.name || selectedObraId || "Sin obra activa"} />
           <StatCard title="Casas" value={houses.length} />
           <StatCard
             title="Partidas aprobadas"
