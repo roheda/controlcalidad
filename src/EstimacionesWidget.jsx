@@ -125,6 +125,24 @@ function timeStamp(date = new Date()) {
   return date.toTimeString().slice(0, 8).replace(/:/g, "");
 }
 
+function cleanFirestore(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanFirestore(item)).filter((item) => item !== undefined);
+  }
+  if (typeof value === "object") {
+    if (value instanceof Date) return value;
+    const output = {};
+    Object.entries(value).forEach(([key, item]) => {
+      const cleaned = cleanFirestore(item);
+      if (cleaned !== undefined) output[key] = cleaned;
+    });
+    return output;
+  }
+  return value;
+}
+
 function normalizeCatalogItem(item, index = 0) {
   const cantidad = parseNumber(item.cantidad ?? item.Unidades ?? item.unidades ?? item.cantidadContratada ?? 1);
   const precioUnitario = parseNumber(item.precioUnitario ?? item["P.U."] ?? item.pu ?? item.PU ?? item.precio_unitario ?? 0);
@@ -584,7 +602,7 @@ export default function EstimacionesWidget() {
       updatedAt: serverTimestamp(),
     };
 
-    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", id), lot, { merge: true });
+    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", id), cleanFirestore(lot), { merge: true });
     setSelectedLotId(id);
     alert("Borrador guardado. Ahora se trabaja desde Borradores y seguimiento.");
     setDraftRows({});
@@ -596,14 +614,14 @@ export default function EstimacionesWidget() {
   async function saveLotPatch(lot, housesObject, status, action, detail, extra = {}) {
     const db = getDb();
     if (!db || !lot) return;
-    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", lot.id), {
+    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", lot.id), cleanFirestore({
       houses: housesObject,
       status,
       totals: lotTotals(housesObject),
       history: appendHistory(lot, action, detail, profile === "supervision" ? "Ingeniería" : profile === "admin" ? "Administración" : "Constructora"),
       updatedAt: serverTimestamp(),
       ...extra,
-    }, { merge: true });
+    }), { merge: true });
     await loadData();
   }
 
@@ -788,7 +806,7 @@ export default function EstimacionesWidget() {
       updatedAt: serverTimestamp(),
     };
 
-    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", id), lot, { merge: true });
+    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", id), cleanFirestore(lot), { merge: true });
     setSelectedLotId(id);
     setMergeLotIds([]);
     await loadData();
@@ -918,9 +936,9 @@ export default function EstimacionesWidget() {
         importeSolicitado: isDeleteResolution ? 0 : row.importeSolicitado,
         importeAprobado: approved ? baseAmount * (approvedPercent / 100) : 0,
         comentarioSupervision: approved ? row.comentarioSupervision || "" : comment,
-        porcentajeOriginalConstructora: approved ? row.porcentajeOriginalConstructora : clampPercent(row.avanceSolicitado),
-        porcentajeObservadoSupervision: approved ? row.porcentajeObservadoSupervision : approvedPercent,
-        constructorResolution: approved ? row.constructorResolution || "" : row.constructorResolution || "",
+        porcentajeOriginalConstructora: approved ? (row.porcentajeOriginalConstructora ?? clampPercent(row.avanceSolicitado)) : clampPercent(row.avanceSolicitado),
+        porcentajeObservadoSupervision: approved ? (row.porcentajeObservadoSupervision ?? approvedPercent) : approvedPercent,
+        constructorResolution: row.constructorResolution || "",
         reviewedAt: new Date().toISOString(),
         reviewCycle: currentReviewCycle(lot) || row.reviewCycle || 0,
       };
@@ -934,14 +952,19 @@ export default function EstimacionesWidget() {
       totals: computeRowsTotals(rows, false),
     };
 
-    await saveLotPatch(
-      lot,
-      housesObject,
-      "en_aprobacion",
-      approved ? "Conceptos aprobados en revisión" : "Conceptos observados en revisión",
-      approved ? `${rowIds.length} concepto(s) aprobado(s).` : `${rowIds.length} concepto(s) observado(s): ${comment}`
-    );
-    setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: [] }));
+    try {
+      await saveLotPatch(
+        lot,
+        housesObject,
+        "en_aprobacion",
+        approved ? "Conceptos aprobados en revisión" : "Conceptos observados en revisión",
+        approved ? `${rowIds.length} concepto(s) aprobado(s).` : `${rowIds.length} concepto(s) observado(s): ${comment}`
+      );
+      setSelectedReviewRowIds((prev) => ({ ...prev, [houseId]: [] }));
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo guardar la decisión de supervisión. Revisa la consola para más detalle.");
+    }
   }
 
   async function updateReviewRow(lot, houseId, rowId, patch) {
@@ -1006,12 +1029,12 @@ export default function EstimacionesWidget() {
   async function setAdminStatus(lot, status) {
     const db = getDb();
     if (!db || !lot) return;
-    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", lot.id), {
+    await setDoc(doc(db, "obras", selectedObraId, "estimacionLotes", lot.id), cleanFirestore({
       status,
       history: appendHistory(lot, statusLabel[status] || status, "Actualización de administración.", "Administración"),
       adminUpdatedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    }, { merge: true });
+    }), { merge: true });
     await loadData();
   }
 
