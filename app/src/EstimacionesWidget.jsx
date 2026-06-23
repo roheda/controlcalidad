@@ -906,7 +906,9 @@ export default function EstimacionesWidget() {
       const id = row.rowId || row.conceptId;
       if (!rowIds.includes(id)) return row;
       const isDeleteResolution = row.constructorResolution === "eliminar";
-      const approvedPercent = isDeleteResolution ? 0 : clampPercent(row.avanceAprobado ?? row.avanceSolicitado ?? 0);
+      const proposedApproved = clampPercent(row.avanceAprobado);
+      const requestedPercent = clampPercent(row.avanceSolicitado);
+      const approvedPercent = isDeleteResolution ? 0 : (proposedApproved > 0 ? proposedApproved : requestedPercent);
       const baseAmount = Number(row.importeConcepto || 0) || (Number(row.importeSolicitado || 0) / Math.max(Number(row.avanceSolicitado || 0), 1) * 100) || 0;
       return {
         ...row,
@@ -915,12 +917,12 @@ export default function EstimacionesWidget() {
         avanceAprobado: approvedPercent,
         importeSolicitado: isDeleteResolution ? 0 : row.importeSolicitado,
         importeAprobado: approved ? baseAmount * (approvedPercent / 100) : 0,
-        comentarioSupervision: approved ? "" : comment,
+        comentarioSupervision: approved ? row.comentarioSupervision || "" : comment,
         porcentajeOriginalConstructora: approved ? row.porcentajeOriginalConstructora : clampPercent(row.avanceSolicitado),
         porcentajeObservadoSupervision: approved ? row.porcentajeObservadoSupervision : approvedPercent,
-        constructorResolution: approved ? "" : row.constructorResolution || "",
+        constructorResolution: approved ? row.constructorResolution || "" : row.constructorResolution || "",
         reviewedAt: new Date().toISOString(),
-        reviewCycle: row.reviewCycle || currentReviewCycle(lot),
+        reviewCycle: currentReviewCycle(lot) || row.reviewCycle || 0,
       };
     });
 
@@ -1405,6 +1407,7 @@ export default function EstimacionesWidget() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
                 <button type="button" onClick={() => toggleHouseSelection(houseId, house)} disabled={!selectableIds.length} style={{ ...buttonBase, background: allSelected ? "#eef2ff" : "#fff", color: allSelected ? "#3730a3" : "#1d1d1f", opacity: selectableIds.length ? 1 : 0.55 }}>{allSelected ? "Quitar selección" : "Seleccionar visible"}</button>
                 <button type="button" onClick={() => reviewRows(lot, houseId, selectedValidIds, true)} disabled={!selectedValidIds.length} style={{ ...buttonBase, background: selectedValidIds.length ? "#e8f7ed" : "#f4f4f5", color: selectedValidIds.length ? "#157347" : "#98a2b3" }}>Aprobar selección ({selectedValidIds.length})</button>
+                <button type="button" onClick={() => reviewRows(lot, houseId, selectableIds, true)} disabled={!selectableIds.length} style={{ ...buttonBase, background: selectableIds.length ? "#dcfce7" : "#f4f4f5", color: selectableIds.length ? "#166534" : "#98a2b3" }}>Aprobar visibles ({selectableIds.length})</button>
                 <button type="button" onClick={() => reviewRows(lot, houseId, selectedValidIds, false)} disabled={!selectedValidIds.length} style={{ ...buttonBase, background: selectedValidIds.length ? "#fff3cd" : "#f4f4f5", color: selectedValidIds.length ? "#9a6700" : "#98a2b3" }}>Observar selección</button>
                 <span style={{ color: "#6e6e73", fontSize: 12 }}>Puedes volver a seleccionar una aprobada u observada para cambiarla antes de terminar.</span>
               </div>
@@ -1419,6 +1422,7 @@ export default function EstimacionesWidget() {
                     <col style={{ width: 82 }} />
                     <col style={{ width: 96 }} />
                     <col style={{ width: 150 }} />
+                    <col style={{ width: 118 }} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -1430,6 +1434,7 @@ export default function EstimacionesWidget() {
                       <th style={approvalTh}>% a aprobar</th>
                       <th style={approvalTh}>Importe</th>
                       <th style={approvalTh}>Observación</th>
+                      <th style={approvalTh}>Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1462,6 +1467,12 @@ export default function EstimacionesWidget() {
                           </td>
                           <td style={approvalTd}>{money(row.importeAprobado || row.importeSolicitado)}</td>
                           <td style={approvalTd}>{row.comentarioSupervision || "—"}{row.constructorResolution ? <div style={{ marginTop: 6, padding: "6px 8px", borderRadius: 10, background: row.constructorResolution === "modificar" ? "#eef2ff" : row.constructorResolution === "eliminar" ? "#fee4e2" : "#e8f7ed", color: row.constructorResolution === "modificar" ? "#3730a3" : row.constructorResolution === "eliminar" ? "#b42318" : "#157347", fontSize: 11, fontWeight: 850 }}>{contractorResolutionLabel(row)}</div> : null}</td>
+                          <td style={approvalTd}>
+                            <div style={{ display: "grid", gap: 6 }}>
+                              <button type="button" onClick={() => reviewRows(lot, houseId, [id], true)} style={{ ...buttonBase, padding: "7px 9px", fontSize: 11.5, background: "#e8f7ed", color: "#157347" }}>Aprobar</button>
+                              <button type="button" onClick={() => reviewRows(lot, houseId, [id], false)} style={{ ...buttonBase, padding: "7px 9px", fontSize: 11.5, background: "#fff3cd", color: "#9a6700" }}>Observar</button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
