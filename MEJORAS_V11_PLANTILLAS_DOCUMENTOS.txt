@@ -1,0 +1,17 @@
+Triton Calidad OS - v11
+
+Cambios incluidos:
+1. Catálogo de conceptos
+- Botón para descargar plantilla CSV desde Obras > Catálogo de conceptos.
+- Columnas de plantilla: PARTIDA, clave, descripcion, Unidades, unidad, P.U., Fecha Entrega.
+- La carga del catálogo sigue usando el CSV y validando conceptos válidos.
+
+2. Documentos técnicos por lote
+- En Obras se agregó el bloque "Documentos técnicos por lote".
+- Permite seleccionar varios archivos en una sola carga.
+- Cada archivo genera una ficha editable con: nombre, categoría, versión, estatus, alcance, unidades, autorizó, fecha autorización y descripción.
+- Tiene controles para aplicar categoría, estatus y alcance a todos los archivos seleccionados.
+- Al guardar, sube cada archivo a Firebase Storage y registra su metadata en Firestore: obras/{obraId}/technicalDocuments.
+
+3. Build
+- npm run build validado correctamente.

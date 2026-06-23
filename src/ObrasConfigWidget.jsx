@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getApps } from "firebase/app";
 import { collection, doc, getDocs, getFirestore, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const defaultObraId = "";
 const inputBase = { width: "100%", minHeight: 44, border: "1px solid rgba(60,60,67,0.16)", borderRadius: 14, padding: "10px 12px", background: "#fff", color: "#1d1d1f", outline: "none", boxSizing: "border-box" };
@@ -9,6 +10,7 @@ const th = { padding: "10px", fontSize: 11, fontWeight: 950, color: "#6e6e73", t
 const td = { padding: "10px", borderBottom: "1px solid rgba(60,60,67,0.10)", verticalAlign: "top", fontSize: 13, color: "#1d1d1f" };
 
 function getDb() { const app = getApps()[0]; return app ? getFirestore(app) : null; }
+function getStorageClient() { const app = getApps()[0]; return app ? getStorage(app) : null; }
 function money(value) { return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(value || 0)); }
 function parseNumber(value) { const parsed = Number(String(value ?? "").replace(/\$/g, "").replace(/,/g, "").replace(/\s/g, "").trim()); return Number.isFinite(parsed) ? parsed : 0; }
 function slugify(text = "") { return String(text).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
@@ -49,6 +51,28 @@ function rowsToCatalog(rows, sourceFileName = "") {
     return normalizeCatalogItem({ PARTIDA: raw.PARTIDA, clave: raw.clave || raw.Clave, descripcion: raw.descripcion || raw.Descripcion || raw.DESCRIPCION || raw.DESCRIPCIÓN, Unidades: raw.Unidades || raw.unidades || raw.Cantidad || raw.cantidad, unidad: raw.unidad || raw.Unidad, "P.U.": raw["P.U."] || raw.PU || raw["Precio Unitario"] || raw.precioUnitario, fechaEntrega: raw["Fecha Entrega"] || raw.fechaEntrega || raw["Fecha compromiso"] || raw["fecha compromiso"] || raw.fecha_entrega, rowNumber: index + 2, sourceFileName }, index);
   }).filter((item) => item.clave && item.concepto && item.precioUnitario > 0);
 }
+function downloadTextFile(fileName, content, type = "text/csv;charset=utf-8") {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+function downloadCatalogTemplate() {
+  const rows = [
+    ["PARTIDA", "clave", "descripcion", "Unidades", "unidad", "P.U.", "Fecha Entrega"],
+    ["CIMENTACION", "CIM-001", "Descripción del concepto conforme al catálogo autorizado", "1", "lote", "0", "2026-12-31"],
+  ];
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+  downloadTextFile("plantilla-catalogo-conceptos-triton.csv", csv);
+}
+const documentCategories = ["Planos del proyecto", "Renders", "Detalles de arquitectura", "Ingenierías", "Especificaciones", "Acabados", "Control de cambios", "Autorizaciones", "Minutas", "Garantías / manuales", "Otros"];
+const documentScopes = ["Toda la obra", "Modelo específico", "Bloque específico", "Unidades específicas"];
+const defaultDocBatchMeta = { category: "Planos del proyecto", version: "", scope: "Toda la obra", model: "", units: "", status: "vigente", authorizedBy: "", authorizationDate: "", description: "" };
 function Field({ label, children }) { return <label style={{ display: "block", marginBottom: 12 }}><div style={{ fontSize: 13, fontWeight: 850, color: "#1d1d1f", marginBottom: 6 }}>{label}</div>{children}</label>; }
 function Card({ title, subtitle, children }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 28px rgba(0,0,0,0.055)", marginBottom: 16 }}>{title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f" }}>{title}</div> : null}{subtitle ? <div style={{ marginTop: 4, color: "#6e6e73", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}{children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}</div>; }
 function Metric({ label, value, helper }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 20, padding: 15, background: "#fff" }}><div style={{ color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>{label}</div><div style={{ color: "#1d1d1f", fontSize: 24, fontWeight: 950, marginTop: 4 }}>{value}</div>{helper ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}</div>; }
@@ -64,6 +88,8 @@ export default function ObrasConfigWidget() {
   const [configForm, setConfigForm] = useState({ anticipoPorcentaje: 0, retencionPorcentaje: 0, multaDiaria: 0 });
   const [obraForm, setObraForm] = useState({ name: "", code: "", location: "", totalUnits: "", status: "activa" });
   const [catalogSearch, setCatalogSearch] = useState("");
+  const [docBatchRows, setDocBatchRows] = useState([]);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
 
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || {};
   const catalogTotal = useMemo(() => catalog.reduce((acc, item) => acc + Number(item.importe || 0), 0), [catalog]);
@@ -132,6 +158,75 @@ export default function ObrasConfigWidget() {
     setCatalog((prev) => prev.map((item) => item.id === concept.id ? { ...item, fechaEntrega } : item));
     await setDoc(doc(db, "obras", selectedObraId, "catalogoConceptos", concept.id), { fechaEntrega, updatedAt: serverTimestamp() }, { merge: true });
   }
+  function handleTechnicalDocBatch(files) {
+    const nextFiles = Array.from(files || []);
+    if (!nextFiles.length) return;
+    setDocBatchRows((prev) => [
+      ...prev,
+      ...nextFiles.map((file, index) => ({
+        id: `${Date.now()}-${index}-${slugify(file.name)}`,
+        file,
+        title: file.name.replace(/\.[^.]+$/, ""),
+        ...defaultDocBatchMeta,
+      })),
+    ]);
+  }
+  function updateDocBatchRow(id, patch) {
+    setDocBatchRows((prev) => prev.map((row) => row.id === id ? { ...row, ...patch } : row));
+  }
+  function removeDocBatchRow(id) {
+    setDocBatchRows((prev) => prev.filter((row) => row.id !== id));
+  }
+  function applyDocBatchMetaToAll(patch) {
+    setDocBatchRows((prev) => prev.map((row) => ({ ...row, ...patch })));
+  }
+  async function saveTechnicalDocBatch() {
+    const db = getDb();
+    const storage = getStorageClient();
+    if (!db || !storage || !selectedObraId) return;
+    if (!docBatchRows.length) { alert("Selecciona archivos técnicos para cargar."); return; }
+    const missingTitle = docBatchRows.find((row) => !String(row.title || "").trim());
+    if (missingTitle) { alert("Todos los documentos deben tener nombre/título."); return; }
+    setUploadingDocs(true);
+    try {
+      for (const row of docBatchRows) {
+        const file = row.file;
+        const safeName = `${Date.now()}-${slugify(row.title || file.name)}-${file.name}`;
+        const storagePath = `obras/${selectedObraId}/documentos-tecnicos/${safeName}`;
+        const storageRef = ref(storage, storagePath);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        const documentId = `${Date.now()}-${slugify(row.title || file.name)}`;
+        await setDoc(doc(db, "obras", selectedObraId, "technicalDocuments", documentId), {
+          id: documentId,
+          title: cleanText(row.title),
+          category: row.category || "Otros",
+          version: cleanText(row.version || ""),
+          scope: row.scope || "Toda la obra",
+          model: cleanText(row.model || ""),
+          units: String(row.units || "").split(",").map((x) => x.trim()).filter(Boolean),
+          status: row.status || "vigente",
+          authorizedBy: cleanText(row.authorizedBy || ""),
+          authorizationDate: row.authorizationDate || "",
+          description: cleanText(row.description || ""),
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          storagePath,
+          url,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+      alert(`${docBatchRows.length} documentos técnicos cargados correctamente.`);
+      setDocBatchRows([]);
+    } catch (error) {
+      console.error(error);
+      alert("Ocurrió un error al cargar el lote de documentos técnicos.");
+    } finally {
+      setUploadingDocs(false);
+    }
+  }
 
   if (!open) return null;
 
@@ -146,8 +241,40 @@ export default function ObrasConfigWidget() {
       </div>
       <Card title="Catálogo de conceptos" subtitle="Carga el CSV desde alta/configuración de obra. Columnas esperadas: PARTIDA, clave, descripcion, Unidades, unidad, P.U. Opcional: Fecha Entrega.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}><Metric label="Conceptos" value={catalog.length} helper={loading ? "Cargando..." : "cargados"} /><Metric label="Partidas" value={partidasCount} /><Metric label="Total por unidad/casa" value={money(catalogTotal)} /></div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+          <button type="button" onClick={downloadCatalogTemplate} style={{ ...buttonBase, background: "#fff", color: "#007aff" }}>Descargar plantilla CSV</button>
+          <div style={{ color: "#6e6e73", fontSize: 13 }}>Usa la plantilla para evitar errores de columnas al subir el catálogo.</div>
+        </div>
         <input type="file" accept=".csv,text/csv" disabled={importing} onChange={(e) => importCatalogFile(e.target.files?.[0])} style={inputBase} />
         {importInfo ? <div style={{ marginTop: 10, color: "#157347", fontWeight: 850 }}>Última carga: {importInfo.rows} conceptos · {importInfo.partidas} partidas · {money(importInfo.total)}</div> : null}
+      </Card>
+      <Card title="Documentos técnicos por lote" subtitle="Selecciona varios archivos a la vez y luego captura o ajusta sus datos antes de subirlos a la obra.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 12 }}>
+          <Field label="Categoría para aplicar a todos"><select value={defaultDocBatchMeta.category} onChange={(e) => applyDocBatchMetaToAll({ category: e.target.value })} style={inputBase}>{documentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></Field>
+          <Field label="Estatus para aplicar a todos"><select value={defaultDocBatchMeta.status} onChange={(e) => applyDocBatchMetaToAll({ status: e.target.value })} style={inputBase}><option value="vigente">Vigente</option><option value="en_revision">En revisión</option><option value="autorizado">Autorizado</option><option value="sustituido">Sustituido</option></select></Field>
+          <Field label="Alcance para aplicar a todos"><select value={defaultDocBatchMeta.scope} onChange={(e) => applyDocBatchMetaToAll({ scope: e.target.value })} style={inputBase}>{documentScopes.map((scope) => <option key={scope} value={scope}>{scope}</option>)}</select></Field>
+        </div>
+        <input type="file" multiple onChange={(e) => handleTechnicalDocBatch(e.target.files)} style={inputBase} />
+        {docBatchRows.length ? <div style={{ marginTop: 14, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", background: "#fff" }}>
+          <div style={{ padding: 12, background: "rgba(242,242,247,0.96)", fontSize: 13, fontWeight: 950, color: "#1d1d1f" }}>{docBatchRows.length} archivos listos para clasificar</div>
+          <div style={{ display: "grid", gap: 10, padding: 12 }}>
+            {docBatchRows.map((row) => <div key={row.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 16, padding: 12, background: "#fff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}><div><div style={{ fontWeight: 950 }}>{row.file.name}</div><div style={{ color: "#6e6e73", fontSize: 12 }}>{Math.round((row.file.size || 0) / 1024)} KB · {row.file.type || "archivo"}</div></div><button type="button" onClick={() => removeDocBatchRow(row.id)} style={{ ...buttonBase, background: "#fff", color: "#ff3b30" }}>Quitar</button></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <Field label="Nombre"><input value={row.title} onChange={(e) => updateDocBatchRow(row.id, { title: e.target.value })} style={inputBase} /></Field>
+                <Field label="Categoría"><select value={row.category} onChange={(e) => updateDocBatchRow(row.id, { category: e.target.value })} style={inputBase}>{documentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></Field>
+                <Field label="Versión"><input value={row.version} onChange={(e) => updateDocBatchRow(row.id, { version: e.target.value })} placeholder="V1, Rev. 02" style={inputBase} /></Field>
+                <Field label="Estatus"><select value={row.status} onChange={(e) => updateDocBatchRow(row.id, { status: e.target.value })} style={inputBase}><option value="vigente">Vigente</option><option value="en_revision">En revisión</option><option value="autorizado">Autorizado</option><option value="sustituido">Sustituido</option></select></Field>
+                <Field label="Alcance"><select value={row.scope} onChange={(e) => updateDocBatchRow(row.id, { scope: e.target.value })} style={inputBase}>{documentScopes.map((scope) => <option key={scope} value={scope}>{scope}</option>)}</select></Field>
+                <Field label="Unidades"><input value={row.units} onChange={(e) => updateDocBatchRow(row.id, { units: e.target.value })} placeholder="TH01, TH02" style={inputBase} /></Field>
+                <Field label="Autorizó"><input value={row.authorizedBy} onChange={(e) => updateDocBatchRow(row.id, { authorizedBy: e.target.value })} style={inputBase} /></Field>
+                <Field label="Fecha autorización"><input type="date" value={row.authorizationDate} onChange={(e) => updateDocBatchRow(row.id, { authorizationDate: e.target.value })} style={inputBase} /></Field>
+              </div>
+              <Field label="Descripción / nota"><textarea value={row.description} onChange={(e) => updateDocBatchRow(row.id, { description: e.target.value })} rows={2} style={{ ...inputBase, resize: "vertical" }} /></Field>
+            </div>)}
+          </div>
+        </div> : <div style={{ marginTop: 10, color: "#6e6e73", fontSize: 13 }}>Todavía no hay archivos seleccionados.</div>}
+        <button type="button" onClick={saveTechnicalDocBatch} disabled={uploadingDocs || !docBatchRows.length} style={{ ...buttonBase, marginTop: 12, background: uploadingDocs || !docBatchRows.length ? "#e5e5ea" : "#111827", color: uploadingDocs || !docBatchRows.length ? "#8e8e93" : "#fff" }}>{uploadingDocs ? "Subiendo lote..." : "Guardar lote de documentos"}</button>
       </Card>
       <Card title="Vista previa del catálogo" subtitle="Aquí puedes definir o ajustar Fecha Entrega por concepto. Después se podrá especializar por casa para multas automáticas.">
         <input value={catalogSearch} onChange={(e) => setCatalogSearch(e.target.value)} placeholder="Buscar por partida, clave, concepto o fecha" style={{ ...inputBase, marginBottom: 12 }} />
