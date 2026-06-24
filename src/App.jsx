@@ -1937,46 +1937,40 @@ const reviewBlockMessage =
               {item.puntosAceptables ? <div style={{ border: "1px solid #c7eed8", borderRadius: 14, padding: 12, background: "#f0fff6" }}><strong style={{ color: c.successText }}>Aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosAceptables}</div></div> : null}
               {item.puntosNoAceptables ? <div style={{ border: "1px solid #ffd2d2", borderRadius: 14, padding: 12, background: "#fff5f5" }}><strong style={{ color: c.dangerText }}>No aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosNoAceptables}</div></div> : null}
             </div>
-            {(item.imagenCorrecto || item.imagenIncorrecto) ? (
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginTop: 12 }}>
-                {item.imagenIncorrecto ? (
-                  <button
-                    type="button"
-                    onClick={() => openPhotoPreview(
-                      { id: `${item.id}-incorrecto`, url: item.imagenIncorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo incorrecto`, uploadedByName: "Manual de calidad" },
-                      [
-                        item.imagenIncorrecto ? { id: `${item.id}-incorrecto`, url: item.imagenIncorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo incorrecto`, uploadedByName: "Manual de calidad" } : null,
-                        item.imagenCorrecto ? { id: `${item.id}-correcto`, url: item.imagenCorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo correcto`, uploadedByName: "Manual de calidad" } : null,
-                      ].filter(Boolean)
-                    )}
-                    title="Haz clic para ampliar la imagen"
-                    style={{ border: 0, background: "transparent", padding: 0, margin: 0, textAlign: "left", cursor: "zoom-in" }}
-                  >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: c.dangerText, marginBottom: 6 }}>Ejemplo incorrecto</div>
-                    <img src={item.imagenIncorrecto} alt="Ejemplo incorrecto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}`, display: "block" }} />
-                    <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
-                  </button>
-                ) : null}
-                {item.imagenCorrecto ? (
-                  <button
-                    type="button"
-                    onClick={() => openPhotoPreview(
-                      { id: `${item.id}-correcto`, url: item.imagenCorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo correcto`, uploadedByName: "Manual de calidad" },
-                      [
-                        item.imagenIncorrecto ? { id: `${item.id}-incorrecto`, url: item.imagenIncorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo incorrecto`, uploadedByName: "Manual de calidad" } : null,
-                        item.imagenCorrecto ? { id: `${item.id}-correcto`, url: item.imagenCorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo correcto`, uploadedByName: "Manual de calidad" } : null,
-                      ].filter(Boolean)
-                    )}
-                    title="Haz clic para ampliar la imagen"
-                    style={{ border: 0, background: "transparent", padding: 0, margin: 0, textAlign: "left", cursor: "zoom-in" }}
-                  >
-                    <div style={{ fontSize: 12, fontWeight: 900, color: c.successText, marginBottom: 6 }}>Ejemplo correcto</div>
-                    <img src={item.imagenCorrecto} alt="Ejemplo correcto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}`, display: "block" }} />
-                    <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+            {(() => {
+              const imgs = [
+                item.imagenIncorrecto ? { kind: "incorrecto", url: item.imagenIncorrecto, label: "Ejemplo incorrecto", color: c.dangerText } : null,
+                item.imagenCorrecto ? { kind: "correcto", url: item.imagenCorrecto, label: "Ejemplo correcto", color: c.successText } : null,
+              ].filter(Boolean);
+              const uniqueImgs = imgs.filter((img, index, arr) => arr.findIndex((candidate) => candidate.url === img.url) === index);
+              if (!uniqueImgs.length) return null;
+              const singleReference = uniqueImgs.length === 1;
+              const previewItems = uniqueImgs.map((img, idx) => ({
+                id: `${item.id}-ref-${idx}`,
+                url: img.url,
+                fileName: `${item.codigo || item.label || "Criterio"} · ${singleReference ? "Imagen de referencia" : img.label}`,
+                uploadedByName: "Manual de calidad",
+              }));
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: isMobile || singleReference ? "1fr" : "1fr 1fr", gap: 12, marginTop: 12 }}>
+                  {uniqueImgs.map((img, idx) => (
+                    <button
+                      key={`${img.kind}-${idx}`}
+                      type="button"
+                      onClick={() => openPhotoPreview(previewItems[idx], previewItems)}
+                      title="Haz clic para ampliar la imagen"
+                      style={{ border: 0, background: "transparent", padding: 0, margin: 0, textAlign: "left", cursor: "zoom-in" }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 900, color: singleReference ? c.text : img.color, marginBottom: 6 }}>
+                        {singleReference ? "Imagen de referencia del criterio" : img.label}
+                      </div>
+                      <img src={img.url} alt={singleReference ? "Imagen de referencia del criterio" : img.label} style={{ width: "100%", maxHeight: 520, objectFit: "contain", borderRadius: 14, border: `1px solid ${c.border}`, display: "block", background: "#fff" }} />
+                      <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         ) : null}
         <div style={{ marginTop: 14 }}>
