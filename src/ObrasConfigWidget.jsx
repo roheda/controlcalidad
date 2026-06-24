@@ -80,8 +80,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Las dimensiones coinciden con plano. La escuadra es correcta. Los ejes están claramente definidos y alineados.",
     "puntosNoAceptables": "Existen desviaciones dimensionales respecto al plano. La escuadra no coincide. Los ejes no están correctamente alineados. Se detectan diferencias en ubicación del desplante.",
     "formaVerificacion": "Medir distancias entre ejes principales. Confirmar escuadra general mediante verificación diagonal. Comparar medidas críticas con plano autorizado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PL-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PL-01.jpg",
     "catalogKeywords": "El trazo coincide con planos autorizados"
   },
   {
@@ -92,8 +92,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El nivel coincide con la cota indicada. Se mantiene referencia clara de banco de nivel. Las pendientes proyectadas están correctamente ejecutadas.",
     "puntosNoAceptables": "Existe diferencia significativa respecto a la cota de proyecto. No se cuenta con referencia de nivel confiable. Se detectan pendientes no contempladas.",
     "formaVerificacion": "Comprobar nivel mediante equipo de medición. Verificar relación entre nivel natural del terreno y nivel proyectado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PL-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PL-02.jpg",
     "catalogKeywords": "Los niveles de desplante fueron verificados"
   },
   {
@@ -104,8 +104,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Las referencias están claramente marcadas. Permanecen protegidas y visibles. No presentan alteraciones.",
     "puntosNoAceptables": "Las referencias han sido borradas o desplazadas. No existen puntos de control activos. Se pierde alineación original.",
     "formaVerificacion": "Inspeccionar puntos de control. Confirmar que no hayan sido alterados por movimiento de maquinaria o material.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PL-03.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PL-03.jpg",
     "catalogKeywords": "Ejes y referencias se encuentran protegidos"
   },
   {
@@ -116,8 +116,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Dimensiones coinciden con plano. La excavación es uniforme. Las paredes se encuentran estables.",
     "puntosNoAceptables": "La profundidad es menor a la especificada. Existen variaciones dimensionales no autorizadas. Se detectan paredes inestables o colapsadas.",
     "formaVerificacion": "Medir profundidad en distintos puntos. Verificar ancho y longitud de zanjas o dados antes de armado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-EX-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-EX-01.jpg",
     "catalogKeywords": "Profundidad y dimensiones de excavación cumplen especificación"
   },
   {
@@ -128,8 +128,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El fondo está firme y compacto. Se encuentra limpio. No hay material inadecuado presente.",
     "puntosNoAceptables": "Existen capas de material suelto. Se observa humedad excesiva no controlada. Hay presencia de raíces o residuos orgánicos.",
     "formaVerificacion": "Inspección visual y comprobación de firmeza. Confirmar retiro de material suelto previo a colado de plantilla.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-EX-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-EX-02.jpg",
     "catalogKeywords": "Fondo de excavación firme y libre de material suelto"
   },
   {
@@ -140,8 +140,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La plantilla está presente y uniforme. El acero no tiene contacto directo con el suelo. La superficie es adecuada para el armado.",
     "puntosNoAceptables": "No existe plantilla. El espesor es irregular o insuficiente. El acero queda en contacto directo con el terreno.",
     "formaVerificacion": "Confirmar presencia de plantilla y revisar espesor aproximado antes del armado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CI-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CI-01.jpg",
     "catalogKeywords": "Plantilla de concreto aplicada antes de armado"
   },
   {
@@ -152,8 +152,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El diámetro es el especificado. La separación cumple con plano. El armado coincide en cantidad y ubicación.",
     "puntosNoAceptables": "El diámetro no coincide con el especificado. La separación entre barras es distinta a la indicada. Existen barras faltantes. La colocación no corresponde al plano estructural.",
     "formaVerificacion": "Revisar visualmente el diámetro de varillas. Medir separación entre barras. Confirmar ubicación correcta antes del colado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CI-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CI-02.jpg",
     "catalogKeywords": "Acero de refuerzo conforme a diámetro y separación especificados"
   },
   {
@@ -164,8 +164,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Los traslapes cumplen longitud mínima. Los amarres aseguran estabilidad. El armado se mantiene firme.",
     "puntosNoAceptables": "La longitud de traslape es insuficiente. Los amarres son escasos o inexistentes. El armado presenta inestabilidad.",
     "formaVerificacion": "Medir longitud de traslapes en puntos representativos. Verificar firmeza del amarre y continuidad estructural.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CI-03.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CI-03.jpg",
     "catalogKeywords": "Traslapes y amarres correctamente ejecutados"
   },
   {
@@ -176,8 +176,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El acero mantiene separación uniforme. Existen separadores correctamente colocados. El recubrimiento cumple con especificación.",
     "puntosNoAceptables": "El acero se encuentra en contacto con la cimbra o terreno. No existen separadores. El recubrimiento es insuficiente.",
     "formaVerificacion": "Confirmar colocación de separadores. Medir distancia aproximada entre acero y cimbra o plantilla.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CI-04.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CI-04.jpg",
     "catalogKeywords": "Recubrimiento mínimo de concreto respetado"
   },
   {
@@ -188,8 +188,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La ubicación coincide con plano. Se encuentran protegidas. Están firmemente fijadas.",
     "puntosNoAceptables": "Las instalaciones no coinciden con ubicación proyectada. No cuentan con protección. Presentan desplazamiento previo al colado.",
     "formaVerificacion": "Confirmar ubicación previa al colado. Verificar protección y fijación adecuada.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CI-05.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CI-05.jpg",
     "catalogKeywords": "Instalaciones cruzando cimentación protegidas"
   },
   {
@@ -200,8 +200,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La consistencia es uniforme. No hay segregación visible. Se respeta la dosificación indicada.",
     "puntosNoAceptables": "Se observa segregación. Se adiciona agua en exceso. La mezcla es excesivamente fluida o seca.",
     "formaVerificacion": "Observar consistencia al momento del vaciado. Confirmar que no se agregue agua adicional en obra sin autorización técnica.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CO-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CO-01.jpg",
     "catalogKeywords": "Concreto con revenimiento adecuado"
   },
   {
@@ -212,8 +212,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El concreto se compacta adecuadamente. No existen vacíos visibles. La superficie presenta acabado uniforme posterior al colado.",
     "puntosNoAceptables": "Se observan vacíos o nidos de grava. El vibrado es insuficiente. Se produce segregación por vibrado excesivo.",
     "formaVerificacion": "Supervisar proceso de vibrado durante colado. Confirmar que el vibrador se utilice correctamente y sin sobreexposición en un solo punto.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CO-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CO-02.jpg",
     "catalogKeywords": "Vibrado correcto sin segregación"
   },
   {
@@ -224,8 +224,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Se aplica método de curado adecuado. Se mantiene humedad superficial controlada. No existen fisuras atribuibles a secado prematuro.",
     "puntosNoAceptables": "No se aplica ningún método de curado. La superficie presenta fisuras por secado prematuro. El curado se interrumpe antes del tiempo mínimo recomendado.",
     "formaVerificacion": "Confirmar aplicación de método de curado (agua, membrana o equivalente) durante el periodo inicial posterior al colado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CO-03.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CO-03.jpg",
     "catalogKeywords": "Curado aplicado posterior al colado"
   },
   {
@@ -236,8 +236,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El elemento mantiene verticalidad adecuada. No existen desviaciones perceptibles. Se verificó antes de cierre de cimbra.",
     "puntosNoAceptables": "Se detectan desviaciones visibles de verticalidad. El elemento presenta inclinación perceptible. No se realizó verificación antes de fraguar.",
     "formaVerificacion": "Comprobar plomo mediante herramienta de medición. Revisar alineación antes del fraguado final.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-ES-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-ES-01.jpg",
     "catalogKeywords": "Columnas y castillos se encuentran plomados"
   },
   {
@@ -248,8 +248,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Las dimensiones coinciden con plano. La sección es uniforme. No existen deformaciones.",
     "puntosNoAceptables": "Las dimensiones son menores a las especificadas. Existen variaciones no autorizadas. La cimbra presenta deformaciones.",
     "formaVerificacion": "Medir ancho y peralte antes del colado o durante la cimbra.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-ES-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-ES-02.jpg",
     "catalogKeywords": "Dalas y trabes respetan dimensiones de proyecto"
   },
   {
@@ -260,8 +260,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La cimbra está firme y estable. Se encuentra correctamente alineada. El apuntalamiento es adecuado.",
     "puntosNoAceptables": "La cimbra presenta movimiento. Existe desalineación visible. El apuntalamiento es insuficiente.",
     "formaVerificacion": "Inspeccionar alineación, fijación y estabilidad general antes del colado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-ES-03.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-ES-03.jpg",
     "catalogKeywords": "Cimbra alineada y firme antes de colado"
   },
   {
@@ -272,8 +272,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Están correctamente ubicadas. Se encuentran firmemente fijadas. Coinciden con planos.",
     "puntosNoAceptables": "Las instalaciones no están colocadas. Se encuentran sueltas o desplazadas. No coinciden con proyecto.",
     "formaVerificacion": "Confirmar ubicación y fijación previa al vaciado. Verificar coincidencia con plano.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-LO-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-LO-01.jpg",
     "catalogKeywords": "Instalaciones colocadas antes de colado de losa"
   },
   {
@@ -284,8 +284,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El espesor es uniforme. Coincide con proyecto. No existen reducciones no autorizadas.",
     "puntosNoAceptables": "El espesor es menor al especificado. Existen variaciones significativas. Se detectan zonas con reducción de sección.",
     "formaVerificacion": "Medir espesor en puntos representativos durante el proceso de colado.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-LO-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-LO-02.jpg",
     "catalogKeywords": "Espesor de losa conforme a proyecto"
   },
   {
@@ -296,8 +296,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El muro mantiene alineación uniforme. No existen desviaciones visibles. El plomo es consistente en toda la altura.",
     "puntosNoAceptables": "Se observan desviaciones visibles de verticalidad. Existen desplomes perceptibles. La alineación horizontal presenta irregularidades.",
     "formaVerificacion": "Comprobar alineación con hilo guía o herramienta de medición. Verificar plomo en distintos puntos del muro antes de continuar con niveles superiores.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-AL-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-AL-01.jpg",
     "catalogKeywords": "Muros alineados y plomados"
   },
   {
@@ -308,8 +308,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Las juntas son continuas y uniformes. El mortero rellena completamente el espacio. No existen vacíos visibles.",
     "puntosNoAceptables": "Existen juntas vacías o parcialmente rellenas. El espesor varía significativamente. Se observan huecos visibles.",
     "formaVerificacion": "Inspeccionar visualmente continuidad del mortero y uniformidad del espesor en distintos tramos del muro.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-AL-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-AL-02.jpg",
     "catalogKeywords": "Juntas uniformes y correctamente rellenas"
   },
   {
@@ -320,8 +320,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Las dimensiones coinciden con proyecto. El vano se encuentra alineado y nivelado. No existen desviaciones.",
     "puntosNoAceptables": "Las dimensiones no coinciden con plano. Existe desalineación en el vano. No se respeta nivel o escuadra.",
     "formaVerificacion": "Medir dimensiones del vano antes de colocar marcos o continuar con acabados.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-AL-03.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-AL-03.jpg",
     "catalogKeywords": "Vanos conforme a dimensiones de proyecto"
   },
   {
@@ -332,8 +332,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La prueba se realizó conforme a presión y tiempo establecidos. No existen fugas ni caídas de presión. El sistema se mantiene estable durante 24 horas. Existe reporte documentado firmado por supervisión.",
     "puntosNoAceptables": "No se realizó la prueba de presión. La presión es menor a la especificada o el tiempo es insuficiente. Existe caída de presión durante el periodo de prueba. Se detectan fugas visibles. No existe reporte o no está firmado por supervisión.",
     "formaVerificacion": "Presurizar el sistema conforme a los valores establecidos. Monitorear estabilidad de presión durante 24 horas. Inspeccionar visualmente posibles fugas en conexiones y tuberías. Confirmar existencia de reporte documentado firmado por supervisión.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-IH-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-IH-01.jpg",
     "catalogKeywords": "Prueba de presión en instalaciones hidráulicas antes de tapar"
   },
   {
@@ -344,8 +344,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La pendiente es continua. No existen contrapendientes. La instalación está correctamente alineada.",
     "puntosNoAceptables": "Existen tramos sin pendiente. Se detectan contrapendientes. La alineación es irregular.",
     "formaVerificacion": "Confirmar pendiente visualmente antes de cubrir. Verificar alineación y continuidad de la instalación.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-IH-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-IH-02.jpg",
     "catalogKeywords": "Pendientes de drenaje verificadas"
   },
   {
@@ -356,8 +356,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Todas las canalizaciones están instaladas. Se encuentran firmemente fijadas. Coinciden con plano autorizado.",
     "puntosNoAceptables": "Faltan canalizaciones. Existen ductos sueltos. No coinciden con proyecto.",
     "formaVerificacion": "Revisar recorridos conforme a plano eléctrico. Confirmar fijación y ubicación correcta.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-IE-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-IE-01.jpg",
     "catalogKeywords": "Canalizaciones eléctricas completas antes de aplanado"
   },
   {
@@ -368,8 +368,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El centro de carga está correctamente ubicado, alineado y fijado. Cuenta con señalización preventiva visible. La información es clara, legible y completa. Permite orientar correctamente futuras intervenciones.",
     "puntosNoAceptables": "El centro de carga no coincide con ubicación proyectada. Presenta fijación deficiente o desalineación. No existe señalización preventiva. La señalización es ilegible, incompleta o inexistente.",
     "formaVerificacion": "Confirmar ubicación conforme a plano eléctrico. Verificar fijación, alineación y estabilidad del centro de carga. Inspeccionar presencia de señalización preventiva. Validar que la información sea clara, legible y visible.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-IE-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-IE-02.jpg",
     "catalogKeywords": "Centro de carga correctamente instalado y señalizado"
   },
   {
@@ -380,8 +380,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La superficie está limpia. No hay material suelto. Se aplicó preparación conforme al procedimiento.",
     "puntosNoAceptables": "Existen residuos sueltos. La superficie está contaminada. No se realizó preparación previa.",
     "formaVerificacion": "Inspección visual previa a la aplicación. Confirmar humectación adecuada cuando el procedimiento lo requiera.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-AP-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-AP-01.jpg",
     "catalogKeywords": "Superficie preparada antes de aplicar aplanados"
   },
   {
@@ -392,8 +392,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El acabado es uniforme. Se mantiene plomo y nivel. No existen irregularidades perceptibles.",
     "puntosNoAceptables": "Existen desplomes visibles. Se observan ondulaciones significativas. El espesor es irregular.",
     "formaVerificacion": "Comprobar plomo y nivel durante la ejecución. Revisar continuidad y uniformidad del espesor.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-AP-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-AP-02.jpg",
     "catalogKeywords": "Plomos y niveles verificados en aplanados"
   },
   {
@@ -404,8 +404,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La superficie es uniforme. Está limpia y firme. Se encuentra lista para recibir el recubrimiento.",
     "puntosNoAceptables": "Existen desniveles notorios. Hay residuos sueltos. La base presenta fracturas o humedad excesiva.",
     "formaVerificacion": "Inspeccionar visualmente la base. Confirmar ausencia de polvo o irregularidades.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PI-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PI-01.jpg",
     "catalogKeywords": "Base nivelada antes de colocación de piso"
   },
   {
@@ -416,8 +416,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La aplicación es uniforme. Se garantiza contacto adecuado. No existen vacíos bajo piezas.",
     "puntosNoAceptables": "La aplicación es discontinua. Existen huecos sin adhesivo. Se observa exceso irregular.",
     "formaVerificacion": "Supervisar aplicación durante instalación. Confirmar cobertura suficiente bajo piezas representativas.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PI-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PI-02.jpg",
     "catalogKeywords": "Adhesivo aplicado uniformemente en colocación de piso"
   },
   {
@@ -428,8 +428,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Se utiliza llana dentada de 10 a 12 mm. La aplicación del adhesivo es uniforme. No existe exceso de material. El firme está previamente nivelado y el adhesivo se usa únicamente para adherencia. Se garantiza contacto completo entre pieza y base.",
     "puntosNoAceptables": "No se utiliza llana dentada o es distinta a la especificada. El adhesivo se aplica de forma irregular o discontinua. Se utiliza adhesivo en exceso. Se emplea adhesivo para nivelar el firme. Existen huecos o falta de contacto entre pieza y base.",
     "formaVerificacion": "Inspección directa durante la colocación. Confirmar uso de herramienta adecuada (llana dentada). Verificar uniformidad en la aplicación del adhesivo. Validar que no se utilice adhesivo para corregir desniveles del firme.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PI-03.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PI-03.jpg",
     "catalogKeywords": "Colocación de mármol conforme a especificación técnica"
   },
   {
@@ -440,8 +440,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Se aplicó Sellotex en todas las áreas indicadas. La cobertura es uniforme y completa. Se respetan los 40 cm perimetrales en planta baja. La preparación se realizó antes de la colocación del mármol.",
     "puntosNoAceptables": "No se aplicó Sellotex en las áreas requeridas. La aplicación es parcial o incompleta. No se respetan los 40 cm perimetrales en planta baja. Se realizó la colocación sin preparación previa.",
     "formaVerificacion": "Inspección visual antes de la colocación del mármol. Confirmar aplicación de Sellotex en las áreas correspondientes. Verificar cobertura completa y uniforme del producto. Validar que la aplicación se realizó previo a la instalación del recubrimiento.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PI-04.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PI-04.jpg",
     "catalogKeywords": "Preparación de superficies para colocación de mármol"
   },
   {
@@ -452,8 +452,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La aplicación se realiza después de 48 horas. El adhesivo se encuentra completamente seco. Las piezas están firmes y sin movimiento. Las juntas están limpias previo a la aplicación. La boquilla presenta correcta adherencia y acabado uniforme.",
     "puntosNoAceptables": "La boquilla se aplica antes de 48 horas. El adhesivo no ha terminado de secar al momento de aplicar. Existen movimientos en las piezas al momento de la aplicación. Las juntas presentan polvo o suciedad previa a la aplicación. La boquilla no logra adherencia adecuada.",
     "formaVerificacion": "Confirmar tiempo transcurrido desde la colocación del mármol. Verificar que el adhesivo haya secado antes de la aplicación. Inspeccionar que las juntas se encuentren limpias previo a la aplicación. Supervisar correcta ejecución durante el proceso.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-PI-05.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-PI-05.jpg",
     "catalogKeywords": "Aplicación de boquilla en recubrimientos de mármol"
   },
   {
@@ -464,8 +464,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La superficie está limpia y seca. No existen fisuras sin tratar. Está lista para aplicación.",
     "puntosNoAceptables": "Existen residuos o humedad excesiva. No se corrigieron fisuras previas. Se aplica sobre superficie sucia.",
     "formaVerificacion": "Inspección visual previa a la aplicación. Confirmar retiro de residuos y corrección de fisuras previas.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-IM-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-IM-01.jpg",
     "catalogKeywords": "Superficie preparada antes de impermeabilización"
   },
   {
@@ -476,8 +476,8 @@ const qualityManualSeed = [
     "puntosAceptables": "La malla es continua en toda la superficie. Los traslapes son uniformes y garantizan continuidad del sistema. La malla se encuentra completamente cubierta por el impermeabilizante. Los puntos críticos están correctamente sellados. El sistema presenta acabado uniforme y continuo.",
     "puntosNoAceptables": "La malla presenta discontinuidades o cortes sin tratamiento. Los traslapes son insuficientes o inexistentes. Existen zonas donde la malla queda expuesta. Se observan áreas sin sellado en puntos críticos. La aplicación del impermeabilizante es irregular o incompleta.",
     "formaVerificacion": "Inspección visual de continuidad en la malla. Verificar traslapes adecuados entre paños. Confirmar cobertura total del sistema líquido sobre la malla. Revisar sellos en puntos críticos (juntas, esquinas, bajantes, pretiles).",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-IM-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-IM-02.jpg",
     "catalogKeywords": "Traslapes y sellos correctamente ejecutados en impermeabilización"
   },
   {
@@ -488,8 +488,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El marco está alineado. Se respeta nivel y escuadra. La fijación es correcta.",
     "puntosNoAceptables": "Existe desalineación visible. El marco no respeta escuadra. Se fija sin verificación previa.",
     "formaVerificacion": "Comprobar alineación y ajuste dentro del vano antes de sellar o fijar definitivamente.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CA-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CA-01.jpg",
     "catalogKeywords": "Marcos de cancelería alineados antes de fijación definitiva"
   },
   {
@@ -500,8 +500,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Coinciden con proyecto. Están correctamente fijadas. Fueron verificadas antes del cierre.",
     "puntosNoAceptables": "Faltan elementos proyectados. Existen desplazamientos. No se realizó revisión previa.",
     "formaVerificacion": "Confirmar ubicación y fijación conforme a planos antes del cierre.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CA-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CA-02.jpg",
     "catalogKeywords": "Preinstalaciones verificadas antes de cerrar muros"
   },
   {
@@ -512,8 +512,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El vano cumple con la tolerancia máxima de 1 cm. El sardinel está presente y cumple con altura mínima de 2.5 cm. El sistema permite correcta instalación del cancel. No existen condiciones que comprometan la estanqueidad.",
     "puntosNoAceptables": "El vano presenta descuadre mayor a 1 cm. No existe sardinel o su altura es menor a 2.5 cm. El vano no permite correcta instalación del cancel. Se detectan condiciones que favorezcan filtraciones.",
     "formaVerificacion": "Medir escuadra y dimensiones del vano previo a instalación. Confirmar que el descuadre no exceda 1 cm. Verificar la existencia y dimensión del sardinel. Inspeccionar correcta integración del sistema antes de cierre o sellado final.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-CA-03.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-CA-03.jpg",
     "catalogKeywords": "Vano y elementos de cancelería conforme a especificación técnica"
   },
   {
@@ -524,8 +524,8 @@ const qualityManualSeed = [
     "puntosAceptables": "El área está limpia. No hay interferencias. La superficie está preparada.",
     "puntosNoAceptables": "Existen residuos que afecten la ejecución. No se retiró material sobrante. Se inicia trabajo sobre superficie contaminada.",
     "formaVerificacion": "Inspección visual previa al inicio de cada actividad.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-GE-01.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-GE-01.jpg",
     "catalogKeywords": "Limpieza del área previa a cada partida"
   },
   {
@@ -536,8 +536,8 @@ const qualityManualSeed = [
     "puntosAceptables": "Existe registro completo. Se documentó antes de continuar y la partida quedó formalmente liberada.",
     "puntosNoAceptables": "No existe registro. No se documentó la verificación. La partida se cerró sin evidencia.",
     "formaVerificacion": "Confirmar existencia de evidencia y registro correspondiente.",
-    "imagenCorrecto": "",
-    "imagenIncorrecto": "",
+    "imagenCorrecto": "/quality-base/TR-AC-M01/AC-GE-02.jpg",
+    "imagenIncorrecto": "/quality-base/TR-AC-M01/AC-GE-02.jpg",
     "catalogKeywords": "Evidencia fotográfica y registro documental realizado"
   }
 ];
@@ -750,14 +750,14 @@ export default function ObrasConfigWidget() {
   async function seedManualQualitySpecs() {
     const db = getDb();
     if (!db || !selectedObraId) return;
-    if (!window.confirm(`Se cargarán ${qualityManualSeed.length} puntos del manual TR-AC-M01 como base de calidad. ¿Continuar?`)) return;
+    if (!window.confirm(`Se cargarán ${qualityManualSeed.length} puntos del manual TR-AC-M01 con imágenes de referencia como base de calidad. ¿Continuar?`)) return;
     try {
       for (const raw of qualityManualSeed) {
         const spec = normalizeQualitySpec(raw);
         await setDoc(doc(db, "obras", selectedObraId, "qualitySpecs", spec.id), { ...spec, sourceFileName: "TR-AC-M01", importedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
         await setDoc(doc(db, "qualityConcepts", spec.id), { ...spec, lastProjectId: selectedObraId, sourceFileName: "TR-AC-M01", updatedAt: serverTimestamp() }, { merge: true });
       }
-      alert("Base inicial de calidad cargada desde TR-AC-M01.");
+      alert("Base inicial de calidad cargada desde TR-AC-M01 con imágenes de referencia.");
       await loadData();
     } catch (error) { console.error(error); alert("No se pudo cargar la base inicial del manual."); }
   }
@@ -917,7 +917,7 @@ export default function ObrasConfigWidget() {
           </div>)}
         </div> : <div style={{ padding: 14, borderRadius: 16, background: "rgba(242,242,247,0.82)", color: "#6e6e73", fontSize: 13 }}>Todavía no hay bloques configurados para esta obra.</div>}
       </Card>
-      <Card title="Checklist de calidad por obra" subtitle="Define los puntos técnicos que aplican a esta obra. Puedes subirlos por CSV, cargarlos del manual TR-AC-M01 o capturarlos uno por uno. Estos puntos alimentan la vista de Calidad y se vinculan por partida/concepto.">
+      <Card title="Checklist de calidad por obra" subtitle="Define los puntos técnicos que aplican a esta obra. Puedes subirlos por CSV, cargarlos del manual TR-AC-M01 con imágenes de referencia o capturarlos uno por uno. Estos puntos alimentan la vista de Calidad y se vinculan por partida/concepto.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 12 }}>
           <Metric label="Puntos de calidad" value={qualitySpecs.length} helper="configurados en esta obra" />
           <Metric label="Partidas" value={new Set(qualitySpecs.map((item) => item.partida)).size} />
@@ -925,7 +925,7 @@ export default function ObrasConfigWidget() {
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
           <button type="button" onClick={downloadQualitySpecTemplate} style={{ ...buttonBase, background: "#fff", color: "#007aff" }}>Descargar plantilla checklist</button>
-          <button type="button" onClick={seedManualQualitySpecs} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Cargar base TR-AC-M01</button>
+          <button type="button" onClick={seedManualQualitySpecs} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Cargar base TR-AC-M01 con imágenes</button>
           <label style={{ ...buttonBase, background: importingQualitySpecs ? "#e5e5ea" : "#fff", color: importingQualitySpecs ? "#8e8e93" : "#007aff" }}>
             {importingQualitySpecs ? "Importando..." : "Subir CSV de calidad"}
             <input type="file" accept=".csv,text/csv" disabled={importingQualitySpecs} onChange={(e) => importQualitySpecFile(e.target.files?.[0])} style={{ display: "none" }} />

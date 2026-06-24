@@ -1,0 +1,14 @@
+TRITON CALIDAD OS - V16
+
+Checklist de calidad con imagenes base TR-AC-M01
+
+Cambios:
+- Se agregaron 39 imagenes de referencia extraidas del Manual TR-AC-M01.
+- Al cargar la base TR-AC-M01, los puntos de calidad quedan con imagen de referencia.
+- Las imagenes estan en public/quality-base/TR-AC-M01/.
+- En Firestore se guarda la ruta local publica en imagenCorrecto e imagenIncorrecto.
+- Esto permite que la vista de detalle del checklist muestre la referencia visual inicial.
+
+Nota:
+- Por ahora la imagen de referencia de cada punto muestra la pagina/criterio completo del manual, incluyendo No aceptable y Aceptable cuando el manual lo contiene.
+- Despues se pueden reemplazar por imagenes separadas correcto/incorrecto desde la configuracion de la obra.
