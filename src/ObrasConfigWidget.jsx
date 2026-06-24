@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getApps } from "firebase/app";
-import { collection, doc, getDocs, getFirestore, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, getFirestore, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const defaultObraId = "";
@@ -620,6 +620,7 @@ export default function ObrasConfigWidget() {
   const [blockForm, setBlockForm] = useState(defaultBlockForm);
   const [qualitySpecs, setQualitySpecs] = useState([]);
   const [qualitySpecSearch, setQualitySpecSearch] = useState("");
+  const [qualitySpecPartidaFilter, setQualitySpecPartidaFilter] = useState("todas");
   const [qualitySpecForm, setQualitySpecForm] = useState(qualityEmptyForm);
   const [importingQualitySpecs, setImportingQualitySpecs] = useState(false);
 
@@ -631,11 +632,15 @@ export default function ObrasConfigWidget() {
     if (!q) return catalog;
     return catalog.filter((item) => `${item.partida} ${item.clave} ${item.concepto} ${item.unidad} ${item.fechaEntrega || ""}`.toLowerCase().includes(q));
   }, [catalog, catalogSearch]);
+  const qualitySpecPartidas = useMemo(() => Array.from(new Set(qualitySpecs.map((item) => item.partida).filter(Boolean))).sort((a, b) => a.localeCompare(b, "es")), [qualitySpecs]);
   const filteredQualitySpecs = useMemo(() => {
     const q = qualitySpecSearch.trim().toLowerCase();
-    if (!q) return qualitySpecs;
-    return qualitySpecs.filter((item) => `${item.clave} ${item.partida} ${item.concepto} ${item.criterioAceptacion} ${item.catalogKeywords}`.toLowerCase().includes(q));
-  }, [qualitySpecs, qualitySpecSearch]);
+    return qualitySpecs.filter((item) => {
+      const matchesPartida = qualitySpecPartidaFilter === "todas" || item.partida === qualitySpecPartidaFilter;
+      const matchesSearch = !q || `${item.clave} ${item.partida} ${item.concepto} ${item.criterioAceptacion} ${item.catalogKeywords}`.toLowerCase().includes(q);
+      return matchesPartida && matchesSearch;
+    });
+  }, [qualitySpecs, qualitySpecSearch, qualitySpecPartidaFilter]);
   const assignedUnits = useMemo(() => new Set(unitBlocks.flatMap((block) => Array.isArray(block.units) ? block.units : [])), [unitBlocks]);
   const blockUnitsPreview = useMemo(() => splitUnits(blockForm.units), [blockForm.units]);
 
@@ -713,6 +718,19 @@ export default function ObrasConfigWidget() {
     await loadData();
   }
   function editQualitySpec(spec) { setQualitySpecForm({ ...qualityEmptyForm, ...spec }); }
+  async function deleteQualitySpec(spec) {
+    const db = getDb();
+    if (!db || !selectedObraId || !spec?.id) return;
+    if (!window.confirm(`¿Eliminar el punto de calidad ${spec.clave} de esta obra? Esta acción no borra la biblioteca general.`)) return;
+    try {
+      await deleteDoc(doc(db, "obras", selectedObraId, "qualitySpecs", spec.id));
+      setQualitySpecs((prev) => prev.filter((item) => item.id !== spec.id));
+      if (qualitySpecForm.id === spec.id) setQualitySpecForm(qualityEmptyForm);
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo eliminar el punto de calidad.");
+    }
+  }
   async function importQualitySpecFile(file) {
     const db = getDb();
     if (!db || !file || !selectedObraId) return;
@@ -938,12 +956,26 @@ export default function ObrasConfigWidget() {
             <button type="button" onClick={() => setQualitySpecForm(qualityEmptyForm)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Limpiar</button>
           </div>
         </div>
-        <input value={qualitySpecSearch} onChange={(e) => setQualitySpecSearch(e.target.value)} placeholder="Buscar por clave, partida, concepto, criterio o palabra catálogo" style={{ ...inputBase, marginBottom: 12 }} />
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 1fr) minmax(220px, 320px)", gap: 10, alignItems: "end", marginBottom: 12 }}>
+          <Field label="Buscar punto de calidad">
+            <input value={qualitySpecSearch} onChange={(e) => setQualitySpecSearch(e.target.value)} placeholder="Clave, concepto, criterio o palabra catálogo" style={inputBase} />
+          </Field>
+          <Field label="Filtrar por partida">
+            <select value={qualitySpecPartidaFilter} onChange={(e) => setQualitySpecPartidaFilter(e.target.value)} style={inputBase}>
+              <option value="todas">Todas las partidas</option>
+              {qualitySpecPartidas.map((partida) => <option key={partida} value={partida}>{partida}</option>)}
+            </select>
+          </Field>
+        </div>
+        <div style={{ marginBottom: 10, color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>Mostrando {filteredQualitySpecs.length} de {qualitySpecs.length} puntos configurados.</div>
         <div style={{ display: "grid", gap: 10 }}>
           {filteredQualitySpecs.slice(0, 120).map((spec) => <div key={spec.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 16, padding: 12, background: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div><div style={{ fontWeight: 950 }}>{spec.clave} · {spec.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{spec.partida} · Hito {spec.stagePercent || 100}% · {spec.evidenceRequired || 0} foto(s) requeridas</div></div>
-              <button type="button" onClick={() => editQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Editar</button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={() => editQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Editar</button>
+                <button type="button" onClick={() => deleteQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#ff3b30", padding: "8px 10px" }}>Eliminar</button>
+              </div>
             </div>
             {spec.criterioAceptacion ? <div style={{ marginTop: 8, color: "#1d1d1f", fontSize: 13 }}><strong>Criterio:</strong> {spec.criterioAceptacion}</div> : null}
           </div>)}
