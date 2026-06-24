@@ -120,6 +120,18 @@ const checklistByPartida = {
   ],
 };
 
+const qualityPartidaAliases = { PL: "preliminares", EX: "excavacion", CI: "cimentacion", CO: "colado", ES: "estructura", LO: "losa", AL: "albanileria", IH: "hidraulicas", IE: "electricas", AP: "aplanados", PI: "pisos", IM: "impermeabilizante", CA: "canceleria", GE: "general" };
+function qualityPartidaIdFromSpec(spec = {}) {
+  const codePrefix = String(spec.clave || spec.code || "").split("-")[1];
+  if (qualityPartidaAliases[codePrefix]) return qualityPartidaAliases[codePrefix];
+  const raw = slugify(spec.partida || "").replace(/-/g, "_");
+  const map = { preliminares: "preliminares", excavacion: "excavacion", cimentacion: "cimentacion", colado: "colado", estructura: "estructura", losa: "losa", albanileria: "albanileria", hidraulicas: "hidraulicas", instalaciones_hidraulicas: "hidraulicas", electricas: "electricas", instalaciones_electricas: "electricas", aplanados: "aplanados", pisos: "pisos", impermeabilizacion: "impermeabilizante", impermeabilizante: "impermeabilizante", canceleria: "canceleria", general: "general" };
+  return map[raw] || raw || "general";
+}
+function qualitySpecsForPartida(partidaId, specs = []) {
+  return (specs || []).filter((spec) => (spec.partidaId || qualityPartidaIdFromSpec(spec)) === partidaId && spec.active !== false);
+}
+
 const c = {
   bg: "#f5f7fb",
   panelSoft: "#f8fafc",
@@ -152,21 +164,47 @@ function slugify(text = "") {
     .replace(/^_+|_+$/g, "");
 }
 
-function buildChecklist(partidaId, currentChecklist = null) {
-  const template = checklistByPartida[partidaId] || [];
+function buildChecklist(partidaId, currentChecklist = null, checkedItems = [], qualitySpecs = []) {
+  const dynamicSpecs = qualitySpecsForPartida(partidaId, qualitySpecs);
+  const template = dynamicSpecs.length
+    ? dynamicSpecs.map((spec) => ({
+        code: spec.clave || spec.code,
+        label: spec.concepto || spec.label,
+        criterioAceptacion: spec.criterioAceptacion || "",
+        puntosAceptables: spec.puntosAceptables || "",
+        puntosNoAceptables: spec.puntosNoAceptables || "",
+        formaVerificacion: spec.formaVerificacion || "",
+        imagenIncorrecto: spec.imagenIncorrecto || "",
+        imagenCorrecto: spec.imagenCorrecto || "",
+        catalogKeywords: spec.catalogKeywords || "",
+        evidenceRequired: Number(spec.evidenceRequired ?? 1),
+        stagePercent: Number(spec.stagePercent ?? 100),
+        clasificacion: spec.clasificacion || "menor",
+        peso: spec.peso || 1,
+      }))
+    : (checklistByPartida[partidaId] || []);
 
   return template.map((item) => {
     const id = item.code;
-    const existing = currentChecklist?.find((i) => i.id === id);
+    const existing = currentChecklist?.find((i) => i.id === id || i.code === item.code || i.label === item.label);
 
     return {
       id,
       code: item.code,
       label: item.label,
-      clasificacion: item.clasificacion || "menor",
-      peso: item.peso || 1,
+      criterioAceptacion: item.criterioAceptacion || existing?.criterioAceptacion || "",
+      puntosAceptables: item.puntosAceptables || existing?.puntosAceptables || "",
+      puntosNoAceptables: item.puntosNoAceptables || existing?.puntosNoAceptables || "",
+      formaVerificacion: item.formaVerificacion || existing?.formaVerificacion || "",
+      imagenIncorrecto: item.imagenIncorrecto || existing?.imagenIncorrecto || "",
+      imagenCorrecto: item.imagenCorrecto || existing?.imagenCorrecto || "",
+      catalogKeywords: item.catalogKeywords || existing?.catalogKeywords || "",
+      evidenceRequired: Number(item.evidenceRequired ?? existing?.evidenceRequired ?? 1),
+      stagePercent: Number(item.stagePercent ?? existing?.stagePercent ?? 100),
+      clasificacion: item.clasificacion || existing?.clasificacion || "menor",
+      peso: item.peso || existing?.peso || 1,
       resultado: existing?.resultado || "",
-      checked: existing?.checked ?? false,
+      checked: existing?.checked ?? checkedItems.includes(item.label) ?? false,
       note: existing?.note || "",
       photos: existing?.photos || [],
       comments: existing?.comments || [],
@@ -228,10 +266,10 @@ function hasSupervisorComment(item) {
   return (item.comments || []).some((comment) => comment.authorRole === "supervisora" && comment.text?.trim());
 }
 
-function normalizePartida(partida) {
+function normalizePartida(partida, qualitySpecs = []) {
   return {
     ...partida,
-    checklist: buildChecklist(partida.id, partida.checklist, partida.checkedItems || []),
+    checklist: buildChecklist(partida.id, partida.checklist, partida.checkedItems || [], qualitySpecs),
     evidenceCount: partida.evidenceCount || { photos: 0, videos: 0 },
     generalComments: Array.isArray(partida.generalComments) ? partida.generalComments : [],
   };
@@ -628,6 +666,8 @@ export default function App() {
   const [houses, setHouses] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [qualityInitializing, setQualityInitializing] = useState(false);
+  const [qualitySpecs, setQualitySpecs] = useState([]);
+  const [checklistDetailOpen, setChecklistDetailOpen] = useState({});
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [selectedPartidaId, setSelectedPartidaId] = useState("cimentacion");
   const [tab, setTab] = useState("evidencia");
@@ -698,6 +738,19 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     return () => unsub();
   }, [authUser]);
 
+  useEffect(() => {
+    if (!authUser || !obraId) {
+      setQualitySpecs([]);
+      return;
+    }
+    const specsRef = collection(db, "obras", obraId, "qualitySpecs");
+    const unsub = onSnapshot(specsRef, (snapshot) => {
+      const specs = snapshot.docs.map((item) => ({ id: item.id, ...item.data(), partidaId: item.data().partidaId || qualityPartidaIdFromSpec(item.data()) }));
+      setQualitySpecs(specs);
+    });
+    return () => unsub();
+  }, [authUser, obraId]);
+
   async function initializeQualityChecklistForObra(obra) {
     if (!obra?.id || qualityInitializing) return;
     const totalUnits = Math.max(0, Number(obra.totalUnits || 0));
@@ -723,7 +776,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
             weight: template.weight,
             status: "Pendiente",
             progress: 0,
-            checklist: buildChecklist(template.id),
+            checklist: buildChecklist(template.id, null, [], qualitySpecs),
             evidenceCount: { photos: 0, videos: 0 },
             createdFromTemplate: true,
             createdAt: serverTimestamp(),
@@ -761,7 +814,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
           return {
             id: houseDoc.id,
             ...houseDoc.data(),
-            partidas: partidasSnap.docs.map((p) => normalizePartida({ id: p.id, ...p.data() })),
+            partidas: partidasSnap.docs.map((p) => normalizePartida({ id: p.id, ...p.data() }, qualitySpecs)),
           };
         })
       );
@@ -773,7 +826,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     });
 
     return () => unsub();
-  }, [authUser, obraId, selectedObra?.id, selectedObra?.totalUnits, selectedHouseId, qualityInitializing]);
+  }, [authUser, obraId, selectedObra?.id, selectedObra?.totalUnits, selectedHouseId, qualityInitializing, qualitySpecs.length]);
 
   const filteredHouses = useMemo(() => {
     return houses.filter((house) => {
@@ -835,7 +888,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
               ? normalizePartida({
                   ...partida,
                   ...payload,
-                })
+                }, qualitySpecs)
               : partida
           ),
         };
@@ -1837,8 +1890,15 @@ const reviewBlockMessage =
             </button>
 
             <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>
-              {item.photos?.length || 0} foto(s) · {item.checked ? "Punto atendido" : "Pendiente"}
+              {item.photos?.length || 0} foto(s) · {item.checked ? "Punto atendido" : "Pendiente"} · Hito {item.stagePercent || 100}%
             </div>
+            <button
+              type="button"
+              onClick={() => setChecklistDetailOpen((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+              style={{ ...buttonStyle("secondary", { marginTop: 10, padding: "8px 12px", fontSize: 12 }) }}
+            >
+              {checklistDetailOpen[item.id] ? "Ocultar detalle" : "Ver detalle del criterio"}
+            </button>
           </div>
 
           {isConstructora ? (
@@ -1868,6 +1928,21 @@ const reviewBlockMessage =
           ) : null}
         </div>
 
+        {checklistDetailOpen[item.id] ? (
+          <div style={{ marginTop: 14, border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "#fff" }}>
+            <div style={{ fontWeight: 900, color: c.text, marginBottom: 8 }}>Detalle técnico del punto</div>
+            {item.criterioAceptacion ? <div style={{ marginBottom: 8 }}><strong>Criterio de aceptación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.criterioAceptacion}</div></div> : null}
+            {item.formaVerificacion ? <div style={{ marginBottom: 8 }}><strong>Forma de verificación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.formaVerificacion}</div></div> : null}
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+              {item.puntosAceptables ? <div style={{ border: "1px solid #c7eed8", borderRadius: 14, padding: 12, background: "#f0fff6" }}><strong style={{ color: c.successText }}>Aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosAceptables}</div></div> : null}
+              {item.puntosNoAceptables ? <div style={{ border: "1px solid #ffd2d2", borderRadius: 14, padding: 12, background: "#fff5f5" }}><strong style={{ color: c.dangerText }}>No aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosNoAceptables}</div></div> : null}
+            </div>
+            {(item.imagenCorrecto || item.imagenIncorrecto) ? <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginTop: 12 }}>
+              {item.imagenIncorrecto ? <img src={item.imagenIncorrecto} alt="Ejemplo incorrecto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}` }} /> : null}
+              {item.imagenCorrecto ? <img src={item.imagenCorrecto} alt="Ejemplo correcto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}` }} /> : null}
+            </div> : null}
+          </div>
+        ) : null}
         <div style={{ marginTop: 14 }}>
           <CommentThread comments={item.comments || []} onPreview={openPhotoPreview} />
         </div>

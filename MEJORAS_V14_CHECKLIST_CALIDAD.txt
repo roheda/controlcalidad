@@ -1,0 +1,19 @@
+V14 - Checklist de calidad configurable por obra
+
+Incluye:
+- Configuración de checklist de calidad por obra desde el módulo Obras.
+- Plantilla CSV descargable con columnas:
+  Clave, Partida, Concepto, Criterio de aceptación, Puntos aceptables,
+  Puntos no aceptables, Imagen incorrecto, Imagen correcto, Forma de verificación,
+  Palabras catálogo, Fotos requeridas, Hito %.
+- Carga masiva CSV de puntos de calidad.
+- Captura manual / edición uno por uno.
+- Botón para cargar base inicial TR-AC-M01 con 39 puntos del manual.
+- Guarda cada punto en obras/{obraId}/qualitySpecs.
+- También lo replica en qualityConcepts para construir base general de calidad.
+- Control de Calidad ahora toma los puntos de calidad configurados de la obra.
+- En la vista de checklist se puede consultar el detalle técnico de cada punto:
+  criterio, forma de verificación, puntos aceptables, puntos no aceptables e imágenes por URL.
+
+Nota:
+Las imágenes correcto/incorrecto pueden cargarse como URL por ahora. En siguiente versión puede agregarse carga directa a Storage.
