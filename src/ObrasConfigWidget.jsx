@@ -598,6 +598,99 @@ const defaultDocBatchMeta = { category: "Planos del proyecto", version: "", scop
 const blockTypes = ["Bloque de obra", "Residente", "Frente de trabajo", "Etapa", "Torre / edificio", "Modelo", "Otro"];
 const blockColors = ["#007aff", "#34c759", "#ff9500", "#af52de", "#ff3b30", "#5856d6", "#111827"];
 const defaultBlockForm = { name: "", type: "Bloque de obra", responsible: "", units: "", color: "#007aff", notes: "", status: "activo" };
+
+const smartDefaultProfile = {
+  tipoObra: "Casas",
+  numeroUnidades: "",
+  habitaciones: "3",
+  banosCompletos: "3",
+  mediosBanos: "1",
+  tienePiscina: false,
+  tieneAzotea: true,
+  tieneCochera: true,
+  tieneTerraza: true,
+  tieneClosets: true,
+  tieneCanceleria: true,
+  tieneCarpinteria: true,
+  tieneMarmol: true,
+  tieneCocina: true,
+  tieneJardin: false,
+  tieneAreaLavado: true,
+};
+const elementTypeOptions = ["Puerta", "Ventana", "Cancel", "Mármol / piso", "Contacto eléctrico", "Apagador", "Luminaria", "Salida A/C", "Centro de carga", "Salida hidráulica", "Sanitario", "Coladera", "Registro", "Zona impermeabilización", "Piscina", "Clóset / carpintería", "Cocina", "Otro"];
+const defaultQualityRelationRules = [
+  { id: "puerta", tipoElemento: "Puerta", partidas: "Albañilería, Carpintería, General", puntosCalidad: "AC-AL-03, AC-GE-02", descripcion: "Vano conforme, preparación, instalación, ajuste, cerradura, acabado y evidencia final." },
+  { id: "ventana", tipoElemento: "Ventana", partidas: "Albañilería, Cancelería, General", puntosCalidad: "AC-AL-03, AC-CA-01, AC-CA-03, AC-GE-02", descripcion: "Vano, marco, alineación, sellado, cristal, funcionamiento y hermeticidad." },
+  { id: "cancel", tipoElemento: "Cancel", partidas: "Cancelería, General", puntosCalidad: "AC-CA-01, AC-CA-03, AC-GE-02", descripcion: "Vano, sardinel, marco, nivel, sellado, funcionamiento y filtraciones." },
+  { id: "marmol", tipoElemento: "Mármol / piso", partidas: "Pisos, Aplanados, General", puntosCalidad: "AC-PI-01, AC-PI-02, AC-PI-03, AC-PI-04, AC-PI-05, AC-GE-02", descripcion: "Base, preparación, Sellotex cuando aplique, adhesivo, llana, colocación, boquilla y evidencia." },
+  { id: "contacto", tipoElemento: "Contacto eléctrico", partidas: "Instalaciones eléctricas, General", puntosCalidad: "AC-IE-01, AC-GE-02", descripcion: "Ubicación conforme a plano, canalización, fijación, caja, evidencia antes de aplanar y prueba posterior." },
+  { id: "apagador", tipoElemento: "Apagador", partidas: "Instalaciones eléctricas, General", puntosCalidad: "AC-IE-01, AC-GE-02", descripcion: "Ubicación, canalización, fijación, caja y prueba de funcionamiento." },
+  { id: "luminaria", tipoElemento: "Luminaria", partidas: "Instalaciones eléctricas, General", puntosCalidad: "AC-IE-01, AC-GE-02", descripcion: "Salida eléctrica, canalización, ubicación conforme a plano y prueba de encendido." },
+  { id: "salida-ac", tipoElemento: "Salida A/C", partidas: "Instalaciones eléctricas, General", puntosCalidad: "AC-IE-01, AC-IE-02, AC-GE-02", descripcion: "Canalización, alimentación prevista, protección, circuito señalado y evidencia." },
+  { id: "centro-carga", tipoElemento: "Centro de carga", partidas: "Instalaciones eléctricas", puntosCalidad: "AC-IE-02", descripcion: "Ubicación, fijación, señalización, identificación de pastillas y previsiones de carga." },
+  { id: "hidraulico", tipoElemento: "Salida hidráulica", partidas: "Instalaciones hidráulicas, General", puntosCalidad: "AC-IH-01, AC-IH-02, AC-GE-02", descripcion: "Ubicación, prueba de presión, pendientes cuando aplique y reporte/evidencia." },
+  { id: "sanitario", tipoElemento: "Sanitario", partidas: "Instalaciones hidráulicas, General", puntosCalidad: "AC-IH-02, AC-GE-02", descripcion: "Ubicación, pendiente, conexión, prueba de drenaje y evidencia antes de cerrar." },
+  { id: "impermeabilizacion", tipoElemento: "Zona impermeabilización", partidas: "Impermeabilización, General", puntosCalidad: "AC-IM-01, AC-IM-02, AC-GE-02", descripcion: "Superficie preparada, fisuras tratadas, malla, traslapes, sellos, bajantes, pretiles y evidencia." },
+  { id: "piscina", tipoElemento: "Piscina", partidas: "Piscina, Impermeabilización, Instalaciones hidráulicas, General", puntosCalidad: "AC-IH-01, AC-IM-01, AC-IM-02, AC-GE-02", descripcion: "Nivel, instalaciones, cuarto de máquinas, impermeabilización, prueba de llenado/fugas y evidencia." },
+  { id: "closet", tipoElemento: "Clóset / carpintería", partidas: "Carpintería, General", puntosCalidad: "AC-GE-02", descripcion: "Medidas, fijación, funcionamiento, acabado, limpieza final y evidencia. Partida específica por agregar a biblioteca." },
+  { id: "cocina", tipoElemento: "Cocina", partidas: "Carpintería, Instalaciones hidráulicas, Instalaciones eléctricas, General", puntosCalidad: "AC-IH-01, AC-IE-01, AC-GE-02", descripcion: "Preparaciones, salidas, fijación, equipos, funcionamiento y evidencia final." },
+];
+function buildSmartZones(profile = smartDefaultProfile) {
+  const rooms = Math.max(0, parseNumber(profile.habitaciones));
+  const baths = Math.max(0, parseNumber(profile.banosCompletos));
+  const halfBaths = Math.max(0, parseNumber(profile.mediosBanos));
+  const zones = ["Acceso", "Sala", "Comedor", "Cocina", "Escalera", "Pasillo", "Fachada"];
+  for (let i = 1; i <= rooms; i += 1) zones.push(i === 1 ? "Recámara principal" : `Recámara secundaria ${i - 1}`);
+  for (let i = 1; i <= baths; i += 1) zones.push(i === 1 ? "Baño principal" : `Baño completo ${i}`);
+  for (let i = 1; i <= halfBaths; i += 1) zones.push(i === 1 ? "Medio baño" : `Medio baño ${i}`);
+  if (profile.tieneAreaLavado) zones.push("Área de lavado");
+  if (profile.tieneCochera) zones.push("Cochera");
+  if (profile.tieneTerraza) zones.push("Terraza");
+  if (profile.tieneAzotea) zones.push("Azotea", "Pretiles", "Bajantes pluviales");
+  if (profile.tienePiscina) zones.push("Piscina", "Cuarto de máquinas piscina", "Terraza piscina");
+  if (profile.tieneJardin) zones.push("Jardín", "Área exterior");
+  return Array.from(new Set(zones)).map((name, index) => ({ id: slugify(name), name, type: "Zona", order: index + 1 }));
+}
+function buildSmartElements(profile = smartDefaultProfile) {
+  const rooms = Math.max(0, parseNumber(profile.habitaciones));
+  const baths = Math.max(0, parseNumber(profile.banosCompletos));
+  const halfBaths = Math.max(0, parseNumber(profile.mediosBanos));
+  const elements = [];
+  const add = (tipo, name, zone) => elements.push({ id: slugify(`${tipo}-${name}`), tipo, name, zone, status: "activo" });
+  add("Puerta", "Puerta principal", "Acceso");
+  for (let i = 1; i <= rooms; i += 1) add("Puerta", i === 1 ? "Puerta recámara principal" : `Puerta recámara secundaria ${i - 1}`, i === 1 ? "Recámara principal" : `Recámara secundaria ${i - 1}`);
+  for (let i = 1; i <= baths; i += 1) add("Puerta", i === 1 ? "Puerta baño principal" : `Puerta baño completo ${i}`, i === 1 ? "Baño principal" : `Baño completo ${i}`);
+  for (let i = 1; i <= halfBaths; i += 1) add("Puerta", i === 1 ? "Puerta medio baño" : `Puerta medio baño ${i}`, i === 1 ? "Medio baño" : `Medio baño ${i}`);
+  if (profile.tieneAreaLavado) add("Puerta", "Puerta área de lavado", "Área de lavado");
+  if (profile.tieneCanceleria) {
+    add("Ventana", "Ventana sala", "Sala");
+    add("Ventana", "Ventana cocina", "Cocina");
+    for (let i = 1; i <= rooms; i += 1) add("Ventana", i === 1 ? "Ventana recámara principal" : `Ventana recámara secundaria ${i - 1}`, i === 1 ? "Recámara principal" : `Recámara secundaria ${i - 1}`);
+    for (let i = 1; i <= baths; i += 1) add("Ventana", i === 1 ? "Ventana baño principal" : `Ventana baño completo ${i}`, i === 1 ? "Baño principal" : `Baño completo ${i}`);
+    for (let i = 1; i <= baths; i += 1) add("Cancel", i === 1 ? "Cancel baño principal" : `Cancel baño completo ${i}`, i === 1 ? "Baño principal" : `Baño completo ${i}`);
+  }
+  if (profile.tieneClosets) for (let i = 1; i <= rooms; i += 1) add("Clóset / carpintería", i === 1 ? "Clóset recámara principal" : `Clóset recámara secundaria ${i - 1}`, i === 1 ? "Recámara principal" : `Recámara secundaria ${i - 1}`);
+  if (profile.tieneMarmol) ["Sala", "Comedor", "Cocina", "Escalera", "Pasillo", "Recámara principal"].forEach((zone) => add("Mármol / piso", `Piso de ${zone.toLowerCase()}`, zone));
+  if (profile.tieneMarmol) for (let i = 1; i <= rooms - 1; i += 1) add("Mármol / piso", `Piso recámara secundaria ${i}`, `Recámara secundaria ${i}`);
+  add("Centro de carga", "Centro de carga", "Acceso");
+  ["Sala", "Comedor", "Cocina", "Recámara principal"].forEach((zone) => add("Contacto eléctrico", `Contacto ${zone.toLowerCase()}`, zone));
+  for (let i = 1; i <= rooms - 1; i += 1) add("Contacto eléctrico", `Contacto recámara secundaria ${i}`, `Recámara secundaria ${i}`);
+  ["Sala", "Cocina", "Recámara principal"].forEach((zone) => add("Luminaria", `Salida luminaria ${zone.toLowerCase()}`, zone));
+  for (let i = 1; i <= rooms; i += 1) add("Salida A/C", i === 1 ? "Salida A/C recámara principal" : `Salida A/C recámara secundaria ${i - 1}`, i === 1 ? "Recámara principal" : `Recámara secundaria ${i - 1}`);
+  for (let i = 1; i <= baths; i += 1) {
+    const zone = i === 1 ? "Baño principal" : `Baño completo ${i}`;
+    add("Salida hidráulica", `Lavabo ${zone.toLowerCase()}`, zone);
+    add("Salida hidráulica", `Regadera ${zone.toLowerCase()}`, zone);
+    add("Sanitario", `WC ${zone.toLowerCase()}`, zone);
+    add("Coladera", `Coladera ${zone.toLowerCase()}`, zone);
+  }
+  if (profile.tieneCocina) add("Salida hidráulica", "Tarja cocina", "Cocina");
+  if (profile.tieneAreaLavado) add("Salida hidráulica", "Salida lavadora", "Área de lavado");
+  if (profile.tieneAzotea) ["Azotea", "Pretiles", "Bajantes pluviales"].forEach((zone) => add("Zona impermeabilización", zone, zone));
+  if (profile.tienePiscina) ["Piscina", "Cuarto de máquinas piscina"].forEach((zone) => add("Piscina", zone, zone));
+  if (profile.tieneCocina) add("Cocina", "Cocina integral", "Cocina");
+  return elements.filter((item, index, arr) => arr.findIndex((other) => other.id === item.id) === index).map((item, index) => ({ ...item, order: index + 1 }));
+}
 function splitUnits(value = "") { return String(value).split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean); }
 function Field({ label, children }) { return <label style={{ display: "block", marginBottom: 12 }}><div style={{ fontSize: 13, fontWeight: 850, color: "#1d1d1f", marginBottom: 6 }}>{label}</div>{children}</label>; }
 function Card({ title, subtitle, children }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 28px rgba(0,0,0,0.055)", marginBottom: 16 }}>{title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f" }}>{title}</div> : null}{subtitle ? <div style={{ marginTop: 4, color: "#6e6e73", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}{children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}</div>; }
@@ -624,6 +717,12 @@ export default function ObrasConfigWidget() {
   const [qualitySpecForm, setQualitySpecForm] = useState(qualityEmptyForm);
   const [importingQualitySpecs, setImportingQualitySpecs] = useState(false);
   const [qualityImagePreview, setQualityImagePreview] = useState(null);
+  const [smartProfile, setSmartProfile] = useState(smartDefaultProfile);
+  const [smartZones, setSmartZones] = useState([]);
+  const [smartElements, setSmartElements] = useState([]);
+  const [relationRules, setRelationRules] = useState(defaultQualityRelationRules);
+  const [smartElementTypeFilter, setSmartElementTypeFilter] = useState("todos");
+  const [smartSearch, setSmartSearch] = useState("");
 
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || {};
   const catalogTotal = useMemo(() => catalog.reduce((acc, item) => acc + Number(item.importe || 0), 0), [catalog]);
@@ -645,6 +744,15 @@ export default function ObrasConfigWidget() {
   const assignedUnits = useMemo(() => new Set(unitBlocks.flatMap((block) => Array.isArray(block.units) ? block.units : [])), [unitBlocks]);
   const blockUnitsPreview = useMemo(() => splitUnits(blockForm.units), [blockForm.units]);
   const qualityReferenceImageUrl = qualitySpecForm.imagenCorrecto || qualitySpecForm.imagenIncorrecto || "";
+  const filteredSmartElements = useMemo(() => {
+    const q = smartSearch.trim().toLowerCase();
+    return smartElements.filter((item) => {
+      const matchesType = smartElementTypeFilter === "todos" || item.tipo === smartElementTypeFilter;
+      const matchesSearch = !q || `${item.tipo} ${item.name} ${item.zone}`.toLowerCase().includes(q);
+      return matchesType && matchesSearch;
+    });
+  }, [smartElements, smartElementTypeFilter, smartSearch]);
+  const smartElementTypes = useMemo(() => Array.from(new Set(smartElements.map((item) => item.tipo))).sort((a, b) => a.localeCompare(b, "es")), [smartElements]);
 
   useEffect(() => { const handler = () => setOpen(true); window.addEventListener("triton-open-obras-config", handler); window.addEventListener("triton-module-obras", handler); return () => { window.removeEventListener("triton-open-obras-config", handler); window.removeEventListener("triton-module-obras", handler); }; }, []);
   useEffect(() => { if (!open) return; loadData(); }, [open, selectedObraId]);
@@ -667,6 +775,15 @@ export default function ObrasConfigWidget() {
       setUnitBlocks(blocksSnap.docs.map((item) => ({ id: item.id, ...item.data() })));
       const qualitySnap = await getDocs(query(collection(db, "obras", activeObraId, "qualitySpecs"), orderBy("partida", "asc")));
       setQualitySpecs(qualitySnap.docs.map((item, index) => normalizeQualitySpec({ id: item.id, ...item.data() }, index)));
+      const smartDocSnap = await getDocs(collection(db, "obras", activeObraId, "smartSetup"));
+      const smartProfileDoc = smartDocSnap.docs.find((item) => item.id === "profile");
+      setSmartProfile(smartProfileDoc ? { ...smartDefaultProfile, ...smartProfileDoc.data() } : smartDefaultProfile);
+      const zonesSnap = await getDocs(query(collection(db, "obras", activeObraId, "smartZones"), orderBy("order", "asc")));
+      setSmartZones(zonesSnap.docs.map((item) => ({ id: item.id, ...item.data() })));
+      const elementsSnap = await getDocs(query(collection(db, "obras", activeObraId, "smartElements"), orderBy("order", "asc")));
+      setSmartElements(elementsSnap.docs.map((item) => ({ id: item.id, ...item.data() })));
+      const rulesSnap = await getDocs(collection(db, "obras", activeObraId, "qualityRelationRules"));
+      setRelationRules(rulesSnap.docs.length ? rulesSnap.docs.map((item) => ({ id: item.id, ...item.data() })) : defaultQualityRelationRules);
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   }
@@ -707,6 +824,80 @@ export default function ObrasConfigWidget() {
     if (!db || !selectedObraId || !concept?.id) return;
     setCatalog((prev) => prev.map((item) => item.id === concept.id ? { ...item, fechaEntrega } : item));
     await setDoc(doc(db, "obras", selectedObraId, "catalogoConceptos", concept.id), { fechaEntrega, updatedAt: serverTimestamp() }, { merge: true });
+  }
+
+  function generateSmartSuggestions() {
+    const zones = buildSmartZones(smartProfile);
+    const elements = buildSmartElements(smartProfile);
+    setSmartZones(zones);
+    setSmartElements(elements);
+    setRelationRules(defaultQualityRelationRules);
+  }
+  function updateSmartElement(id, patch) {
+    setSmartElements((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
+  }
+  function deleteSmartElement(id) {
+    setSmartElements((prev) => prev.filter((item) => item.id !== id));
+  }
+  function addSmartElement() {
+    const id = `elemento-${Date.now()}`;
+    setSmartElements((prev) => [...prev, { id, tipo: "Otro", name: "Nuevo elemento", zone: "Sin zona", status: "activo", order: prev.length + 1 }]);
+  }
+  function addSmartZone() {
+    const id = `zona-${Date.now()}`;
+    setSmartZones((prev) => [...prev, { id, name: "Nueva zona", type: "Zona", order: prev.length + 1 }]);
+  }
+  function updateSmartZone(id, patch) {
+    setSmartZones((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
+  }
+  function deleteSmartZone(id) {
+    setSmartZones((prev) => prev.filter((item) => item.id !== id));
+  }
+  function updateRelationRule(id, patch) {
+    setRelationRules((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
+  }
+  async function saveSmartSetup() {
+    const db = getDb();
+    if (!db || !selectedObraId) return;
+    try {
+      await setDoc(doc(db, "obras", selectedObraId, "smartSetup", "profile"), { ...smartProfile, updatedAt: serverTimestamp() }, { merge: true });
+      for (const [index, zone] of smartZones.entries()) {
+        const id = zone.id || slugify(zone.name) || `zona-${index + 1}`;
+        await setDoc(doc(db, "obras", selectedObraId, "smartZones", id), { ...zone, id, order: index + 1, updatedAt: serverTimestamp() }, { merge: true });
+      }
+      for (const [index, element] of smartElements.entries()) {
+        const id = element.id || slugify(`${element.tipo}-${element.name}`) || `elemento-${index + 1}`;
+        await setDoc(doc(db, "obras", selectedObraId, "smartElements", id), { ...element, id, order: index + 1, updatedAt: serverTimestamp() }, { merge: true });
+      }
+      for (const rule of relationRules) {
+        const id = rule.id || slugify(rule.tipoElemento) || `regla-${Date.now()}`;
+        await setDoc(doc(db, "obras", selectedObraId, "qualityRelationRules", id), { ...rule, id, updatedAt: serverTimestamp() }, { merge: true });
+      }
+      alert("Configuración inteligente de zonas, elementos y relaciones guardada.");
+      await loadData();
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo guardar la configuración inteligente de obra.");
+    }
+  }
+  async function createQualityScopesFromElements() {
+    const db = getDb();
+    if (!db || !selectedObraId) return;
+    if (!smartElements.length) { alert("Primero genera o captura elementos de la obra."); return; }
+    if (!qualitySpecs.length) { alert("Primero carga el checklist de calidad de la obra."); return; }
+    const created = [];
+    for (const element of smartElements) {
+      const rule = relationRules.find((item) => item.tipoElemento === element.tipo);
+      if (!rule) continue;
+      const codes = String(rule.puntosCalidad || "").split(/[,;\n]+/).map((item) => item.trim()).filter(Boolean);
+      const relatedSpecs = qualitySpecs.filter((spec) => codes.includes(spec.clave) || String(rule.partidas || "").toLowerCase().includes(String(spec.partida || "").toLowerCase()));
+      for (const spec of relatedSpecs) {
+        const id = slugify(`${element.id}-${spec.id}`);
+        created.push({ id, elementId: element.id, elementName: element.name, elementType: element.tipo, zone: element.zone, qualitySpecId: spec.id, qualityCode: spec.clave, qualityConcept: spec.concepto, status: "pendiente" });
+      }
+    }
+    for (const scope of created) await setDoc(doc(db, "obras", selectedObraId, "qualityScopes", scope.id), { ...scope, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
+    alert(`${created.length} relaciones elemento ↔ checklist generadas para esta obra.`);
   }
 
   async function saveQualitySpec() {
@@ -933,6 +1124,61 @@ export default function ObrasConfigWidget() {
             {block.notes ? <div style={{ marginTop: 8, color: "#6e6e73", fontSize: 12 }}>{block.notes}</div> : null}
           </div>)}
         </div> : <div style={{ padding: 14, borderRadius: 16, background: "rgba(242,242,247,0.82)", color: "#6e6e73", fontSize: 13 }}>Todavía no hay bloques configurados para esta obra.</div>}
+      </Card>
+      <Card title="Configuración inteligente de obra" subtitle="Define la obra por partes para que el sistema sugiera zonas, elementos y relaciones automáticas con el checklist. Esta matriz se puede revisar antes de usarla para exigir calidad por elemento.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+          <Field label="Tipo de obra"><select value={smartProfile.tipoObra} onChange={(e) => setSmartProfile((prev) => ({ ...prev, tipoObra: e.target.value }))} style={inputBase}><option value="Casas">Casas</option><option value="Departamentos">Departamentos</option><option value="Plaza">Plaza</option><option value="Mixto">Mixto</option></select></Field>
+          <Field label="Unidades"><input value={smartProfile.numeroUnidades} onChange={(e) => setSmartProfile((prev) => ({ ...prev, numeroUnidades: e.target.value }))} placeholder="Ej. 16" style={inputBase} /></Field>
+          <Field label="Habitaciones"><input value={smartProfile.habitaciones} onChange={(e) => setSmartProfile((prev) => ({ ...prev, habitaciones: e.target.value }))} style={inputBase} /></Field>
+          <Field label="Baños completos"><input value={smartProfile.banosCompletos} onChange={(e) => setSmartProfile((prev) => ({ ...prev, banosCompletos: e.target.value }))} style={inputBase} /></Field>
+          <Field label="Medios baños"><input value={smartProfile.mediosBanos} onChange={(e) => setSmartProfile((prev) => ({ ...prev, mediosBanos: e.target.value }))} style={inputBase} /></Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, margin: "8px 0 14px" }}>
+          {[
+            ["tienePiscina", "Piscina"], ["tieneAzotea", "Azotea"], ["tieneCochera", "Cochera"], ["tieneTerraza", "Terraza"], ["tieneAreaLavado", "Área de lavado"], ["tieneJardin", "Jardín"], ["tieneClosets", "Closets"], ["tieneCanceleria", "Cancelería"], ["tieneCarpinteria", "Carpintería"], ["tieneMarmol", "Mármol / pisos"], ["tieneCocina", "Cocina"]
+          ].map(([key, label]) => <label key={key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", border: "1px solid rgba(60,60,67,0.12)", borderRadius: 14, background: "#fff", fontSize: 13, fontWeight: 850 }}><input type="checkbox" checked={!!smartProfile[key]} onChange={(e) => setSmartProfile((prev) => ({ ...prev, [key]: e.target.checked }))} />{label}</label>)}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+          <button type="button" onClick={generateSmartSuggestions} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Generar zonas y elementos sugeridos</button>
+          <button type="button" onClick={saveSmartSetup} style={{ ...buttonBase, background: "#fff", color: "#007aff" }}>Guardar configuración inteligente</button>
+          <button type="button" onClick={createQualityScopesFromElements} style={{ ...buttonBase, background: "#fff", color: "#157347" }}>Generar relación checklist ↔ elementos</button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
+          <Metric label="Zonas" value={smartZones.length} helper="sugeridas / configuradas" />
+          <Metric label="Elementos" value={smartElements.length} helper="por obra" />
+          <Metric label="Tipos" value={smartElementTypes.length} helper="elementos" />
+          <Metric label="Reglas" value={relationRules.length} helper="relación automática" />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 1fr) minmax(240px, 1fr)", gap: 14, alignItems: "start" }}>
+          <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}><strong>Zonas de la obra</strong><button type="button" onClick={addSmartZone} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Agregar zona</button></div>
+            <div style={{ display: "grid", gap: 8, maxHeight: 360, overflow: "auto" }}>
+              {smartZones.map((zone) => <div key={zone.id} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}><input value={zone.name || ""} onChange={(e) => updateSmartZone(zone.id, { name: e.target.value })} style={{ ...inputBase, minHeight: 38, padding: "8px 10px" }} /><button type="button" onClick={() => deleteSmartZone(zone.id)} style={{ ...buttonBase, color: "#ff3b30", background: "#fff", padding: "8px 10px" }}>Eliminar</button></div>)}
+              {!smartZones.length ? <div style={{ color: "#6e6e73", fontSize: 13 }}>Genera o agrega zonas para esta obra.</div> : null}
+            </div>
+          </div>
+          <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}><strong>Elementos de la obra</strong><button type="button" onClick={addSmartElement} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Agregar elemento</button></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 190px", gap: 8, marginBottom: 10 }}><input value={smartSearch} onChange={(e) => setSmartSearch(e.target.value)} placeholder="Buscar elemento" style={{ ...inputBase, minHeight: 38 }} /><select value={smartElementTypeFilter} onChange={(e) => setSmartElementTypeFilter(e.target.value)} style={{ ...inputBase, minHeight: 38 }}><option value="todos">Todos los tipos</option>{smartElementTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
+            <div style={{ display: "grid", gap: 10, maxHeight: 420, overflow: "auto" }}>
+              {filteredSmartElements.map((element) => <div key={element.id} style={{ border: "1px solid rgba(60,60,67,0.10)", borderRadius: 14, padding: 10, background: "rgba(250,250,252,0.9)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "170px 1fr", gap: 8 }}><select value={element.tipo || "Otro"} onChange={(e) => updateSmartElement(element.id, { tipo: e.target.value })} style={{ ...inputBase, minHeight: 38 }}>{elementTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}</select><input value={element.name || ""} onChange={(e) => updateSmartElement(element.id, { name: e.target.value })} style={{ ...inputBase, minHeight: 38 }} /></div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 8 }}><input value={element.zone || ""} onChange={(e) => updateSmartElement(element.id, { zone: e.target.value })} placeholder="Zona" style={{ ...inputBase, minHeight: 38 }} /><button type="button" onClick={() => deleteSmartElement(element.id)} style={{ ...buttonBase, color: "#ff3b30", background: "#fff", padding: "8px 10px" }}>Eliminar</button></div>
+              </div>)}
+              {!filteredSmartElements.length ? <div style={{ color: "#6e6e73", fontSize: 13 }}>Sin elementos en el filtro actual.</div> : null}
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#fff" }}>
+          <div style={{ fontWeight: 950, marginBottom: 6 }}>Matriz predefinida de relación automática</div>
+          <div style={{ color: "#6e6e73", fontSize: 13, marginBottom: 10 }}>Revísala antes de hacerla obligatoria. Aquí ya incluí mármol/pisos, cancelería, puertas, eléctrico, hidráulico, impermeabilización, piscina y carpintería.</div>
+          <div style={{ display: "grid", gap: 10 }}>
+            {relationRules.map((rule) => <div key={rule.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 10, borderTop: "1px solid rgba(60,60,67,0.08)", paddingTop: 10 }}>
+              <div><select value={rule.tipoElemento} onChange={(e) => updateRelationRule(rule.id, { tipoElemento: e.target.value })} style={{ ...inputBase, minHeight: 38 }}>{elementTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
+              <div style={{ display: "grid", gap: 8 }}><input value={rule.partidas || ""} onChange={(e) => updateRelationRule(rule.id, { partidas: e.target.value })} placeholder="Partidas relacionadas" style={{ ...inputBase, minHeight: 38 }} /><input value={rule.puntosCalidad || ""} onChange={(e) => updateRelationRule(rule.id, { puntosCalidad: e.target.value })} placeholder="Claves de checklist relacionadas" style={{ ...inputBase, minHeight: 38 }} /><textarea value={rule.descripcion || ""} onChange={(e) => updateRelationRule(rule.id, { descripcion: e.target.value })} rows={2} style={{ ...inputBase, resize: "vertical" }} /></div>
+            </div>)}
+          </div>
+        </div>
       </Card>
       <Card title="Checklist de calidad por obra" subtitle="Define los puntos técnicos que aplican a esta obra. Puedes subirlos por CSV, cargarlos del manual TR-AC-M01 con imágenes de referencia o capturarlos uno por uno. Estos puntos alimentan la vista de Calidad y se vinculan por partida/concepto.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 12 }}>
