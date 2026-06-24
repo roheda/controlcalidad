@@ -1937,10 +1937,46 @@ const reviewBlockMessage =
               {item.puntosAceptables ? <div style={{ border: "1px solid #c7eed8", borderRadius: 14, padding: 12, background: "#f0fff6" }}><strong style={{ color: c.successText }}>Aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosAceptables}</div></div> : null}
               {item.puntosNoAceptables ? <div style={{ border: "1px solid #ffd2d2", borderRadius: 14, padding: 12, background: "#fff5f5" }}><strong style={{ color: c.dangerText }}>No aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosNoAceptables}</div></div> : null}
             </div>
-            {(item.imagenCorrecto || item.imagenIncorrecto) ? <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginTop: 12 }}>
-              {item.imagenIncorrecto ? <img src={item.imagenIncorrecto} alt="Ejemplo incorrecto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}` }} /> : null}
-              {item.imagenCorrecto ? <img src={item.imagenCorrecto} alt="Ejemplo correcto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}` }} /> : null}
-            </div> : null}
+            {(item.imagenCorrecto || item.imagenIncorrecto) ? (
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginTop: 12 }}>
+                {item.imagenIncorrecto ? (
+                  <button
+                    type="button"
+                    onClick={() => openPhotoPreview(
+                      { id: `${item.id}-incorrecto`, url: item.imagenIncorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo incorrecto`, uploadedByName: "Manual de calidad" },
+                      [
+                        item.imagenIncorrecto ? { id: `${item.id}-incorrecto`, url: item.imagenIncorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo incorrecto`, uploadedByName: "Manual de calidad" } : null,
+                        item.imagenCorrecto ? { id: `${item.id}-correcto`, url: item.imagenCorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo correcto`, uploadedByName: "Manual de calidad" } : null,
+                      ].filter(Boolean)
+                    )}
+                    title="Haz clic para ampliar la imagen"
+                    style={{ border: 0, background: "transparent", padding: 0, margin: 0, textAlign: "left", cursor: "zoom-in" }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 900, color: c.dangerText, marginBottom: 6 }}>Ejemplo incorrecto</div>
+                    <img src={item.imagenIncorrecto} alt="Ejemplo incorrecto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}`, display: "block" }} />
+                    <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
+                  </button>
+                ) : null}
+                {item.imagenCorrecto ? (
+                  <button
+                    type="button"
+                    onClick={() => openPhotoPreview(
+                      { id: `${item.id}-correcto`, url: item.imagenCorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo correcto`, uploadedByName: "Manual de calidad" },
+                      [
+                        item.imagenIncorrecto ? { id: `${item.id}-incorrecto`, url: item.imagenIncorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo incorrecto`, uploadedByName: "Manual de calidad" } : null,
+                        item.imagenCorrecto ? { id: `${item.id}-correcto`, url: item.imagenCorrecto, fileName: `${item.codigo || item.label || "Criterio"} · Ejemplo correcto`, uploadedByName: "Manual de calidad" } : null,
+                      ].filter(Boolean)
+                    )}
+                    title="Haz clic para ampliar la imagen"
+                    style={{ border: 0, background: "transparent", padding: 0, margin: 0, textAlign: "left", cursor: "zoom-in" }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 900, color: c.successText, marginBottom: 6 }}>Ejemplo correcto</div>
+                    <img src={item.imagenCorrecto} alt="Ejemplo correcto" style={{ width: "100%", borderRadius: 14, border: `1px solid ${c.border}`, display: "block" }} />
+                    <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
         <div style={{ marginTop: 14 }}>
