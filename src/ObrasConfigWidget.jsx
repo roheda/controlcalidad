@@ -567,7 +567,7 @@ function normalizeQualitySpec(raw = {}, index = 0) {
     puntosAceptables: cleanText(raw.puntosAceptables || raw["Puntos aceptables"] || raw.aceptable || raw.Aceptable || ""),
     puntosNoAceptables: cleanText(raw.puntosNoAceptables || raw["Puntos no aceptables"] || raw.noAceptable || raw["No aceptable"] || ""),
     imagenIncorrecto: cleanText(raw.imagenIncorrecto || raw["Imagen incorrecto"] || raw["imagen incorrecto"] || ""),
-    imagenCorrecto: cleanText(raw.imagenCorrecto || raw["Imagen correcto"] || raw["imagen correcto"] || ""),
+    imagenCorrecto: cleanText(raw.imagenReferencia || raw["Imagen de referencia"] || raw["imagen de referencia"] || raw.imagenCorrecto || raw["Imagen correcto"] || raw["imagen correcto"] || ""),
     formaVerificacion: cleanText(raw.formaVerificacion || raw["Forma de verificación"] || raw.Verificación || raw.verificacion || ""),
     catalogKeywords: cleanText(raw.catalogKeywords || raw["Palabras catálogo"] || raw.keywords || concepto),
     evidenceRequired: Math.max(0, parseNumber(raw.evidenceRequired || raw["Fotos requeridas"] || 1)),
@@ -586,8 +586,8 @@ function rowsToQualitySpecs(rows, sourceFileName = "") {
 }
 function downloadQualitySpecTemplate() {
   const rows = [
-    ["Clave", "Partida", "Concepto", "Criterio de aceptación", "Puntos aceptables", "Puntos no aceptables", "Imagen incorrecto", "Imagen correcto", "Forma de verificación", "Palabras catálogo", "Fotos requeridas", "Hito %"],
-    ["AC-PL-01", "Preliminares", "El trazo coincide con planos autorizados", "El trazo corresponde a ubicación, ejes, dimensiones y alineaciones indicadas en planos.", "Dimensiones coinciden con plano; escuadra correcta; ejes alineados.", "Desviaciones dimensionales; escuadra incorrecta; ejes desalineados.", "", "", "Medir distancias, confirmar escuadra y comparar contra plano autorizado.", "trazo ejes desplante", "1", "100"],
+    ["Clave", "Partida", "Concepto", "Criterio de aceptación", "Puntos aceptables", "Puntos no aceptables", "Imagen de referencia", "Forma de verificación", "Palabras catálogo", "Fotos requeridas", "Hito %"],
+    ["AC-PL-01", "Preliminares", "El trazo coincide con planos autorizados", "El trazo corresponde a ubicación, ejes, dimensiones y alineaciones indicadas en planos.", "Dimensiones coinciden con plano; escuadra correcta; ejes alineados.", "Desviaciones dimensionales; escuadra incorrecta; ejes desalineados.", "/quality-base/TR-AC-M01/AC-PL-01.jpg", "Medir distancias, confirmar escuadra y comparar contra plano autorizado.", "trazo ejes desplante", "1", "100"],
   ];
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
   downloadTextFile("plantilla-checklist-calidad-triton.csv", csv);
@@ -623,6 +623,7 @@ export default function ObrasConfigWidget() {
   const [qualitySpecPartidaFilter, setQualitySpecPartidaFilter] = useState("todas");
   const [qualitySpecForm, setQualitySpecForm] = useState(qualityEmptyForm);
   const [importingQualitySpecs, setImportingQualitySpecs] = useState(false);
+  const [qualityImagePreview, setQualityImagePreview] = useState(null);
 
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || {};
   const catalogTotal = useMemo(() => catalog.reduce((acc, item) => acc + Number(item.importe || 0), 0), [catalog]);
@@ -643,6 +644,7 @@ export default function ObrasConfigWidget() {
   }, [qualitySpecs, qualitySpecSearch, qualitySpecPartidaFilter]);
   const assignedUnits = useMemo(() => new Set(unitBlocks.flatMap((block) => Array.isArray(block.units) ? block.units : [])), [unitBlocks]);
   const blockUnitsPreview = useMemo(() => splitUnits(blockForm.units), [blockForm.units]);
+  const qualityReferenceImageUrl = qualitySpecForm.imagenCorrecto || qualitySpecForm.imagenIncorrecto || "";
 
   useEffect(() => { const handler = () => setOpen(true); window.addEventListener("triton-open-obras-config", handler); window.addEventListener("triton-module-obras", handler); return () => { window.removeEventListener("triton-open-obras-config", handler); window.removeEventListener("triton-module-obras", handler); }; }, []);
   useEffect(() => { if (!open) return; loadData(); }, [open, selectedObraId]);
@@ -711,6 +713,8 @@ export default function ObrasConfigWidget() {
     const db = getDb();
     if (!db || !selectedObraId) return;
     const normalized = normalizeQualitySpec(qualitySpecForm, qualitySpecs.length);
+    if (normalized.imagenCorrecto && normalized.imagenIncorrecto && normalized.imagenCorrecto === normalized.imagenIncorrecto) normalized.imagenIncorrecto = "";
+    if (!normalized.imagenCorrecto && normalized.imagenIncorrecto) { normalized.imagenCorrecto = normalized.imagenIncorrecto; normalized.imagenIncorrecto = ""; }
     if (!normalized.clave || !normalized.concepto) { alert("Agrega clave y concepto de calidad."); return; }
     await setDoc(doc(db, "obras", selectedObraId, "qualitySpecs", normalized.id), { ...normalized, updatedAt: serverTimestamp(), createdAt: serverTimestamp() }, { merge: true });
     await setDoc(doc(db, "qualityConcepts", normalized.id), { ...normalized, lastProjectId: selectedObraId, updatedAt: serverTimestamp() }, { merge: true });
@@ -872,6 +876,19 @@ export default function ObrasConfigWidget() {
 
   return <div className="triton-obras-config-module" style={{ position: "fixed", left: "var(--triton-shell-offset, 84px)", top: 0, right: 0, bottom: 0, zIndex: 2147483645, background: "#f5f5f7", overflow: "auto" }}>
     <style>{`@media (max-width: 900px) { .triton-obras-config-module { left: 0 !important; z-index: 2147483647 !important; } }`}</style>
+    {qualityImagePreview ? (
+      <div onClick={() => setQualityImagePreview(null)} style={{ position: "fixed", inset: 0, zIndex: 2147483647, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: 22 }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: "min(1100px, 96vw)", maxHeight: "92vh", borderRadius: 24, background: "#fff", overflow: "hidden", boxShadow: "0 24px 80px rgba(0,0,0,0.35)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: "1px solid rgba(60,60,67,0.12)" }}>
+            <div style={{ fontWeight: 950, color: "#1d1d1f" }}>{qualityImagePreview.title || "Imagen de referencia"}</div>
+            <button type="button" onClick={() => setQualityImagePreview(null)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Cerrar</button>
+          </div>
+          <div style={{ padding: 16, maxHeight: "calc(92vh - 68px)", overflow: "auto", background: "#f5f5f7" }}>
+            <img src={qualityImagePreview.url} alt={qualityImagePreview.title || "Imagen de referencia"} style={{ width: "100%", height: "auto", maxHeight: "calc(92vh - 110px)", objectFit: "contain", display: "block", margin: "0 auto", borderRadius: 16, background: "#fff" }} />
+          </div>
+        </div>
+      </div>
+    ) : null}
     <div style={{ maxWidth: 1420, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 42px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18, flexWrap: "wrap" }}><div><div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Obras</div><div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Alta de obra, catálogo de conceptos, Fecha Entrega y configuración económica para estimaciones.</div></div><button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Volver</button></div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
@@ -945,12 +962,30 @@ export default function ObrasConfigWidget() {
             <Field label="Puntos no aceptables"><textarea value={qualitySpecForm.puntosNoAceptables} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, puntosNoAceptables: e.target.value }))} rows={2} style={{ ...inputBase, resize: "vertical" }} /></Field>
           </div>
           <Field label="Forma de verificación"><textarea value={qualitySpecForm.formaVerificacion} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, formaVerificacion: e.target.value }))} rows={2} style={{ ...inputBase, resize: "vertical" }} /></Field>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
-            <Field label="Imagen incorrecto (URL)"><input value={qualitySpecForm.imagenIncorrecto} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, imagenIncorrecto: e.target.value }))} placeholder="https://..." style={inputBase} /></Field>
-            <Field label="Imagen correcto (URL)"><input value={qualitySpecForm.imagenCorrecto} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, imagenCorrecto: e.target.value }))} placeholder="https://..." style={inputBase} /></Field>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 2fr) minmax(130px, 0.7fr) minmax(130px, 0.7fr)", gap: 10, alignItems: "end" }}>
+            <Field label="Imagen de referencia (URL)">
+              <input
+                value={qualityReferenceImageUrl}
+                onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, imagenCorrecto: e.target.value, imagenIncorrecto: "" }))}
+                placeholder="/quality-base/TR-AC-M01/AC-PL-01.jpg o https://..."
+                style={inputBase}
+              />
+            </Field>
             <Field label="Fotos requeridas"><input type="number" min="0" value={qualitySpecForm.evidenceRequired} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, evidenceRequired: e.target.value }))} style={inputBase} /></Field>
             <Field label="Hito %"><input type="number" min="0" max="100" value={qualitySpecForm.stagePercent} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, stagePercent: e.target.value }))} style={inputBase} /></Field>
           </div>
+          {qualityReferenceImageUrl ? (
+            <div style={{ marginTop: 10, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#f9fafb" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "#1d1d1f" }}>Imagen de referencia del punto</div>
+                <button type="button" onClick={() => setQualityImagePreview({ url: qualityReferenceImageUrl, title: `${qualitySpecForm.clave || "Punto"} · ${qualitySpecForm.concepto || "Imagen de referencia"}` })} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Ver imagen</button>
+              </div>
+              <button type="button" onClick={() => setQualityImagePreview({ url: qualityReferenceImageUrl, title: `${qualitySpecForm.clave || "Punto"} · ${qualitySpecForm.concepto || "Imagen de referencia"}` })} style={{ border: 0, background: "transparent", padding: 0, margin: 0, cursor: "zoom-in", textAlign: "left" }} title="Clic para ampliar">
+                <img src={qualityReferenceImageUrl} alt="Imagen de referencia" style={{ width: "100%", maxWidth: 360, maxHeight: 220, objectFit: "contain", display: "block", borderRadius: 14, border: "1px solid rgba(60,60,67,0.12)", background: "#fff" }} />
+                <div style={{ marginTop: 6, fontSize: 11, color: "#6e6e73" }}>Clic para ampliar</div>
+              </button>
+            </div>
+          ) : null}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button type="button" onClick={saveQualitySpec} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar punto</button>
             <button type="button" onClick={() => setQualitySpecForm(qualityEmptyForm)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Limpiar</button>
