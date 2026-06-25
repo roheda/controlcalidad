@@ -667,6 +667,7 @@ export default function App() {
   const [loadingData, setLoadingData] = useState(true);
   const [qualityInitializing, setQualityInitializing] = useState(false);
   const [qualitySpecs, setQualitySpecs] = useState([]);
+  const [qualityScopes, setQualityScopes] = useState([]);
   const [checklistDetailOpen, setChecklistDetailOpen] = useState({});
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [selectedPartidaId, setSelectedPartidaId] = useState("cimentacion");
@@ -747,6 +748,19 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     const unsub = onSnapshot(specsRef, (snapshot) => {
       const specs = snapshot.docs.map((item) => ({ id: item.id, ...item.data(), partidaId: item.data().partidaId || qualityPartidaIdFromSpec(item.data()) }));
       setQualitySpecs(specs);
+    });
+    return () => unsub();
+  }, [authUser, obraId]);
+
+  useEffect(() => {
+    if (!authUser || !obraId) {
+      setQualityScopes([]);
+      return;
+    }
+    const scopesRef = collection(db, "obras", obraId, "qualityScopes");
+    const unsub = onSnapshot(scopesRef, (snapshot) => {
+      const scopes = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      setQualityScopes(scopes);
     });
     return () => unsub();
   }, [authUser, obraId]);
@@ -915,6 +929,46 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     );
     const checkedItems = nextChecklist.filter((item) => item.checked).map((item) => item.label);
     await updatePartida({ checklist: nextChecklist, checkedItems });
+  }
+
+
+  function scopesForChecklistItem(item) {
+    if (!item) return [];
+    const code = String(item.code || item.id || "").trim();
+    return (qualityScopes || [])
+      .filter((scope) => {
+        const scopeCode = String(scope.qualityCode || "").trim();
+        const scopeSpec = String(scope.qualitySpecId || "").trim();
+        return scopeCode === code || scopeSpec === String(item.id || "").trim();
+      })
+      .sort((a, b) => String(a.elementType || "").localeCompare(String(b.elementType || ""), "es") || String(a.elementName || "").localeCompare(String(b.elementName || ""), "es"));
+  }
+
+  function scopeProgressForItem(item) {
+    const scopes = scopesForChecklistItem(item);
+    const results = item?.scopeResults || {};
+    const complete = scopes.filter((scope) => ["cumple", "na"].includes(results[scope.id]?.resultado)).length;
+    const observed = scopes.filter((scope) => results[scope.id]?.resultado === "no_cumple" || results[scope.id]?.resultado === "observacion").length;
+    const pending = Math.max(0, scopes.length - complete - observed);
+    return { scopes, total: scopes.length, complete, observed, pending };
+  }
+
+  async function updateChecklistScopeResult(itemId, scopeId, patch) {
+    const item = selectedPartida?.checklist?.find((entry) => entry.id === itemId);
+    if (!item) return;
+    const current = item.scopeResults || {};
+    const nextScopeResult = {
+      ...(current[scopeId] || {}),
+      ...patch,
+      updatedAt: new Date().toISOString(),
+      updatedBy: profile?.name || authUser?.email || "Usuario",
+    };
+    await updateChecklistItem(itemId, {
+      scopeResults: {
+        ...current,
+        [scopeId]: nextScopeResult,
+      },
+    });
   }
 
   async function toggleChecklistItem(itemId) {
@@ -1892,6 +1946,19 @@ const reviewBlockMessage =
             <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>
               {item.photos?.length || 0} foto(s) · {item.checked ? "Punto atendido" : "Pendiente"} · Hito {item.stagePercent || 100}%
             </div>
+            {(() => {
+              const progress = scopeProgressForItem(item);
+              if (!progress.total) return null;
+              return (
+                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ border: `1px solid ${c.border}`, borderRadius: 999, padding: "6px 10px", background: "#fff", fontSize: 12, fontWeight: 900, color: c.text }}>
+                    Alcance: {progress.complete}/{progress.total} elementos revisados
+                  </span>
+                  {progress.pending ? <span style={{ borderRadius: 999, padding: "6px 10px", background: c.warnBg, color: c.warnText, fontSize: 12, fontWeight: 900 }}>{progress.pending} pendientes</span> : null}
+                  {progress.observed ? <span style={{ borderRadius: 999, padding: "6px 10px", background: c.dangerBg, color: c.dangerText, fontSize: 12, fontWeight: 900 }}>{progress.observed} observados</span> : null}
+                </div>
+              );
+            })()}
             <button
               type="button"
               onClick={() => setChecklistDetailOpen((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
@@ -1931,6 +1998,58 @@ const reviewBlockMessage =
         {checklistDetailOpen[item.id] ? (
           <div style={{ marginTop: 14, border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "#fff" }}>
             <div style={{ fontWeight: 900, color: c.text, marginBottom: 8 }}>Detalle técnico del punto</div>
+            {(() => {
+              const progress = scopeProgressForItem(item);
+              const scopes = progress.scopes;
+              if (!scopes.length) return null;
+              return (
+                <div style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "#f8fafc", marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 950, color: c.text }}>Alcance por elementos / zonas</div>
+                      <div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>
+                        Relación generada desde Configuración inteligente de obra. Revisa cada elemento para que no se apruebe el punto con una sola foto general.
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ borderRadius: 999, padding: "6px 10px", background: "#fff", border: `1px solid ${c.border}`, fontSize: 12, fontWeight: 900 }}>{progress.complete}/{progress.total} completos</span>
+                      {progress.pending ? <span style={{ borderRadius: 999, padding: "6px 10px", background: c.warnBg, color: c.warnText, fontSize: 12, fontWeight: 900 }}>{progress.pending} pendientes</span> : null}
+                      {progress.observed ? <span style={{ borderRadius: 999, padding: "6px 10px", background: c.dangerBg, color: c.dangerText, fontSize: 12, fontWeight: 900 }}>{progress.observed} observados</span> : null}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {scopes.map((scope) => {
+                      const result = item.scopeResults?.[scope.id] || {};
+                      const status = result.resultado || "pendiente";
+                      const statusMap = {
+                        cumple: { label: "Cumple", bg: c.successBg, color: c.successText },
+                        no_cumple: { label: "No cumple", bg: c.dangerBg, color: c.dangerText },
+                        observacion: { label: "Observación", bg: c.warnBg, color: c.warnText },
+                        na: { label: "No aplica", bg: c.idleBg, color: c.idleText },
+                        pendiente: { label: "Pendiente", bg: "#fff", color: c.muted },
+                      }[status] || { label: "Pendiente", bg: "#fff", color: c.muted };
+                      return (
+                        <div key={scope.id} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.3fr 1fr 1.1fr", gap: 10, alignItems: "center", border: `1px solid ${c.border}`, borderRadius: 14, padding: 10, background: "#fff" }}>
+                          <div>
+                            <div style={{ fontWeight: 900, color: c.text }}>{scope.elementName || scope.zone || "Elemento"}</div>
+                            <div style={{ fontSize: 12, color: c.muted, marginTop: 2 }}>{scope.elementType || "Tipo"}{scope.zone ? ` · ${scope.zone}` : ""}</div>
+                          </div>
+                          <div>
+                            <span style={{ display: "inline-flex", borderRadius: 999, padding: "6px 10px", background: statusMap.bg, color: statusMap.color, fontWeight: 900, fontSize: 12 }}>{statusMap.label}</span>
+                            {result.updatedBy ? <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>Actualizó: {result.updatedBy}</div> : null}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+                            <button type="button" onClick={() => updateChecklistScopeResult(item.id, scope.id, { resultado: "cumple" })} style={{ ...buttonStyle("secondary", { padding: "7px 9px", fontSize: 12, background: status === "cumple" ? c.successBg : "#fff", color: status === "cumple" ? c.successText : c.text }) }}>Cumple</button>
+                            <button type="button" onClick={() => updateChecklistScopeResult(item.id, scope.id, { resultado: "no_cumple" })} style={{ ...buttonStyle("secondary", { padding: "7px 9px", fontSize: 12, background: status === "no_cumple" ? c.dangerBg : "#fff", color: status === "no_cumple" ? c.dangerText : c.text }) }}>No cumple</button>
+                            <button type="button" onClick={() => updateChecklistScopeResult(item.id, scope.id, { resultado: "na" })} style={{ ...buttonStyle("secondary", { padding: "7px 9px", fontSize: 12, background: status === "na" ? c.idleBg : "#fff" }) }}>N/A</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
             {item.criterioAceptacion ? <div style={{ marginBottom: 8 }}><strong>Criterio de aceptación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.criterioAceptacion}</div></div> : null}
             {item.formaVerificacion ? <div style={{ marginBottom: 8 }}><strong>Forma de verificación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.formaVerificacion}</div></div> : null}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
