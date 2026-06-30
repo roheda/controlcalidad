@@ -542,7 +542,7 @@ const qualityManualSeed = [
   }
 ];
 const qualityPartidaAliases = { PL: "preliminares", EX: "excavacion", CI: "cimentacion", CO: "colado", ES: "estructura", LO: "losa", AL: "albanileria", IH: "hidraulicas", IE: "electricas", AP: "aplanados", PI: "pisos", IM: "impermeabilizante", CA: "canceleria", GE: "general" };
-const qualityEmptyForm = { clave: "", partida: "", concepto: "", criterioAceptacion: "", puntosAceptables: "", puntosNoAceptables: "", imagenIncorrecto: "", imagenCorrecto: "", formaVerificacion: "", catalogKeywords: "", evidenceRequired: 1, stagePercent: 100, active: true };
+const qualityEmptyForm = { clave: "", partida: "", concepto: "", criterioAceptacion: "", puntosAceptables: "", puntosNoAceptables: "", imagenIncorrecto: "", imagenCorrecto: "", formaVerificacion: "", catalogKeywords: "", requiresPhotos: true, evidenceRequired: 1, evidenceLevel: "alcance", stagePercent: 100, active: true };
 function qualityPartidaIdFromSpec(spec = {}) {
   const codePrefix = String(spec.clave || spec.code || "").split("-")[1];
   if (qualityPartidaAliases[codePrefix]) return qualityPartidaAliases[codePrefix];
@@ -570,7 +570,17 @@ function normalizeQualitySpec(raw = {}, index = 0) {
     imagenCorrecto: cleanText(raw.imagenReferencia || raw["Imagen de referencia"] || raw["imagen de referencia"] || raw.imagenCorrecto || raw["Imagen correcto"] || raw["imagen correcto"] || ""),
     formaVerificacion: cleanText(raw.formaVerificacion || raw["Forma de verificación"] || raw.Verificación || raw.verificacion || ""),
     catalogKeywords: cleanText(raw.catalogKeywords || raw["Palabras catálogo"] || raw.keywords || concepto),
-    evidenceRequired: Math.max(0, parseNumber(raw.evidenceRequired || raw["Fotos requeridas"] || 1)),
+    requiresPhotos: raw.requiresPhotos === false || raw["Requiere fotos"] === "No" || raw["Requiere fotos"] === "no" || raw["Requiere fotos"] === "0" || raw["Requiere fotos"] === "false" ? false : true,
+    evidenceRequired: (() => {
+      const requires = !(raw.requiresPhotos === false || raw["Requiere fotos"] === "No" || raw["Requiere fotos"] === "no" || raw["Requiere fotos"] === "0" || raw["Requiere fotos"] === "false");
+      return requires ? Math.max(1, parseNumber(raw.evidenceRequired || raw["Fotos requeridas"] || 1)) : 0;
+    })(),
+    evidenceLevel: (() => {
+      const value = cleanText(raw.evidenceLevel || raw["Nivel de evidencia"] || raw["Nivel fotos"] || raw["Fotos a nivel"] || "").toLowerCase();
+      if (value.includes("punto")) return "punto";
+      if (value.includes("alcance") || value.includes("element") || value.includes("zona")) return "alcance";
+      return "alcance";
+    })(),
     stagePercent: Math.min(100, Math.max(0, parseNumber(raw.stagePercent || raw["Hito %"] || 100))),
     active: raw.active === false || raw.activo === "false" ? false : true,
   };
@@ -586,8 +596,8 @@ function rowsToQualitySpecs(rows, sourceFileName = "") {
 }
 function downloadQualitySpecTemplate() {
   const rows = [
-    ["Clave", "Partida", "Concepto", "Criterio de aceptación", "Puntos aceptables", "Puntos no aceptables", "Imagen de referencia", "Forma de verificación", "Palabras catálogo", "Fotos requeridas", "Hito %"],
-    ["AC-PL-01", "Preliminares", "El trazo coincide con planos autorizados", "El trazo corresponde a ubicación, ejes, dimensiones y alineaciones indicadas en planos.", "Dimensiones coinciden con plano; escuadra correcta; ejes alineados.", "Desviaciones dimensionales; escuadra incorrecta; ejes desalineados.", "/quality-base/TR-AC-M01/AC-PL-01.jpg", "Medir distancias, confirmar escuadra y comparar contra plano autorizado.", "trazo ejes desplante", "1", "100"],
+    ["Clave", "Partida", "Concepto", "Criterio de aceptación", "Puntos aceptables", "Puntos no aceptables", "Imagen de referencia", "Forma de verificación", "Palabras catálogo", "Requiere fotos", "Fotos requeridas", "Nivel de evidencia", "Hito %"],
+    ["AC-PL-01", "Preliminares", "El trazo coincide con planos autorizados", "El trazo corresponde a ubicación, ejes, dimensiones y alineaciones indicadas en planos.", "Dimensiones coinciden con plano; escuadra correcta; ejes alineados.", "Desviaciones dimensionales; escuadra incorrecta; ejes desalineados.", "/quality-base/TR-AC-M01/AC-PL-01.jpg", "Medir distancias, confirmar escuadra y comparar contra plano autorizado.", "trazo ejes desplante", "Sí", "1", "alcance", "100"],
   ];
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
   downloadTextFile("plantilla-checklist-calidad-triton.csv", csv);
@@ -1208,7 +1218,7 @@ export default function ObrasConfigWidget() {
             <Field label="Puntos no aceptables"><textarea value={qualitySpecForm.puntosNoAceptables} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, puntosNoAceptables: e.target.value }))} rows={2} style={{ ...inputBase, resize: "vertical" }} /></Field>
           </div>
           <Field label="Forma de verificación"><textarea value={qualitySpecForm.formaVerificacion} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, formaVerificacion: e.target.value }))} rows={2} style={{ ...inputBase, resize: "vertical" }} /></Field>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 2fr) minmax(130px, 0.7fr) minmax(130px, 0.7fr)", gap: 10, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 2fr) minmax(150px, 0.7fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) minmax(120px, 0.6fr)", gap: 10, alignItems: "end" }}>
             <Field label="Imagen de referencia (URL)">
               <input
                 value={qualityReferenceImageUrl}
@@ -1217,7 +1227,19 @@ export default function ObrasConfigWidget() {
                 style={inputBase}
               />
             </Field>
-            <Field label="Fotos requeridas"><input type="number" min="0" value={qualitySpecForm.evidenceRequired} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, evidenceRequired: e.target.value }))} style={inputBase} /></Field>
+            <Field label="Evidencia fotográfica">
+              <label style={{ ...inputBase, display: "flex", alignItems: "center", gap: 8, minHeight: 44 }}>
+                <input type="checkbox" checked={qualitySpecForm.requiresPhotos !== false} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, requiresPhotos: e.target.checked, evidenceRequired: e.target.checked ? (prev.evidenceRequired || 1) : 0 }))} />
+                Requerir fotos
+              </label>
+            </Field>
+            <Field label="Fotos requeridas"><input type="number" min="0" disabled={qualitySpecForm.requiresPhotos === false} value={qualitySpecForm.requiresPhotos === false ? 0 : qualitySpecForm.evidenceRequired} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, evidenceRequired: e.target.value }))} style={{ ...inputBase, opacity: qualitySpecForm.requiresPhotos === false ? 0.55 : 1 }} /></Field>
+            <Field label="Nivel de evidencia">
+              <select disabled={qualitySpecForm.requiresPhotos === false} value={qualitySpecForm.evidenceLevel || "alcance"} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, evidenceLevel: e.target.value }))} style={{ ...inputBase, opacity: qualitySpecForm.requiresPhotos === false ? 0.55 : 1 }}>
+                <option value="alcance">Por alcance / elemento</option>
+                <option value="punto">A nivel punto</option>
+              </select>
+            </Field>
             <Field label="Hito %"><input type="number" min="0" max="100" value={qualitySpecForm.stagePercent} onChange={(e) => setQualitySpecForm((prev) => ({ ...prev, stagePercent: e.target.value }))} style={inputBase} /></Field>
           </div>
           {qualityReferenceImageUrl ? (
@@ -1252,7 +1274,7 @@ export default function ObrasConfigWidget() {
         <div style={{ display: "grid", gap: 10 }}>
           {filteredQualitySpecs.slice(0, 120).map((spec) => <div key={spec.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 16, padding: 12, background: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <div><div style={{ fontWeight: 950 }}>{spec.clave} · {spec.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{spec.partida} · Hito {spec.stagePercent || 100}% · {spec.evidenceRequired || 0} foto(s) requeridas</div></div>
+              <div><div style={{ fontWeight: 950 }}>{spec.clave} · {spec.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{spec.partida} · Hito {spec.stagePercent || 100}% · {spec.requiresPhotos === false ? "sin fotos obligatorias" : `${spec.evidenceRequired || 1} foto(s) · ${spec.evidenceLevel === "punto" ? "a nivel punto" : "por alcance/elemento"}`}</div></div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button type="button" onClick={() => editQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Editar</button>
                 <button type="button" onClick={() => deleteQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#ff3b30", padding: "8px 10px" }}>Eliminar</button>

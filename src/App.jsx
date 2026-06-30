@@ -177,7 +177,9 @@ function buildChecklist(partidaId, currentChecklist = null, checkedItems = [], q
         imagenIncorrecto: spec.imagenIncorrecto || "",
         imagenCorrecto: spec.imagenCorrecto || "",
         catalogKeywords: spec.catalogKeywords || "",
-        evidenceRequired: Number(spec.evidenceRequired ?? 1),
+        requiresPhotos: spec.requiresPhotos === false ? false : true,
+        evidenceRequired: spec.requiresPhotos === false ? 0 : Number(spec.evidenceRequired ?? 1),
+        evidenceLevel: spec.evidenceLevel || spec.nivelEvidencia || "alcance",
         stagePercent: Number(spec.stagePercent ?? 100),
         clasificacion: spec.clasificacion || "menor",
         peso: spec.peso || 1,
@@ -199,7 +201,9 @@ function buildChecklist(partidaId, currentChecklist = null, checkedItems = [], q
       imagenIncorrecto: item.imagenIncorrecto || existing?.imagenIncorrecto || "",
       imagenCorrecto: item.imagenCorrecto || existing?.imagenCorrecto || "",
       catalogKeywords: item.catalogKeywords || existing?.catalogKeywords || "",
-      evidenceRequired: Number(item.evidenceRequired ?? existing?.evidenceRequired ?? 1),
+      requiresPhotos: item.requiresPhotos === false || existing?.requiresPhotos === false ? false : true,
+      evidenceRequired: item.requiresPhotos === false || existing?.requiresPhotos === false ? 0 : Number(item.evidenceRequired ?? existing?.evidenceRequired ?? 1),
+      evidenceLevel: item.evidenceLevel || existing?.evidenceLevel || "alcance",
       stagePercent: Number(item.stagePercent ?? existing?.stagePercent ?? 100),
       clasificacion: item.clasificacion || existing?.clasificacion || "menor",
       peso: item.peso || existing?.peso || 1,
@@ -207,6 +211,7 @@ function buildChecklist(partidaId, currentChecklist = null, checkedItems = [], q
       checked: existing?.checked ?? checkedItems.includes(item.label) ?? false,
       note: existing?.note || "",
       photos: existing?.photos || [],
+      scopeResults: existing?.scopeResults || {},
       comments: existing?.comments || [],
     };
   });
@@ -245,7 +250,8 @@ function evaluarPartida(partida) {
       if (item.resultado === "observacion") criticosObs++;
     }
 
-    if ((item.photos?.length || 0) < 3) {
+    const requiredPhotos = item.requiresPhotos === false ? 0 : Number(item.evidenceRequired || 0);
+    if (requiredPhotos > 0 && (item.photos?.length || 0) < requiredPhotos) {
       faltanFotos++;
     }
   });
@@ -957,11 +963,18 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     const item = selectedPartida?.checklist?.find((entry) => entry.id === itemId);
     if (!item) return;
     const current = item.scopeResults || {};
+    const previousScopeResult = current[scopeId] || {};
+    const requiredPhotos = item.requiresPhotos === false || item.evidenceLevel === "punto" ? 0 : Number(item.evidenceRequired || 0);
+    if (patch?.resultado === "cumple" && requiredPhotos > 0 && (previousScopeResult.photos?.length || 0) < requiredPhotos) {
+      alert(`Este punto requiere ${requiredPhotos} foto(s) para poder marcar el elemento como Cumple.`);
+      return;
+    }
     const nextScopeResult = {
-      ...(current[scopeId] || {}),
+      ...previousScopeResult,
       ...patch,
       updatedAt: new Date().toISOString(),
       updatedBy: profile?.name || authUser?.email || "Usuario",
+      updatedByRole: profile?.role || "usuario",
     };
     await updateChecklistItem(itemId, {
       scopeResults: {
@@ -1248,6 +1261,49 @@ async function deleteGeneralEvidence(file) {
       await updatePartida({ checklist: nextChecklist, checkedItems, status: nextStatus });
     } finally {
       setChecklistUploading((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }
+
+
+  async function handleChecklistScopePhotoUpload(itemId, scopeId, files) {
+    if (!files?.length || !selectedHouse || !selectedPartida) return;
+    const uploadKey = `${itemId}-${scopeId}`;
+    setChecklistUploading((prev) => ({ ...prev, [uploadKey]: true }));
+    try {
+      const checklistItem = (selectedPartida.checklist || []).find((item) => item.id === itemId);
+      if (!checklistItem) return;
+      const uploadedPhotos = [];
+      for (const file of Array.from(files)) {
+        const filePath = `obras/${obraId}/${selectedHouse.id}/${selectedPartida.id}/checklist/${itemId}/scopes/${scopeId}/${Date.now()}-${file.name}`;
+        const storageRef = ref(storage, filePath);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        uploadedPhotos.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          url,
+          fileName: file.name,
+          size: file.size,
+          storagePath: filePath,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: authUser?.uid || null,
+          uploadedByName: profile?.name || authUser?.email || "Usuario",
+        });
+      }
+      const current = checklistItem.scopeResults || {};
+      const currentScope = current[scopeId] || {};
+      await updateChecklistItem(itemId, {
+        scopeResults: {
+          ...current,
+          [scopeId]: {
+            ...currentScope,
+            photos: [...(currentScope.photos || []), ...uploadedPhotos],
+            updatedAt: new Date().toISOString(),
+            updatedBy: profile?.name || authUser?.email || "Usuario",
+          },
+        },
+      });
+    } finally {
+      setChecklistUploading((prev) => ({ ...prev, [uploadKey]: false }));
     }
   }
 
@@ -1959,6 +2015,15 @@ const reviewBlockMessage =
                 </div>
               );
             })()}
+            {(() => {
+              const progress = scopeProgressForItem(item);
+              if (!progress.total || item.requiresPhotos === false) return null;
+              return (
+                <div style={{ marginTop: 8, fontSize: 12, color: c.muted, fontWeight: 800 }}>
+                  Fotos configuradas: {item.evidenceLevel === "punto" ? "a nivel punto del checklist" : "por cada elemento / zona del alcance"}.
+                </div>
+              );
+            })()}
             <button
               type="button"
               onClick={() => setChecklistDetailOpen((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
@@ -1971,7 +2036,7 @@ const reviewBlockMessage =
           {isConstructora ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center" })}>
-                {checklistUploading[item.id] ? "Subiendo..." : "Tomar foto"}
+                {checklistUploading[item.id] ? "Subiendo..." : ((scopeProgressForItem(item).total && item.evidenceLevel !== "punto") ? "Foto general opcional" : "Tomar foto del punto")}
                 <input
                   type="file"
                   accept="image/*"
@@ -1982,7 +2047,7 @@ const reviewBlockMessage =
               </label>
 
               <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center" })}>
-                {checklistUploading[item.id] ? "Subiendo..." : "Subir fotos"}
+                {checklistUploading[item.id] ? "Subiendo..." : ((scopeProgressForItem(item).total && item.evidenceLevel !== "punto") ? "Subir fotos generales" : "Subir fotos del punto")}
                 <input
                   type="file"
                   accept="image/*"
@@ -2008,7 +2073,7 @@ const reviewBlockMessage =
                     <div>
                       <div style={{ fontWeight: 950, color: c.text }}>Alcance por elementos / zonas</div>
                       <div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>
-                        Relación generada desde Configuración inteligente de obra. Revisa cada elemento para que no se apruebe el punto con una sola foto general.
+                        Relación generada desde Configuración inteligente de obra. Si el punto está configurado "por alcance", la evidencia debe subirse en cada elemento/zona.
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -2036,9 +2101,33 @@ const reviewBlockMessage =
                           </div>
                           <div>
                             <span style={{ display: "inline-flex", borderRadius: 999, padding: "6px 10px", background: statusMap.bg, color: statusMap.color, fontWeight: 900, fontSize: 12 }}>{statusMap.label}</span>
-                            {result.updatedBy ? <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>Actualizó: {result.updatedBy}</div> : null}
+                            {result.updatedBy ? <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>Actualizó: {result.updatedBy} · {result.updatedByRole || "rol"}</div> : null}
+                            {item.requiresPhotos === false ? (
+                              <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>Fotos no obligatorias en este punto.</div>
+                            ) : item.evidenceLevel === "punto" ? (
+                              <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>La foto se sube a nivel punto del checklist, no por elemento.</div>
+                            ) : (
+                              <div style={{ fontSize: 11, color: (result.photos?.length || 0) >= Number(item.evidenceRequired || 0) ? c.successText : c.warnText, marginTop: 4 }}>
+                                Fotos: {result.photos?.length || 0}/{Number(item.evidenceRequired || 0)} requeridas
+                              </div>
+                            )}
+                            {result.photos?.length ? (
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                                {result.photos.slice(0, 4).map((photo, pIndex) => (
+                                  <button key={photo.id || pIndex} type="button" onClick={() => openPhotoPreview(photo, result.photos)} style={{ border: 0, background: "transparent", padding: 0, cursor: "zoom-in" }}>
+                                    <img src={photo.url} alt={photo.fileName || "Evidencia"} style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 10, border: `1px solid ${c.border}` }} />
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+                            {item.requiresPhotos !== false && item.evidenceLevel !== "punto" ? (
+                              <label style={{ ...buttonStyle("secondary", { padding: "7px 9px", fontSize: 12, display: "inline-flex", alignItems: "center" }) }}>
+                                {checklistUploading[`${item.id}-${scope.id}`] ? "Subiendo..." : "Subir foto del elemento"}
+                                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => handleChecklistScopePhotoUpload(item.id, scope.id, e.target.files)} />
+                              </label>
+                            ) : null}
                             <button type="button" onClick={() => updateChecklistScopeResult(item.id, scope.id, { resultado: "cumple" })} style={{ ...buttonStyle("secondary", { padding: "7px 9px", fontSize: 12, background: status === "cumple" ? c.successBg : "#fff", color: status === "cumple" ? c.successText : c.text }) }}>Cumple</button>
                             <button type="button" onClick={() => updateChecklistScopeResult(item.id, scope.id, { resultado: "no_cumple" })} style={{ ...buttonStyle("secondary", { padding: "7px 9px", fontSize: 12, background: status === "no_cumple" ? c.dangerBg : "#fff", color: status === "no_cumple" ? c.dangerText : c.text }) }}>No cumple</button>
                             <button type="button" onClick={() => updateChecklistScopeResult(item.id, scope.id, { resultado: "na" })} style={{ ...buttonStyle("secondary", { padding: "7px 9px", fontSize: 12, background: status === "na" ? c.idleBg : "#fff" }) }}>N/A</button>
