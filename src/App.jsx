@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import {
@@ -32,6 +32,14 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 const defaultObraId = "";
+
+const sampleMentionUsers = [
+  { id: "demo-constructora", uid: "demo-constructora", name: "Constructora ABC", role: "constructora", email: "constructora@triton.local", mentionHandle: "constructoraabc", isSample: true },
+  { id: "demo-residente", uid: "demo-residente", name: "Juan Residente", role: "residente", email: "residente@triton.local", mentionHandle: "juanresidente", isSample: true },
+  { id: "demo-supervision", uid: "demo-supervision", name: "María Supervisión", role: "supervisora", email: "supervision@triton.local", mentionHandle: "mariasupervision", isSample: true },
+  { id: "demo-admin", uid: "demo-admin", name: "Administración Triton", role: "admin", email: "admin@triton.local", mentionHandle: "admintriton", isSample: true },
+];
+
 
 const partidaTemplates = [
   { id: "preliminares", name: "Preliminares", weight: 5 },
@@ -470,7 +478,192 @@ function ChecklistPhotoGrid({ photos, onPreview }) {
   );
 }
 
-function CommentThread({ comments, onPreview, onStatusChange, canValidate = false }) {
+
+function normalizeMentionHandle(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "");
+}
+
+function userMentionHandle(user = {}) {
+  const base = user.mentionHandle || user.handle || user.name || user.email || user.id || "usuario";
+  return normalizeMentionHandle(String(base).split("@")[0]);
+}
+
+function extractMentionsFromText(text = "", users = []) {
+  const handles = Array.from(String(text || "").matchAll(/@([a-zA-Z0-9._-]+)/g)).map((match) => normalizeMentionHandle(match[1]));
+  const uniqueHandles = [...new Set(handles)].filter(Boolean);
+  const matchedUsers = users.filter((user) => {
+    const options = [
+      userMentionHandle(user),
+      normalizeMentionHandle(user.name),
+      normalizeMentionHandle(String(user.email || "").split("@")[0]),
+    ].filter(Boolean);
+    return uniqueHandles.some((handle) => options.includes(handle));
+  });
+  return {
+    mentionHandles: uniqueHandles,
+    mentionUids: [...new Set(matchedUsers.map((user) => user.uid || user.id).filter(Boolean))],
+    mentionNames: matchedUsers.map((user) => user.name || user.email || user.id).filter(Boolean),
+  };
+}
+
+function mergeMentionUsers(realUsers = [], currentUser = null) {
+  const combined = [...(realUsers || [])];
+  if (currentUser?.uid || currentUser?.email) combined.unshift(currentUser);
+  sampleMentionUsers.forEach((sample) => {
+    const sampleHandle = userMentionHandle(sample);
+    const exists = combined.some((user) => userMentionHandle(user) === sampleHandle || (user.email && sample.email && user.email === sample.email));
+    if (!exists) combined.push(sample);
+  });
+
+  const seen = new Set();
+  return combined.filter((user) => {
+    const key = user.uid || user.id || user.email || userMentionHandle(user);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getMentionQuery(value = "", caret = 0) {
+  const left = String(value || "").slice(0, caret);
+  const atIndex = left.lastIndexOf("@");
+  if (atIndex < 0) return null;
+  const fragment = left.slice(atIndex + 1);
+  if (/\s/.test(fragment)) return null;
+  return { start: atIndex, query: normalizeMentionHandle(fragment) };
+}
+
+function MentionTextarea({ value, onChange, users = [], placeholder, rows = 4, style }) {
+  const textareaRef = useRef(null);
+  const [caret, setCaret] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const mentionQuery = getMentionQuery(value, caret);
+  const suggestions = mentionQuery
+    ? users
+        .filter((user) => {
+          const handle = userMentionHandle(user);
+          const name = normalizeMentionHandle(user.name || user.email || "");
+          return !mentionQuery.query || handle.includes(mentionQuery.query) || name.includes(mentionQuery.query);
+        })
+        .slice(0, 7)
+    : [];
+
+  function insertMention(user) {
+    if (!mentionQuery) return;
+    const handle = userMentionHandle(user);
+    const before = String(value || "").slice(0, mentionQuery.start);
+    const after = String(value || "").slice(caret);
+    const nextValue = `${before}@${handle} ${after}`;
+    const nextCaret = `${before}@${handle} `.length;
+    onChange(nextValue);
+    setActiveIndex(0);
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(nextCaret, nextCaret);
+      setCaret(nextCaret);
+    }, 0);
+  }
+
+  function updateCaret(event) {
+    setCaret(event.target.selectionStart || 0);
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <textarea
+        ref={textareaRef}
+        rows={rows}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setCaret(event.target.selectionStart || 0);
+          setActiveIndex(0);
+        }}
+        onClick={updateCaret}
+        onKeyUp={updateCaret}
+        onKeyDown={(event) => {
+          if (!suggestions.length) return;
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setActiveIndex((prev) => (prev + 1) % suggestions.length);
+          } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setActiveIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            insertMention(suggestions[activeIndex] || suggestions[0]);
+          } else if (event.key === "Escape") {
+            setCaret(0);
+          }
+        }}
+        placeholder={placeholder}
+        style={style}
+      />
+
+      {suggestions.length > 0 ? (
+        <div
+          style={{
+            position: "absolute",
+            left: 10,
+            right: 10,
+            top: "calc(100% + 6px)",
+            zIndex: 50,
+            background: "#fff",
+            border: `1px solid ${c.border}`,
+            borderRadius: 14,
+            boxShadow: "0 18px 45px rgba(15, 23, 42, 0.18)",
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ padding: "8px 10px", fontSize: 12, color: c.muted, borderBottom: `1px solid ${c.border}` }}>
+            Enter para etiquetar · ↑ ↓ para cambiar opción
+          </div>
+          {suggestions.map((user, index) => {
+            const handle = userMentionHandle(user);
+            const active = index === activeIndex;
+            return (
+              <button
+                key={user.uid || user.id || handle}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  insertMention(user);
+                }}
+                style={{
+                  width: "100%",
+                  border: 0,
+                  borderBottom: index === suggestions.length - 1 ? 0 : `1px solid ${c.border}`,
+                  background: active ? c.panelSoft : "#fff",
+                  padding: "10px 12px",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <span>
+                  <strong style={{ color: c.text }}>{user.name || user.email || handle}</strong>
+                  <span style={{ color: c.muted, marginLeft: 8 }}>@{handle}</span>
+                </span>
+                <span style={{ ...badgeStyle(user.role || "usuario"), fontSize: 10, padding: "3px 7px" }}>
+                  {user.isSample ? "Ejemplo" : user.role || "usuario"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CommentThread({ comments, onPreview, onStatusChange, canValidate = false, users = [] }) {
   if (!comments?.length) {
     return (
       <div
@@ -513,6 +706,14 @@ function CommentThread({ comments, onPreview, onStatusChange, canValidate = fals
           <div style={{ color: c.text, marginTop: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
             {comment.text}
           </div>
+          {(comment.mentionNames || comment.mentionHandles || []).length > 0 ? (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              {(comment.mentionNames?.length ? comment.mentionNames : comment.mentionHandles || []).map((mention) => (
+                <span key={mention} style={{ ...badgeStyle("Pendiente"), fontSize: 11, padding: "4px 8px" }}>@{String(mention).replace(/^@/, "")}</span>
+              ))}
+            </div>
+          ) : null}
+
 
           {comment.blocksRelease ? (
             <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -689,6 +890,8 @@ function TabButton({ active, onClick, children }) {
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [obras, setObras] = useState([]);
   const [selectedObraId, setSelectedObraId] = useState(defaultObraId);
@@ -751,6 +954,17 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
 
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setUsers([]);
+      return;
+    }
+    const unsub = onSnapshot(collection(db, "users"), (snapshot) => {
+      setUsers(snapshot.docs.map((item) => ({ id: item.id, uid: item.id, ...item.data() })));
+    });
+    return () => unsub();
+  }, [authUser]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -892,6 +1106,63 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
 
   const isSupervisora = profile?.role === "supervisora";
   const isConstructora = profile?.role === "constructora";
+  const currentUserMentionHandle = userMentionHandle({ id: authUser?.uid, uid: authUser?.uid, name: profile?.name, email: authUser?.email });
+  const allMentionUsers = useMemo(
+    () => mergeMentionUsers(users, {
+      id: authUser?.uid,
+      uid: authUser?.uid,
+      name: profile?.name || authUser?.email || "Yo",
+      email: authUser?.email,
+      role: profile?.role || "usuario",
+      mentionHandle: currentUserMentionHandle,
+    }),
+    [users, authUser?.uid, authUser?.email, profile?.name, profile?.role, currentUserMentionHandle]
+  );
+
+  const myMentions = useMemo(() => {
+    const currentHandles = [
+      currentUserMentionHandle,
+      normalizeMentionHandle(profile?.name),
+      normalizeMentionHandle(String(authUser?.email || "").split("@")[0]),
+    ].filter(Boolean);
+
+    const items = [];
+    houses.forEach((house) => {
+      (house.partidas || []).forEach((partida) => {
+        (partida.generalComments || []).forEach((comment) => {
+          const mentionedByUid = (comment.mentionUids || []).includes(authUser?.uid);
+          const mentionedByHandle = (comment.mentionHandles || []).some((handle) => currentHandles.includes(normalizeMentionHandle(handle)));
+          if (!mentionedByUid && !mentionedByHandle) return;
+          const open = Boolean(comment.blocksRelease && !["validado", "cerrado"].includes(comment.status));
+          items.push({
+            id: `${house.id}-${partida.id}-${comment.id}`,
+            houseId: house.id,
+            houseName: house.name,
+            partidaId: partida.id,
+            partidaName: partida.name,
+            comment,
+            open,
+            createdAt: comment.createdAt || "",
+          });
+        });
+      });
+    });
+
+    return items.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }, [houses, authUser?.uid, authUser?.email, profile?.name, currentUserMentionHandle]);
+
+  const myOpenMentions = useMemo(() => myMentions.filter((item) => item.open), [myMentions]);
+
+  function openMentionItem(item) {
+    if (!item) return;
+    setSelectedHouseId(item.houseId);
+    setSelectedPartidaId(item.partidaId);
+    setTab("checklist");
+    setNotificationPanelOpen(false);
+    window.setTimeout(() => {
+      document.getElementById("bitacora-partida")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
 
   useEffect(() => {
     if (!selectedHouse || !selectedPartida) {
@@ -1016,6 +1287,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     await updateChecklistItem(itemId, { checked: !item.checked });
   }
 function buildNewComment(textValue, extra = {}) {
+  const mentionData = extractMentionsFromText(textValue, allMentionUsers);
   return {
     id: extra.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     text: textValue.trim(),
@@ -1023,6 +1295,7 @@ function buildNewComment(textValue, extra = {}) {
     authorName: profile?.name || authUser?.email || "Usuario",
     authorRole: profile?.role || "usuario",
     createdAt: new Date().toISOString(),
+    ...mentionData,
     ...extra,
   };
 }
@@ -1645,6 +1918,12 @@ const reviewBlockMessage =
                 {obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id}</option>)}
               </select>
             ) : null}
+            <button onClick={() => setNotificationPanelOpen(true)} style={buttonStyle("primary", { position: "relative" })}>
+              Mi panel
+              {myOpenMentions.length > 0 ? (
+                <span style={{ position: "absolute", top: -8, right: -8, background: c.danger, color: "#fff", borderRadius: 999, padding: "2px 7px", fontSize: 11, fontWeight: 900 }}>{myOpenMentions.length}</span>
+              ) : null}
+            </button>
             <span style={badgeStyle(profile?.role || "Pendiente")}>Rol: {profile?.role || "sin rol"}</span>
             <span style={badgeStyle("Pendiente")}>{authUser.email}</span>
             <button onClick={() => signOut(auth)} style={buttonStyle("secondary")}>
@@ -2395,7 +2674,7 @@ const reviewBlockMessage =
   </div>
 ) : null}
 
-                    <div style={{ marginTop: 18, borderTop: `1px solid ${c.border}`, paddingTop: 18 }}>
+                    <div id="bitacora-partida" style={{ marginTop: 18, borderTop: `1px solid ${c.border}`, paddingTop: 18 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
                         <div>
                           <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>Bitácora de la partida</div>
@@ -2413,16 +2692,39 @@ const reviewBlockMessage =
                         onPreview={openPhotoPreview}
                         onStatusChange={updateGeneralCommentStatus}
                         canValidate={isSupervisora}
+                        users={allMentionUsers}
                       />
 
                       <div style={{ marginTop: 14, padding: 14, border: `1px solid ${c.border}`, borderRadius: 16, background: c.panelSoft }}>
-                        <textarea
+                        <MentionTextarea
                           rows={4}
                           value={generalCommentDraft}
-                          onChange={(e) => setGeneralCommentDraft(e.target.value)}
-                          placeholder={isSupervisora ? "Escribe observación o acuerdo general de esta partida" : "Escribe comentario, avance o respuesta de esta partida"}
+                          onChange={setGeneralCommentDraft}
+                          users={allMentionUsers}
+                          placeholder={isSupervisora ? "Escribe observación o acuerdo. Usa @ y selecciona con Enter para etiquetar." : "Escribe comentario, avance o respuesta. Usa @ y selecciona con Enter para etiquetar."}
                           style={inputStyle({ minHeight: 110, resize: "vertical", lineHeight: 1.5, background: "#fff" })}
                         />
+
+                        {allMentionUsers.length > 0 ? (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ fontSize: 12, color: c.muted, marginBottom: 6 }}>Etiquetar rápido</div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {allMentionUsers.slice(0, 12).map((user) => {
+                                const handle = userMentionHandle(user);
+                                return (
+                                  <button
+                                    key={user.id || user.uid || handle}
+                                    type="button"
+                                    onClick={() => setGeneralCommentDraft((prev) => `${prev}${prev && !prev.endsWith(" ") ? " " : ""}@${handle} `)}
+                                    style={buttonStyle("secondary", { padding: "6px 9px", fontSize: 12 })}
+                                  >
+                                    @{handle}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
 
                         <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, color: c.text, fontWeight: 700 }}>
                           <input
@@ -2558,6 +2860,73 @@ const reviewBlockMessage =
           </div>
         </div>
       </div>
+
+      {notificationPanelOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            right: isMobile ? 12 : 24,
+            top: isMobile ? 12 : 24,
+            bottom: isMobile ? 12 : 24,
+            width: isMobile ? "calc(100vw - 24px)" : 430,
+            background: "#fff",
+            border: `1px solid ${c.border}`,
+            borderRadius: 24,
+            boxShadow: "0 24px 80px rgba(15, 23, 42, 0.22)",
+            zIndex: 900,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ padding: 18, borderBottom: `1px solid ${c.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>Mi panel</div>
+              <div style={{ color: c.muted, fontSize: 13, marginTop: 4 }}>Comentarios donde te etiquetaron con @. La pantalla de atrás queda activa.</div>
+            </div>
+            <button onClick={() => setNotificationPanelOpen(false)} style={buttonStyle("secondary", { padding: "8px 10px" })}>Cerrar</button>
+          </div>
+
+          <div style={{ padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ border: `1px solid ${c.border}`, borderRadius: 16, padding: 12, background: c.panelSoft }}>
+              <div style={{ fontSize: 12, color: c.muted }}>Abiertos</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>{myOpenMentions.length}</div>
+            </div>
+            <div style={{ border: `1px solid ${c.border}`, borderRadius: 16, padding: 12, background: c.panelSoft }}>
+              <div style={{ fontSize: 12, color: c.muted }}>Total etiquetas</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>{myMentions.length}</div>
+            </div>
+          </div>
+
+          <div style={{ padding: "0 14px 14px", overflow: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+            {myMentions.length === 0 ? (
+              <div style={{ border: `1px dashed ${c.border}`, borderRadius: 16, padding: 14, color: c.muted, background: c.panelSoft }}>
+                No tienes etiquetas todavía. Cuando alguien escriba tu @usuario en la bitácora de una partida, aparecerá aquí.
+              </div>
+            ) : myMentions.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => openMentionItem(item)}
+                style={{
+                  border: `1px solid ${item.open ? c.warn : c.border}`,
+                  borderRadius: 16,
+                  padding: 14,
+                  background: item.open ? c.warnBg : "#fff",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                  <div style={{ fontWeight: 900, color: c.text }}>{item.houseName || item.houseId} · {item.partidaName || item.partidaId}</div>
+                  <span style={badgeStyle(item.open ? "Observada" : "Aprobada")}>{item.open ? "Abierto" : "Cerrado"}</span>
+                </div>
+                <div style={{ fontSize: 12, color: c.muted, marginTop: 6 }}>{item.comment.authorName || "Usuario"} · {item.comment.createdAt ? new Date(item.comment.createdAt).toLocaleString() : ""}</div>
+                <div style={{ color: c.text, marginTop: 8, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.comment.text}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {previewPhoto ? (
         <div
