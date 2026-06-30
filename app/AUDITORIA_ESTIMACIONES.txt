@@ -1,0 +1,18 @@
+TRITON CALIDAD OS - CONTROLES DE ESTIMACIONES
+
+Esta versión agrega controles preventivos para estimaciones:
+
+1. El avance disponible en captura se calcula con base en avance aprobado acumulado, no con base en borradores.
+2. El sistema valida porcentajes fuera de rango antes de enviar o cerrar revisión.
+3. El sistema evita aprobar más porcentaje del solicitado por constructora.
+4. Se recalculan importes esperados a partir de: importe base del concepto x porcentaje / 100.
+5. Se muestra un panel de Control de integridad financiera en el detalle de cada lote.
+6. Se alerta cuando hay diferencias entre totales guardados y totales recalculados.
+7. Se advierte cuando existe el mismo concepto duplicado dentro de la misma casa/lote.
+8. La exportación a Excel/PDF incluye porcentajes, importes, estatus, observaciones y respuestas para auditoría.
+
+Pendiente recomendado para siguiente etapa:
+- Crear bitácora inmutable por usuario real cuando ya estén permisos definitivos.
+- Restringir edición según roles reales de Firebase Auth.
+- Agregar firma/autorización digital por etapa.
+- Agregar folios consecutivos bloqueados por obra y periodo.
