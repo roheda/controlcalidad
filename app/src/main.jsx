@@ -6,6 +6,7 @@ import FeedbackWidget from './FeedbackWidget.jsx'
 import EstimacionesWidget from './EstimacionesWidget.jsx'
 import ObrasCfg from './ObrasConfigWidget.jsx'
 import MainNavigation from './MainNavigation.jsx'
+import TritonOSModules from './TritonOSModules.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')).render(
     <FeedbackWidget />
     <EstimacionesWidget />
     <ObrasCfg />
+    <TritonOSModules />
     <MainNavigation />
   </StrictMode>,
 )

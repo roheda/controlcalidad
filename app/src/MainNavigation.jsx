@@ -3,12 +3,18 @@ import React, { useEffect, useMemo, useState } from "react";
 const desktopBreakpoint = 901;
 
 const modules = [
-  { id: "calidad", label: "Calidad", helper: "Checklist y evidencias", icon: "✓" },
-  { id: "consulta_tecnica", label: "Consulta técnica", helper: "Planos, renders y cambios", icon: "⌕" },
+  { id: "dashboard", label: "Dashboard", helper: "Vista directiva", icon: "▦", os: true },
+  { id: "calidad", label: "Obras / Calidad", helper: "Checklist y bitácora", icon: "✓" },
+  { id: "obras", label: "Config. obra", helper: "Catálogos y checklist", icon: "⌂" },
   { id: "estimaciones", label: "Estimaciones", helper: "Avance, revisión y pago", icon: "Σ" },
-  { id: "reportes", label: "Reportes", helper: "Dashboard y métricas", icon: "▦" },
-  { id: "administracion", label: "Administración", helper: "Usuarios y permisos", icon: "⚙" },
-  { id: "obras", label: "Obras", helper: "Catálogo, anticipo y configuración", icon: "⌂" },
+  { id: "finanzas", label: "Finanzas", helper: "Presupuesto vs real", icon: "$", os: true },
+  { id: "cxp", label: "Cuentas por pagar", helper: "Solicitud a pago", icon: "↗", os: true },
+  { id: "caja_chica", label: "Caja chica", helper: "Comprobantes y liquidación", icon: "▣", os: true },
+  { id: "cobranza", label: "Cobranza", helper: "Rentas y contratos", icon: "↙", os: true },
+  { id: "tramites", label: "Trámites", helper: "Permisos y seguimiento", icon: "◷", os: true },
+  { id: "reportes_os", label: "Reportes", helper: "Reportes directivos", icon: "▤", os: true },
+  { id: "config_os", label: "Configuración", helper: "Catálogos y roles", icon: "⚙", os: true },
+  { id: "consulta_tecnica", label: "Consulta técnica", helper: "Planos y cambios", icon: "⌕" },
 ];
 
 function useIsDesktop() {
@@ -42,6 +48,7 @@ function closeAllModuleScreens() {
   window.dispatchEvent(new Event("triton-close-estimaciones"));
   window.dispatchEvent(new Event("triton-close-obras-config"));
   window.dispatchEvent(new Event("triton-close-feedback-module"));
+  window.dispatchEvent(new Event("triton-close-os-module"));
   clickButtonByText("Volver a Calidad");
   clickButtonByText("Volver");
 }
@@ -122,6 +129,11 @@ export default function MainNavigation() {
     if (moduleId === "calidad") return;
 
     window.setTimeout(() => {
+      const selectedModule = modules.find((module) => module.id === moduleId);
+      if (selectedModule?.os) {
+        window.dispatchEvent(new CustomEvent("triton-open-os-module", { detail: { module: moduleId } }));
+        return;
+      }
       if (moduleId === "estimaciones") {
         window.dispatchEvent(new Event("triton-open-estimaciones"));
         return;
