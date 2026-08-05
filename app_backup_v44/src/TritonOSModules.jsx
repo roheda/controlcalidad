@@ -901,7 +901,7 @@ export default function TritonOSModules() {
         {active === "autorizaciones" && <Authorizations data={data} projectMap={projectMap} categoryMap={categoryMap} updateRecord={updateRecord} />}
         {active === "pagos_programados" && <ScheduledPayments data={data} projectMap={projectMap} categoryMap={categoryMap} updateRecord={updateRecord} addRecord={addRecord} />}
         {active === "pagos_realizados" && <PaidPayments data={data} projectMap={projectMap} categoryMap={categoryMap} />}
-        {active === "conciliacion" && <BankReconciliation data={data} projectMap={projectMap} categoryMap={categoryMap} updateRecord={updateRecord} />}
+        {active === "conciliacion" && <BankReconciliation data={data} projectMap={projectMap} updateRecord={updateRecord} />}
         {active === "ingresos" && <Incomes data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "clientes" && <Clients data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "caja_chica" && <PettyCash data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
@@ -1398,138 +1398,10 @@ function PaidPayments({ data, projectMap, categoryMap }) {
   const rows = filterByStatus(data.payments.map((p) => ({ ...p, status: p.reconciled ? "Conciliado" : "Pendiente" })), statusFilter);
   return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Pagos realizados" helper="Comprobantes de transferencia, referencia bancaria y relación con solicitud. Da clic en la solicitud para ver expediente completo." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={["Conciliado", "Pendiente"]} total={data.payments.length} shown={rows.length} /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "payableId", label: "Solicitud", render: (r) => { const payable = data.payables.find((p) => p.id === r.payableId); return payable ? <EntityLink onClick={() => setSelectedPayment(payable)}>{payable.concept}</EntityLink> : r.payableId; } }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "bank", label: "Banco" }, { key: "reference", label: "Referencia" }, { key: "reconciled", label: "Conciliado", render: (r) => <Pill tone={r.reconciled ? "ok" : "warn"}>{r.reconciled ? "Sí" : "Pendiente"}</Pill> }]} rows={rows} /></Card><PaymentContextModal row={selectedPayment} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedPayment(null)} /></div>;
 }
-function BankReconciliation({ data, projectMap, categoryMap, updateRecord }) {
-  const [mode, setMode] = useState("egresos");
+function BankReconciliation({ data, projectMap, updateRecord }) {
   const [statusFilter, setStatusFilter] = useState("todos");
-  const [selected, setSelected] = useState([]);
-  const [batchReference, setBatchReference] = useState("");
-  const [batchBankDate, setBatchBankDate] = useState(todayIso());
-  const [batchBank, setBatchBank] = useState("");
-  const [selectedPayment, setSelectedPayment] = useState(null);
-  const clientMap = useMemo(() => Object.fromEntries((data.clients || []).map((c) => [c.id, c])), [data.clients]);
-
-  const expenseRows = (data.payments || []).map((p) => ({
-    ...p,
-    movementType: "Egreso",
-    status: p.reconciled ? "Conciliado" : "Pendiente",
-    bankDate: p.bankDate || p.date || todayIso(),
-    bankAmount: p.bankAmount ?? p.amount,
-  }));
-  const incomeRows = (data.incomes || []).map((r) => ({
-    ...r,
-    movementType: "Ingreso venta",
-    status: (r.reconciled || r.status === "Conciliado") ? "Conciliado" : "Pendiente",
-    bankDate: r.bankDate || r.date || todayIso(),
-    bankAmount: r.bankAmount ?? r.amount,
-  }));
-  const baseRows = mode === "egresos" ? expenseRows : incomeRows;
-  const rows = filterByStatus(baseRows, statusFilter);
-  const selectedInMode = selected.filter((id) => baseRows.some((r) => r.id === id));
-  const allVisibleSelected = rows.length > 0 && rows.every((r) => selected.includes(r.id));
-  const toggleOne = (id) => setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  const toggleVisible = () => setSelected((prev) => allVisibleSelected ? prev.filter((id) => !rows.some((r) => r.id === id)) : Array.from(new Set([...prev, ...rows.map((r) => r.id)])));
-
-  function reconcileRow(row) {
-    if (mode === "egresos") {
-      updateRecord("payments", row.id, {
-        reference: row.reference || "",
-        bankDate: row.bankDate || todayIso(),
-        bank: row.bank || "",
-        bankAmount: Number(row.bankAmount ?? row.amount ?? 0),
-        difference: Number(row.bankAmount ?? row.amount ?? 0) - Number(row.amount || 0),
-        reconciled: true,
-        reconciledAt: todayIso(),
-      });
-      return;
-    }
-    updateRecord("incomes", row.id, {
-      reference: row.reference || row.bankReference || "",
-      bankDate: row.bankDate || todayIso(),
-      bank: row.bank || "",
-      bankAmount: Number(row.bankAmount ?? row.amount ?? 0),
-      difference: Number(row.bankAmount ?? row.amount ?? 0) - Number(row.amount || 0),
-      reconciled: true,
-      reconciledAt: todayIso(),
-      status: "Conciliado",
-    });
-  }
-
-  function applyBatchReconciliation() {
-    if (!selectedInMode.length) { alert("Selecciona al menos un movimiento visible para conciliar."); return; }
-    if (!batchReference.trim()) { alert("Captura la referencia bancaria antes de conciliar el lote."); return; }
-    if (!batchBankDate) { alert("Captura la fecha banco antes de conciliar el lote."); return; }
-    selectedInMode.forEach((id) => {
-      const row = baseRows.find((r) => r.id === id);
-      if (!row) return;
-      const patch = {
-        reference: batchReference.trim(),
-        bankDate: batchBankDate,
-        bank: batchBank || row.bank || "",
-        bankAmount: Number(row.bankAmount ?? row.amount ?? 0),
-        difference: Number(row.bankAmount ?? row.amount ?? 0) - Number(row.amount || 0),
-        reconciled: true,
-        reconciledAt: todayIso(),
-      };
-      if (mode === "egresos") updateRecord("payments", id, patch);
-      else updateRecord("incomes", id, { ...patch, status: "Conciliado" });
-    });
-    setSelected((prev) => prev.filter((id) => !selectedInMode.includes(id)));
-    setBatchReference("");
-  }
-
-  const expenseColumns = [
-    { key: "select", label: "", sortable: false, render: (r) => <input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggleOne(r.id)} /> },
-    { key: "date", label: "Fecha sistema" },
-    { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || "—" },
-    { key: "payableId", label: "Pago / solicitud", render: (r) => { const payable = (data.payables || []).find((p) => p.id === r.payableId); return payable ? <EntityLink onClick={() => setSelectedPayment(payable)}>{payable.concept}</EntityLink> : r.payableId || "—"; } },
-    { key: "amount", label: "Monto sistema", render: (r) => money(r.amount) },
-    { key: "bankAmount", label: "Monto banco", render: (r) => <input type="number" style={inputStyle({ minWidth: 130, padding: "8px 9px" })} defaultValue={r.bankAmount ?? r.amount} onBlur={(e) => updateRecord("payments", r.id, { bankAmount: Number(e.target.value || 0), difference: Number(e.target.value || 0) - Number(r.amount || 0) })} /> },
-    { key: "bank", label: "Banco", render: (r) => <input style={inputStyle({ minWidth: 140, padding: "8px 9px" })} defaultValue={r.bank || ""} onBlur={(e) => updateRecord("payments", r.id, { bank: e.target.value })} /> },
-    { key: "reference", label: "Referencia escrita", render: (r) => <input style={inputStyle({ minWidth: 180, padding: "8px 9px" })} placeholder="SPEI / folio banco" defaultValue={r.reference || ""} onBlur={(e) => updateRecord("payments", r.id, { reference: e.target.value })} /> },
-    { key: "bankDate", label: "Fecha banco", render: (r) => <input type="date" style={inputStyle({ minWidth: 140, padding: "8px 9px" })} defaultValue={r.bankDate || todayIso()} onBlur={(e) => updateRecord("payments", r.id, { bankDate: e.target.value })} /> },
-    { key: "reconciled", label: "Estado", render: (r) => <Pill tone={r.reconciled ? "ok" : "warn"}>{r.reconciled ? "Conciliado" : "Pendiente"}</Pill> },
-    { key: "actions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} disabled={r.reconciled} onClick={() => reconcileRow(r)}>Conciliar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payments", r.id, { reconciled: false, reconciledAt: "", status: "Pendiente", difference: Number(r.difference || 0) })}>Reabrir</Button></ActionCell> },
-  ];
-  const incomeColumns = [
-    { key: "select", label: "", sortable: false, render: (r) => <input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggleOne(r.id)} /> },
-    { key: "date", label: "Fecha sistema" },
-    { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || "—" },
-    { key: "clientId", label: "Cliente", render: (r) => clientMap[r.clientId]?.name || "—" },
-    { key: "concept", label: "Ingreso / venta" },
-    { key: "unit", label: "Unidad" },
-    { key: "amount", label: "Monto sistema", render: (r) => money(r.amount) },
-    { key: "bankAmount", label: "Monto banco", render: (r) => <input type="number" style={inputStyle({ minWidth: 130, padding: "8px 9px" })} defaultValue={r.bankAmount ?? r.amount} onBlur={(e) => updateRecord("incomes", r.id, { bankAmount: Number(e.target.value || 0), difference: Number(e.target.value || 0) - Number(r.amount || 0) })} /> },
-    { key: "bank", label: "Banco", render: (r) => <input style={inputStyle({ minWidth: 140, padding: "8px 9px" })} defaultValue={r.bank || ""} onBlur={(e) => updateRecord("incomes", r.id, { bank: e.target.value })} /> },
-    { key: "reference", label: "Referencia escrita", render: (r) => <input style={inputStyle({ minWidth: 180, padding: "8px 9px" })} placeholder="SPEI / folio banco" defaultValue={r.reference || ""} onBlur={(e) => updateRecord("incomes", r.id, { reference: e.target.value })} /> },
-    { key: "bankDate", label: "Fecha banco", render: (r) => <input type="date" style={inputStyle({ minWidth: 140, padding: "8px 9px" })} defaultValue={r.bankDate || todayIso()} onBlur={(e) => updateRecord("incomes", r.id, { bankDate: e.target.value })} /> },
-    { key: "status", label: "Estado", render: (r) => <Pill tone={r.reconciled || r.status === "Conciliado" ? "ok" : "warn"}>{r.reconciled || r.status === "Conciliado" ? "Conciliado" : "Pendiente"}</Pill> },
-    { key: "actions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} disabled={r.reconciled || r.status === "Conciliado"} onClick={() => reconcileRow(r)}>Conciliar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("incomes", r.id, { reconciled: false, reconciledAt: "", status: "Pendiente conciliación" })}>Reabrir</Button></ActionCell> },
-  ];
-
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card>
-      <SectionTitle title="Conciliación bancaria" helper="Conciliación de desarrollos inmobiliarios de venta. Arrendamientos se concilia en su propio módulo para no mezclar rentas con ingresos de venta." />
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <button type="button" onClick={() => { setMode("egresos"); setSelected([]); }} style={{ border: `1px solid ${mode === "egresos" ? c.primary : c.border}`, background: mode === "egresos" ? c.primarySoft : "white", color: c.text, borderRadius: 999, padding: "9px 13px", fontWeight: 950, cursor: "pointer" }}>Egresos / pagos</button>
-        <button type="button" onClick={() => { setMode("ingresos"); setSelected([]); }} style={{ border: `1px solid ${mode === "ingresos" ? c.primary : c.border}`, background: mode === "ingresos" ? c.primarySoft : "white", color: c.text, borderRadius: 999, padding: "9px 13px", fontWeight: 950, cursor: "pointer" }}>Ingresos / ventas</button>
-        <StatusFilter value={statusFilter} onChange={setStatusFilter} options={["Conciliado", "Pendiente"]} total={baseRows.length} shown={rows.length} />
-      </div>
-    </Card>
-    <Card>
-      <SectionTitle title="Conciliación por lote" helper="Llena la referencia y fecha banco aquí mismo, selecciona varios movimientos y márcalos como conciliados sin abrir ventanas." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, alignItems: "end" }}>
-        <Field label="Referencia bancaria para seleccionados"><input style={inputStyle()} value={batchReference} onChange={(e) => setBatchReference(e.target.value)} placeholder="Folio SPEI / referencia banco" /></Field>
-        <Field label="Fecha banco"><input type="date" style={inputStyle()} value={batchBankDate} onChange={(e) => setBatchBankDate(e.target.value)} /></Field>
-        <Field label="Banco"><input style={inputStyle()} value={batchBank} onChange={(e) => setBatchBank(e.target.value)} placeholder="Banco del movimiento" /></Field>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><Button variant="secondary" onClick={toggleVisible}>{allVisibleSelected ? "Quitar visibles" : "Seleccionar visibles"}</Button><Button onClick={applyBatchReconciliation} disabled={!selectedInMode.length}>Conciliar lote ({selectedInMode.length})</Button></div>
-      </div>
-    </Card>
-    <Card>
-      <SectionTitle title={mode === "egresos" ? "Egresos a conciliar" : "Ingresos de ventas a conciliar"} helper={mode === "egresos" ? "Pagos realizados por tesorería. La referencia, fecha banco y monto banco quedan registrados aquí." : "Ingresos de desarrollos inmobiliarios de venta. No incluye rentas de arrendamientos."} />
-      <MiniTable columns={mode === "egresos" ? expenseColumns : incomeColumns} rows={rows} />
-    </Card>
-    <PaymentContextModal row={selectedPayment} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedPayment(null)} />
-  </div>;
+  const rows = filterByStatus(data.payments.map((p) => ({ ...p, status: p.reconciled ? "Conciliado" : "Pendiente" })), statusFilter);
+  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Conciliación bancaria" helper="Cruce contra estado de cuenta. Marca diferencia si el importe bancario no coincide con el pago." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={["Conciliado", "Pendiente"]} total={data.payments.length} shown={rows.length} /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "amount", label: "Monto sistema", render: (r) => money(r.amount) }, { key: "bank", label: "Banco" }, { key: "reference", label: "Referencia" }, { key: "reconciled", label: "Estatus", render: (r) => <Pill tone={r.reconciled ? "ok" : "danger"}>{r.reconciled ? "Conciliado" : "Pendiente"}</Pill> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} disabled={r.reconciled} onClick={() => { const bankAmount = Number(window.prompt("Monto en banco", r.amount) || r.amount); updateRecord("payments", r.id, { reconciled: true, reconciledAt: todayIso(), bankAmount, difference: bankAmount - Number(r.amount || 0) }); }}>Conciliar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payments", r.id, { reconciled: false, difference: Number(window.prompt("Diferencia detectada", r.difference || 0) || 0) })}>Marcar diferencia</Button></div> }]} rows={rows} /></Card></div>;
 }
 
 function PettyCash({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {

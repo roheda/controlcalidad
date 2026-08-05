@@ -1,0 +1,19 @@
+V37 - Flujos ERP, permisos, filtros y usuarios
+
+Cambios principales:
+- Autorizaciones permiten selección múltiple y autorización en lote, únicamente para usuario master.
+- Programación de pagos permite seleccionar uno o varios pagos y asignar fecha de lote sin ventana emergente.
+- Tablas críticas usan encabezados ordenables y filtros de estado.
+- Acciones separadas por columnas: revisar expediente, editar, revisión administrativa, autorización, programación, pago y conciliación.
+- El estado de solicitudes de pago ya no se modifica desde un selector directo; cambia automáticamente por movimientos de área:
+  Solicitado → En revisión → Listo para autorización → Autorizado → Programado → Pagado → Conciliado.
+- Caja chica cambia estados por acciones de revisión, no por selector directo en comprobantes.
+- Configuración ahora incluye módulo Usuarios para agregar, editar, activar/desactivar y asignar acceso por módulo.
+- La creación/edición de usuarios guarda perfiles en Firestore por correo; la cuenta y contraseña siguen creándose en Firebase Authentication.
+- Se conserva trazabilidad/auditTrail en cambios relevantes.
+
+Notas operativas:
+- Solo master puede autorizar pagos o lotes.
+- Administración puede revisar, justificar sobregiro, preparar expediente y enviar a autorización.
+- Tesorería/finanzas puede programar, registrar pago y conciliar según permisos del rol.
+- Los estados no deben cambiarse manualmente desde una columna de Estado; deben cambiar por acción operativa.
