@@ -43,7 +43,7 @@ const groups = [
   ]},
   { id: "arrendamientos", label: "Arrendamientos", helper: "Rentas y contratos", icon: "↙", children: [
     { id: "arr_inmuebles", label: "Inmuebles", helper: "Predios, ubicación, m² y cédulas" },
-    { id: "arr_contratos", label: "Contratos", helper: "Vigencia, incremento anual y cédulas" },
+    { id: "arr_contratos", label: "Contratos", helper: "Vigencia, INPC y cédulas" },
     { id: "cobranza", label: "Cobranza", helper: "Rentas mensuales" },
     { id: "arr_conciliacion", label: "Conciliación bancaria", helper: "Pagos de renta" },
     { id: "arr_facturacion", label: "Facturación", helper: "Facturas automáticas" },

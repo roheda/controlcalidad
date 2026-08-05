@@ -1,0 +1,32 @@
+V36 - Revisión ERP y controles anti-error
+
+Base de mejores prácticas revisada para esta iteración:
+- Cuentas por pagar tipo ERP: proveedor validado, factura/anexos, revisión, aprobación, pago y conciliación.
+- Registros editables con datos prellenados, no formularios en blanco.
+- Historial de cambios y log visible para auditoría.
+- Validaciones preventivas antes de enviar a autorización.
+- Contexto 360 por proveedor y solicitud: documentos, pagos, contratos, presupuesto y actividad.
+
+Cambios incluidos:
+1. Editar proveedor ahora sincroniza correctamente la ficha seleccionada y precarga los campos existentes.
+2. Editar solicitud de pago también precarga datos existentes y mantiene campos no editados.
+3. Se agregaron validaciones visuales tipo ERP en proveedor y solicitud:
+   - datos fiscales
+   - correo de pagos
+   - banco/CLABE
+   - documentos
+   - estatus activo
+   - proveedor activo
+   - presupuesto
+   - sobregiro justificado
+   - anexos
+   - revisión administrativa
+4. Al guardar proveedor se genera log interno con resumen de cambios.
+5. Al editar solicitud se genera auditLog de la solicitud con resumen de cambios.
+6. addRecord/updateRecord agregan createdAt/updatedAt y registran auditTrail general.
+7. Se sube versión de almacenamiento local a triton_os_v36 manteniendo compatibilidad con v35/v34/v32.
+
+Pendiente de siguiente capa:
+- Llevar estos logs y anexos de localStorage a Firestore/Storage como fuente definitiva.
+- Reglas de seguridad por rol en Firestore/Storage para pagos, proveedores y documentación bancaria.
+- Integración real de correo/WhatsApp para avisos a proveedor.

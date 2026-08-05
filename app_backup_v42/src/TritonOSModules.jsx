@@ -3,7 +3,6 @@ import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { importedInmuebles, importedPropertyOwners, importedDepositAccounts, importedInmueblesVersion } from "./importedInmuebles";
 
 const money = (value) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(value || 0));
 const numberFmt = (value) => new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -502,22 +501,6 @@ const c = {
   shadow: "0 18px 55px rgba(0,0,0,0.10)",
 };
 
-
-function mergeById(base = [], incoming = [], idKey = "id") {
-  const seen = new Set((base || []).map((item) => item?.[idKey]).filter(Boolean));
-  return [ ...(base || []), ...(incoming || []).filter((item) => item?.[idKey] && !seen.has(item[idKey])) ];
-}
-function withImportedInmuebles(data = {}) {
-  const merged = {
-    ...data,
-    assets: mergeById(data.assets || [], importedInmuebles || []),
-    propertyOwners: mergeById(data.propertyOwners || [], importedPropertyOwners || []),
-    depositAccounts: mergeById(data.depositAccounts || [], importedDepositAccounts || []),
-    assetImportVersion: data.assetImportVersion || importedInmueblesVersion,
-  };
-  return merged;
-}
-
 const initialData = {
   projects: [
     { id: "arenna", name: "Arenna", type: "Desarrollo habitacional", status: "Activo", budget: 94806101, incomeTarget: 112517760, owner: "TRITON" },
@@ -570,10 +553,7 @@ const initialData = {
   pettyExpenses: [
     { id: "g1", cashId: "cc1", projectId: "arenna", date: todayIso(), concept: "Material menor y herramienta", categoryId: "caja_chica", amount: 1850, status: "Pendiente revisión", hasReceipt: true },
   ],
-  propertyOwners: importedPropertyOwners,
-  depositAccounts: importedDepositAccounts,
   assets: [
-    ...importedInmuebles,
     { id: "local-13", name: "Local 13", projectId: "plaza-vias", type: "Local comercial", area: 42, location: "Plaza Las Vías", address: "Plaza Las Vías, Mérida, Yucatán", cadastralId: "CED-LV-13", rentalPrice: 18121.75, pricePerM2: 431, coordinates: "20.9674,-89.5926", status: "Ocupado", legalStatus: "Cédula vigente", notes: "Local comercial con contrato vigente." },
     { id: "terreno-1", name: "Terreno renta", projectId: "plaza-vias", type: "Terreno", area: 300, location: "Mérida", address: "Mérida, Yucatán", cadastralId: "CED-TER-01", rentalPrice: 86599.43, pricePerM2: 289, coordinates: "20.9710,-89.6200", status: "Ocupado", legalStatus: "Cédula por actualizar", notes: "Predio para arrendamiento comercial." },
     { id: "casa-1", name: "Casa oficina", projectId: "plaza-vias", type: "Casa", area: 200, location: "Campestre", address: "Col. Campestre, Mérida", cadastralId: "CED-CASA-01", rentalPrice: 54102.58, pricePerM2: 271, coordinates: "21.0142,-89.6230", status: "Ocupado", legalStatus: "Cédula vigente", notes: "Casa/oficina arrendada." },
@@ -641,20 +621,10 @@ const initialData = {
   assetTypes: ["Local comercial", "Terreno", "Casa", "Departamento", "Oficina", "Bodega", "Estacionamiento"],
   rentalContractTypes: ["Arrendamiento comercial", "Arrendamiento habitacional", "Uso temporal", "Terreno", "Oficina"],
   rentalRules: [
-    { id: "rent-rule-1", name: "Incremento anual", value: "Anual", description: "Revisar cada contrato con incremento anual pendiente o vencido. El INPC puede usarse como índice de cálculo, pero la operación lo ve como incremento anual." },
+    { id: "rent-rule-1", name: "Incremento INPC", value: "Anual", description: "Revisar última actualización y vigencia del contrato." },
     { id: "rent-rule-2", name: "Reporte mensual", value: "Solo conciliado", description: "Las rentas aparecen como cobradas solo cuando tienen conciliación bancaria." },
-    { id: "rent-rule-3", name: "Facturación", value: "Automática si contrato lo permite", description: "Generar factura mensual con datos fiscales vigentes, con opción manual o por lote." },
+    { id: "rent-rule-3", name: "Facturación", value: "Automática si contrato lo permite", description: "Generar factura mensual con datos fiscales vigentes." },
   ],
-  invoiceApiConfig: {
-    provider: "Pendiente conectar",
-    mode: "Manual / API preparada",
-    endpoint: "",
-    apiKeyAlias: "",
-    autoSend: false,
-    scheduleDay: 1,
-    status: "Sin conectar",
-    notes: "Listo para integrar proveedor de facturación. Las acciones manuales y por lote ya actualizan el flujo operativo."
-  },
   paymentStatuses: ["Borrador", "Solicitado", "En revisión", "Listo para autorización", "Autorizado", "Programado", "Pagado", "Conciliado", "Observado", "Rechazado", "Cancelado"],
   auditTrail: [
     { id: "audit1", module: "Cuentas por pagar", itemId: "p3", action: "Solicitud autorizada", user: "rodrigo@tritondesarrollos.com", date: todayIso(), comment: "Demo de bitácora ERP." },
@@ -681,11 +651,11 @@ const moduleMeta = {
   ingresos: { title: "Ingresos", subtitle: "Ingresos por proyecto, cliente, contrato y unidad", icon: "↙" },
   clientes: { title: "Clientes", subtitle: "Pagadores, compradores y contratos de compraventa", icon: "◧" },
   caja_chica: { title: "Caja chica", subtitle: "Fondos, comprobantes, liquidación y reposición", icon: "▣" },
-  cobranza: { title: "Arrendamientos / Cobranza", subtitle: "Contratos, incremento anual, rentas mensuales, facturación y conciliación", icon: "↙" },
+  cobranza: { title: "Arrendamientos / Cobranza", subtitle: "Contratos, INPC, rentas mensuales, facturación y conciliación", icon: "↙" },
   arr_inmuebles: { title: "Arrendamientos / Inmuebles", subtitle: "Predios, locales, casas, departamentos, cédulas, m², ubicación y mapa", icon: "⌂" },
-  arr_contratos: { title: "Arrendamientos / Contratos", subtitle: "Vigencias, incremento anual, cédulas y documentación", icon: "□" },
+  arr_contratos: { title: "Arrendamientos / Contratos", subtitle: "Vigencias, INPC, cédulas y documentación", icon: "□" },
   arr_conciliacion: { title: "Arrendamientos / Conciliación", subtitle: "Cruce de pagos de renta contra banco", icon: "≋" },
-  arr_facturacion: { title: "Arrendamientos / Facturación", subtitle: "Facturas mensuales, emisión manual, lotes y API", icon: "▣" },
+  arr_facturacion: { title: "Arrendamientos / Facturación", subtitle: "Facturas mensuales y automatización", icon: "▣" },
   arr_reportes: { title: "Arrendamientos / Reportes", subtitle: "Cartera vencida, ocupación y rentas", icon: "▤" },
   tramites: { title: "Trámites", subtitle: "Permisos, dependencias, responsables y siguientes acciones", icon: "◷" },
   tramites_timeline: { title: "Trámites / Línea del tiempo", subtitle: "Avance por proyecto, etapa y estatus", icon: "◷" },
@@ -703,12 +673,12 @@ const moduleMeta = {
 
 function readData() {
   try {
-    const raw = localStorage.getItem("triton_os_v43") || localStorage.getItem("triton_os_v37") || localStorage.getItem("triton_os_v36") || localStorage.getItem("triton_os_v35") || localStorage.getItem("triton_os_v34") || localStorage.getItem("triton_os_v32");
-    if (!raw) return withImportedInmuebles(initialData);
+    const raw = localStorage.getItem("triton_os_v37") || localStorage.getItem("triton_os_v36") || localStorage.getItem("triton_os_v35") || localStorage.getItem("triton_os_v34") || localStorage.getItem("triton_os_v32");
+    if (!raw) return initialData;
     const parsed = JSON.parse(raw);
-    return withImportedInmuebles({ ...initialData, ...parsed });
+    return { ...initialData, ...parsed };
   } catch {
-    return withImportedInmuebles(initialData);
+    return initialData;
   }
 }
 
@@ -778,7 +748,7 @@ export default function TritonOSModules() {
   const [showForm, setShowForm] = useState(null);
   const [form, setForm] = useState({});
 
-  useEffect(() => { localStorage.setItem("triton_os_v43", JSON.stringify(data)); }, [data]);
+  useEffect(() => { localStorage.setItem("triton_os_v37", JSON.stringify(data)); }, [data]);
   useEffect(() => {
     const openHandler = (event) => { setActive(event.detail?.module || "dashboard"); setOpen(true); };
     const closeHandler = () => setOpen(false);
@@ -834,7 +804,7 @@ export default function TritonOSModules() {
     });
   }
   function resetDemo() {
-    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v43"); localStorage.removeItem("triton_os_v37"); localStorage.removeItem("triton_os_v36"); localStorage.removeItem("triton_os_v35"); localStorage.removeItem("triton_os_v34"); setData(initialData); }
+    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v37"); localStorage.removeItem("triton_os_v36"); localStorage.removeItem("triton_os_v35"); localStorage.removeItem("triton_os_v34"); setData(initialData); }
   }
 
   if (!open) return null;
@@ -1517,25 +1487,6 @@ function ConstructionTeam({ data, projectMap, addRecord, updateRecord, showForm,
 
 function tenantName(charge, data) { const contract = data.contracts.find((c) => c.id === charge.contractId); return data.tenants.find((t) => t.id === contract?.tenantId)?.name || "Arrendatario"; }
 function rentChargeTotal(charge = {}) { return Number(charge.rent || 0) + Number(charge.maintenance || 0) + Number(charge.otherCharges || 0); }
-function daysBetweenDates(from, to) {
-  const a = new Date(`${from}T00:00:00`);
-  const b = new Date(`${to}T00:00:00`);
-  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 9999;
-  return Math.ceil((b.getTime() - a.getTime()) / 86400000);
-}
-function addMonthsIso(date, months = 12) {
-  const d = new Date(`${date || todayIso()}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return todayIso();
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
-}
-function annualIncreaseInfo(contract = {}) {
-  const base = contract.nextIncreaseDate || addMonthsIso(contract.lastIncreaseDate || contract.startDate || todayIso(), 12);
-  const days = daysBetweenDates(todayIso(), base);
-  const status = days < 0 ? "Vencido" : days <= 45 ? "Por vencer" : "Al día";
-  return { nextDate: base, days, status, due: status !== "Al día" };
-}
-function invoiceActionLog(action) { return { at: new Date().toISOString(), user: firebaseAuth.currentUser?.email || "sistema", action }; }
 function tenantStatement(data, tenantId) {
   const contracts = (data.contracts || []).filter((ct) => ct.tenantId === tenantId);
   const contractIds = new Set(contracts.map((ct) => ct.id));
@@ -1561,7 +1512,7 @@ function TenantDrawer({ tenant, data, assetMap, onClose, onEdit }) {
       </div>
     </Card>
     <Card style={{ boxShadow: "none" }}><SectionTitle title="Contratos y vencimientos" helper="Da clic en el contrato desde la lista de contratos para abrir su expediente." />
-      <MiniTable columns={[{ key: "assetId", label: "Inmueble", render: (r) => assetMap[r.assetId]?.name }, { key: "rentBase", label: "Renta", render: (r) => money(r.rentBase) }, { key: "endDate", label: "Vence" }, { key: "inpcMonth", label: "Incremento anual" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }]} rows={statement.contracts} />
+      <MiniTable columns={[{ key: "assetId", label: "Inmueble", render: (r) => assetMap[r.assetId]?.name }, { key: "rentBase", label: "Renta", render: (r) => money(r.rentBase) }, { key: "endDate", label: "Vence" }, { key: "inpcMonth", label: "INPC" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }]} rows={statement.contracts} />
     </Card>
     <Card style={{ boxShadow: "none" }}><SectionTitle title="Estado de cuenta" helper="Pagos, saldos, vencidos y conciliación bancaria." />
       <MiniTable columns={[{ key: "period", label: "Periodo" }, { key: "contractId", label: "Inmueble", render: (r) => assetMap[(data.contracts || []).find((ct) => ct.id === r.contractId)?.assetId]?.name }, { key: "total", label: "Cargo", render: (r) => money(rentChargeTotal(r)) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "balance", label: "Saldo", render: (r) => money(Math.max(0, rentChargeTotal(r) - Number(r.paidAmount || 0))) }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "reconciled", label: "Conciliado", render: (r) => r.reconciled ? <Pill tone="ok">Sí</Pill> : <Pill tone="warn">No</Pill> }]} rows={statement.charges} />
@@ -1580,12 +1531,12 @@ function AssetDrawer({ asset, data, tenantMap, onClose, onEdit }) {
     </div>
     <Card style={{ boxShadow: "none" }}><SectionTitle title="Ficha del inmueble" helper="Información base para control patrimonial, rentas, contratos y cobranza." />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Info label="Dirección" value={asset.address || asset.location || "Pendiente"} /><Info label="Propietario del predio" value={asset.ownerName || (data.propertyOwners || []).find((o) => o.id === asset.ownerId)?.name || "Pendiente"} /><Info label="Cuenta de depósito" value={asset.depositAccountAlias || (data.depositAccounts || []).find((a) => a.id === asset.depositAccountId)?.alias || "Pendiente asignar"} /><Info label="Cédula / clave catastral" value={asset.cadastralId || asset.hasCadastralCertificate || "Pendiente"} /><Info label="Situación documental" value={asset.legalStatus || asset.importStatus || "Pendiente"} /><Info label="Coordenadas" value={asset.coordinates || "Pendiente"} />
+        <Info label="Dirección" value={asset.address || asset.location || "Pendiente"} /><Info label="Cédula / clave catastral" value={asset.cadastralId || "Pendiente"} /><Info label="Situación documental" value={asset.legalStatus || "Pendiente"} /><Info label="Coordenadas" value={asset.coordinates || "Pendiente"} />
       </div>
     </Card>
     <Card style={{ boxShadow: "none" }}><SectionTitle title="Mapa / ubicación" helper="Vista rápida del predio. Más adelante se puede conectar Google Maps con polígonos y capas." />
       <div style={{ border: `1px solid ${c.border}`, borderRadius: 22, minHeight: 190, background: "linear-gradient(135deg,#f5f1e8,#ffffff)", display: "grid", placeItems: "center", textAlign: "center", padding: 20 }}>
-        <div><div style={{ fontSize: 34 }}>⌖</div><b>{asset.address || asset.location || "Ubicación pendiente"}</b><div style={{ color: c.muted, marginTop: 6 }}>{asset.coordinates ? `Coordenadas: ${asset.coordinates}` : "Agrega coordenadas para ubicarlo en mapa."}</div>{asset.mapsUrl ? <a href={asset.mapsUrl} target="_blank" rel="noreferrer" style={{ color: c.primaryDark, fontWeight: 900, display: "inline-block", marginTop: 8 }}>Abrir mapa</a> : null}</div>
+        <div><div style={{ fontSize: 34 }}>⌖</div><b>{asset.address || asset.location || "Ubicación pendiente"}</b><div style={{ color: c.muted, marginTop: 6 }}>{asset.coordinates ? `Coordenadas: ${asset.coordinates}` : "Agrega coordenadas para ubicarlo en mapa."}</div></div>
       </div>
     </Card>
     <Card style={{ boxShadow: "none" }}><SectionTitle title="Contratos ligados" helper="Histórico de ocupación y rentas del inmueble." />
@@ -1607,9 +1558,9 @@ function LeaseContractDrawer({ contract, data, tenantMap, assetMap, onClose, onE
       <MetricCard label="Facturado" value={money(billed)} tone="warn" />
       <MetricCard label="Pagado conciliado" value={money(paid)} tone="ok" />
     </div>
-    <Card style={{ boxShadow: "none" }}><SectionTitle title="Control del contrato" helper="Vigencia, incremento anual, cédula, banco, referencia y facturación." />
+    <Card style={{ boxShadow: "none" }}><SectionTitle title="Control del contrato" helper="Vigencia, INPC, cédula, banco, referencia y facturación." />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Info label="Arrendatario" value={tenant?.name || "Pendiente"} /><Info label="Inmueble" value={asset?.name || "Pendiente"} /><Info label="Día de pago" value={contract.paymentDay || "Pendiente"} /><Info label="Banco / referencia" value={`${contract.bank || "Banco"} · ${contract.reference || "Sin referencia"}`} /><Info label="Último incremento anual" value={contract.lastIncreaseDate || contract.inpcMonth || "Pendiente"} /><Info label="Facturación" value={contract.autoInvoice ? "Automática" : "Manual"} />
+        <Info label="Arrendatario" value={tenant?.name || "Pendiente"} /><Info label="Inmueble" value={asset?.name || "Pendiente"} /><Info label="Día de pago" value={contract.paymentDay || "Pendiente"} /><Info label="Banco / referencia" value={`${contract.bank || "Banco"} · ${contract.reference || "Sin referencia"}`} /><Info label="Última actualización INPC" value={contract.lastIncreaseDate || contract.inpcMonth || "Pendiente"} /><Info label="Facturación" value={contract.autoInvoice ? "Automática" : "Manual"} />
       </div>
     </Card>
     <Card style={{ boxShadow: "none" }}><SectionTitle title="Cargos mensuales" helper="El reporte de rentas cobradas debe basarse en cargos conciliados." />
@@ -1640,9 +1591,7 @@ function RentalContractForm({ data, tenantMap, assetMap, form, setForm, onSave, 
       <Field label="Día de pago"><input type="number" style={inputStyle()} value={form.paymentDay || 10} onChange={(e) => setForm({ ...form, paymentDay: e.target.value })} /></Field>
       <Field label="Banco"><input style={inputStyle()} value={form.bank || "VEPORMAS"} onChange={(e) => setForm({ ...form, bank: e.target.value })} /></Field>
       <Field label="Referencia bancaria"><input style={inputStyle()} value={form.reference || ""} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></Field>
-      <Field label="Base del incremento anual"><input style={inputStyle()} placeholder="INPC, fijo %, según contrato" value={form.annualIncreaseBase || form.inpcMonth || ""} onChange={(e) => setForm({ ...form, annualIncreaseBase: e.target.value, inpcMonth: e.target.value })} /></Field>
-      <Field label="Último incremento"><input type="date" style={inputStyle()} value={form.lastIncreaseDate || form.startDate || todayIso()} onChange={(e) => setForm({ ...form, lastIncreaseDate: e.target.value, nextIncreaseDate: addMonthsIso(e.target.value, 12) })} /></Field>
-      <Field label="Próximo incremento"><input type="date" style={inputStyle()} value={form.nextIncreaseDate || addMonthsIso(form.lastIncreaseDate || form.startDate || todayIso(), 12)} onChange={(e) => setForm({ ...form, nextIncreaseDate: e.target.value })} /></Field>
+      <Field label="INPC / última act."><input style={inputStyle()} value={form.inpcMonth || ""} onChange={(e) => setForm({ ...form, inpcMonth: e.target.value })} /></Field>
     </div>
     <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 900 }}><input type="checkbox" checked={!!form.autoInvoice} onChange={(e) => setForm({ ...form, autoInvoice: e.target.checked })} /> Facturación automática mensual</label>
     <AttachmentUploader label="Anexos del contrato" value={form.attachments} folder="arrendamientos/contratos" onChange={(attachments) => setForm({ ...form, attachments })} />
@@ -1652,187 +1601,50 @@ function RentalContractForm({ data, tenantMap, assetMap, form, setForm, onSave, 
   </div>;
 }
 function AssetForm({ data, form, setForm, onSave, editing }) {
-  const ownerOptions = data.propertyOwners || [];
-  const accountOptions = data.depositAccounts || [];
-  const selectedOwner = ownerOptions.find((o) => o.id === form.ownerId);
-  const accountsForOwner = accountOptions.filter((a) => !form.ownerId || a.ownerId === form.ownerId);
-  return <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-      <Field label="Nombre del inmueble"><input style={inputStyle()} value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-      <Field label="Tipo"><select style={inputStyle()} value={form.type || "Local comercial"} onChange={(e) => setForm({ ...form, type: e.target.value })}>{(data.assetTypes || ["Local comercial", "Terreno", "Casa", "Departamento", "Oficina"]).map((x) => <option key={x}>{x}</option>)}</select></Field>
-      <Field label="Proyecto relacionado (opcional)"><select style={inputStyle()} value={form.projectId || ""} onChange={(e) => setForm({ ...form, projectId: e.target.value })}><option value="">Sin proyecto / predio independiente</option>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-      <Field label="Propietario del predio"><select style={inputStyle()} value={form.ownerId || ownerOptions[0]?.id || ""} onChange={(e) => { const owner = ownerOptions.find((o) => o.id === e.target.value); setForm({ ...form, ownerId: e.target.value, ownerName: owner?.name || "", depositAccountId: "", depositAccountAlias: "" }); }}>{ownerOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></Field>
-      <Field label="Cuenta de depósito asignada"><select style={inputStyle()} value={form.depositAccountId || ""} onChange={(e) => { const account = accountOptions.find((a) => a.id === e.target.value); setForm({ ...form, depositAccountId: e.target.value, depositAccountAlias: account?.alias || account?.bank || "" }); }}><option value="">Pendiente asignar / definir en contrato</option>{accountsForOwner.map((a) => <option key={a.id} value={a.id}>{a.alias || a.bank || a.id} · {a.bank || "Banco pendiente"}</option>)}</select></Field>
-      <Field label="Ubicación / zona"><input style={inputStyle()} value={form.location || ""} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
-      <Field label="Dirección"><input style={inputStyle()} value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
-      <Field label="m²"><input type="number" style={inputStyle()} value={form.area || ""} onChange={(e) => setForm({ ...form, area: e.target.value })} /></Field>
-      <Field label="Precio/renta objetivo"><input type="number" style={inputStyle()} value={form.rentalPrice || ""} onChange={(e) => setForm({ ...form, rentalPrice: e.target.value })} /></Field>
-      <Field label="Valor catastral"><input type="number" style={inputStyle()} value={form.cadastralValue || ""} onChange={(e) => setForm({ ...form, cadastralValue: e.target.value })} /></Field>
-      <Field label="Cédula / clave"><input style={inputStyle()} value={form.cadastralId || ""} onChange={(e) => setForm({ ...form, cadastralId: e.target.value })} /></Field>
-      <Field label="Coordenadas"><input style={inputStyle()} placeholder="20.97,-89.62" value={form.coordinates || ""} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} /></Field>
-      <Field label="Google Maps"><input style={inputStyle()} value={form.mapsUrl || ""} onChange={(e) => setForm({ ...form, mapsUrl: e.target.value })} /></Field>
-      <Field label="Estatus"><select style={inputStyle()} value={form.status || "Disponible"} onChange={(e) => setForm({ ...form, status: e.target.value })}><option>Disponible</option><option>Ocupado</option><option>En desarrollo</option><option>Revisión pendiente</option><option>Mantenimiento</option><option>Reservado</option><option>Inactivo</option></select></Field>
-    </div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-      <Info label="Propietario seleccionado" value={selectedOwner?.name || form.ownerName || "Pendiente"} />
-      <Info label="Regla de depósito" value="La cuenta se confirma en cada contrato; un propietario puede tener varias cuentas." />
-      <Info label="Proyecto" value={form.projectId ? data.projects.find((p) => p.id === form.projectId)?.name : "No aplica / opcional"} />
-    </div>
-    <Field label="Notas / control documental"><textarea style={inputStyle({ minHeight: 80 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-    {form.reviewNotes ? <div style={{ padding: 12, borderRadius: 16, background: c.orangeSoft, color: c.orange, fontWeight: 850 }}>Pendiente de revisión: {form.reviewNotes}</div> : null}
-    <AttachmentUploader label="Documentos del inmueble" value={form.attachments} folder="arrendamientos/inmuebles" onChange={(attachments) => setForm({ ...form, attachments })} />
-    <Button onClick={onSave}>{editing ? "Guardar inmueble" : "Crear inmueble"}</Button>
-  </div>;
+  return <div style={{ marginTop: 12, display: "grid", gap: 12 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
+    <Field label="Nombre del inmueble"><input style={inputStyle()} value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+    <Field label="Tipo"><select style={inputStyle()} value={form.type || "Local comercial"} onChange={(e) => setForm({ ...form, type: e.target.value })}>{(data.assetTypes || ["Local comercial", "Terreno", "Casa", "Departamento", "Oficina"]).map((x) => <option key={x}>{x}</option>)}</select></Field>
+    <Field label="Proyecto / plaza"><select style={inputStyle()} value={form.projectId || data.projects[0]?.id || ""} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+    <Field label="Ubicación / zona"><input style={inputStyle()} value={form.location || ""} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
+    <Field label="Dirección"><input style={inputStyle()} value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
+    <Field label="m²"><input type="number" style={inputStyle()} value={form.area || ""} onChange={(e) => setForm({ ...form, area: e.target.value })} /></Field>
+    <Field label="Precio/renta objetivo"><input type="number" style={inputStyle()} value={form.rentalPrice || ""} onChange={(e) => setForm({ ...form, rentalPrice: e.target.value })} /></Field>
+    <Field label="Cédula / clave"><input style={inputStyle()} value={form.cadastralId || ""} onChange={(e) => setForm({ ...form, cadastralId: e.target.value })} /></Field>
+    <Field label="Coordenadas"><input style={inputStyle()} placeholder="20.97,-89.62" value={form.coordinates || ""} onChange={(e) => setForm({ ...form, coordinates: e.target.value })} /></Field>
+    <Field label="Estatus"><select style={inputStyle()} value={form.status || "Disponible"} onChange={(e) => setForm({ ...form, status: e.target.value })}><option>Disponible</option><option>Ocupado</option><option>Mantenimiento</option><option>Reservado</option><option>Inactivo</option></select></Field>
+  </div><Field label="Notas / control documental"><textarea style={inputStyle({ minHeight: 80 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field><AttachmentUploader label="Documentos del inmueble" value={form.attachments} folder="arrendamientos/inmuebles" onChange={(attachments) => setForm({ ...form, attachments })} /><Button onClick={onSave}>{editing ? "Guardar inmueble" : "Crear inmueble"}</Button></div>;
 }
-
 function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord, updateRecord, showForm, setShowForm, form, setForm, mode }) {
   const [tenantDetail, setTenantDetail] = useState(null);
   const [assetDetail, setAssetDetail] = useState(null);
   const [contractDetail, setContractDetail] = useState(null);
   const [statusFilter, setStatusFilter] = useState("todos");
   const [search, setSearch] = useState("");
-  const [increaseFilter, setIncreaseFilter] = useState("todos");
-  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const charges = filterByStatus((data.rentCharges || []), statusFilter).filter((r) => [tenantName(r, data), assetMap[contractMap[r.contractId]?.assetId]?.name, r.period, r.bankReference].join(" ").toLowerCase().includes(search.toLowerCase()));
-  async function syncAssetsToFirestore() {
-    const now = serverTimestamp();
-    try {
-      for (const owner of data.propertyOwners || []) await setDoc(doc(firestore, "propertyOwners", owner.id), { ...owner, updatedAt: now }, { merge: true });
-      for (const account of data.depositAccounts || []) await setDoc(doc(firestore, "depositAccounts", account.id), { ...account, updatedAt: now }, { merge: true });
-      for (const asset of data.assets || []) await setDoc(doc(firestore, "rentalAssets", asset.id), { ...asset, updatedAt: now }, { merge: true });
-      alert(`Inmuebles sincronizados: ${(data.assets || []).length}. Propietarios: ${(data.propertyOwners || []).length}. Cuentas: ${(data.depositAccounts || []).length}.`);
-    } catch (error) {
-      alert(`No se pudieron sincronizar inmuebles a Firestore: ${error.message || error}`);
-    }
-  }
   function saveContract() {
     let tenantId = form.tenantId || data.tenants[0]?.id;
     if (form.newTenantName) {
       tenantId = uid("tenant");
       addRecord("tenants", { id: tenantId, name: form.newTenantName, taxpayerType: form.newTenantTaxpayerType || "Persona moral", fiscalId: form.newTenantFiscalId || "", billingEmail: form.newTenantBillingEmail || "", email: form.newTenantBillingEmail || "", certificateStatus: "Pendiente", status: "Activo" });
     }
-    const lastIncreaseDate = form.lastIncreaseDate || form.inpcMonth || todayIso();
-    const payload = { tenantId, assetId: form.assetId || data.assets[0]?.id, contractType: form.contractType || "Arrendamiento comercial", rentBase: Number(form.rentBase || 0), maintenancePct: Number(form.maintenancePct || 0), startDate: form.startDate || todayIso(), endDate: form.endDate || todayIso(), paymentDay: Number(form.paymentDay || 10), annualIncreaseBase: form.annualIncreaseBase || "INPC / definido en contrato", inpcMonth: form.inpcMonth || "", lastIncreaseDate, nextIncreaseDate: form.nextIncreaseDate || addMonthsIso(lastIncreaseDate, 12), bank: form.bank || "VEPORMAS", reference: form.reference || "", status: form.status || "Activo", autoInvoice: !!form.autoInvoice, attachments: normalizeAttachments(form.attachments), updatedAt: todayIso() };
+    const payload = { tenantId, assetId: form.assetId || data.assets[0]?.id, contractType: form.contractType || "Arrendamiento comercial", rentBase: Number(form.rentBase || 0), maintenancePct: Number(form.maintenancePct || 0), startDate: form.startDate || todayIso(), endDate: form.endDate || todayIso(), paymentDay: Number(form.paymentDay || 10), inpcMonth: form.inpcMonth || "", lastIncreaseDate: form.lastIncreaseDate || todayIso(), bank: form.bank || "VEPORMAS", reference: form.reference || "", status: form.status || "Activo", autoInvoice: !!form.autoInvoice, attachments: normalizeAttachments(form.attachments), updatedAt: todayIso() };
     if (form.id) updateRecord("contracts", form.id, payload); else addRecord("contracts", payload);
     setShowForm(null); setForm({});
   }
   function saveAsset() {
-    const owner = (data.propertyOwners || []).find((o) => o.id === form.ownerId);
-    const account = (data.depositAccounts || []).find((a) => a.id === form.depositAccountId);
-    const payload = {
-      name: form.name || "Inmueble",
-      type: form.type || "Local comercial",
-      projectId: form.projectId || "",
-      area: Number(form.area || 0),
-      location: form.location || "",
-      address: form.address || "",
-      cadastralId: form.cadastralId || "",
-      rentalPrice: Number(form.rentalPrice || 0),
-      cadastralValue: Number(form.cadastralValue || 0),
-      pricePerM2: form.area ? roundMoney(Number(form.rentalPrice || 0) / Number(form.area || 1)) : Number(form.pricePerM2 || 0),
-      coordinates: form.coordinates || "",
-      mapsUrl: form.mapsUrl || "",
-      status: form.status || "Disponible",
-      legalStatus: form.legalStatus || form.importStatus || "Pendiente",
-      ownerId: form.ownerId || "",
-      ownerName: owner?.name || form.ownerName || "",
-      depositAccountId: form.depositAccountId || "",
-      depositAccountAlias: account?.alias || form.depositAccountAlias || "",
-      reviewNotes: form.reviewNotes || "",
-      requiresReview: !!form.reviewNotes || form.status === "Revisión pendiente",
-      notes: form.notes || "",
-      attachments: normalizeAttachments(form.attachments),
-      updatedAt: todayIso(),
-    };
+    const payload = { name: form.name || "Inmueble", type: form.type || "Local comercial", projectId: form.projectId || data.projects[0]?.id, area: Number(form.area || 0), location: form.location || "", address: form.address || "", cadastralId: form.cadastralId || "", rentalPrice: Number(form.rentalPrice || 0), pricePerM2: form.area ? roundMoney(Number(form.rentalPrice || 0) / Number(form.area || 1)) : 0, coordinates: form.coordinates || "", status: form.status || "Disponible", legalStatus: form.legalStatus || "Pendiente", notes: form.notes || "", attachments: normalizeAttachments(form.attachments) };
     if (form.id) updateRecord("assets", form.id, payload); else addRecord("assets", payload);
     setShowForm(null); setForm({});
   }
-  if (mode === "arr_inmuebles") {
-    const importedCount = (data.assets || []).filter((a) => a.source?.includes("Relación de Inmuebles") || a.importStatus).length;
-    const reviewCount = (data.assets || []).filter((a) => a.requiresReview || a.status === "Revisión pendiente").length;
-    const rows = (data.assets || []).filter((a) => [a.name, a.type, a.location, a.address, a.ownerName, a.depositAccountAlias, a.status].join(" ").toLowerCase().includes(search.toLowerCase()));
-    return <div style={{ display: "grid", gap: 16 }}>
-      <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Inmuebles / predios" helper="Alta y expediente de locales, terrenos, casas, departamentos y oficinas. El proyecto es opcional; propietario y cuenta de depósito se controlan por inmueble/contrato." /><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="secondary" onClick={syncAssetsToFirestore}>Subir inmuebles a Firestore</Button><Button onClick={() => { setForm({}); setShowForm(showForm === "asset" ? null : "asset"); }}>Nuevo inmueble</Button></div></div>{showForm === "asset" ? <AssetForm data={data} form={form} setForm={setForm} onSave={saveAsset} editing={!!form.id} /> : null}</Card>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><MetricCard label="Inmuebles" value={(data.assets || []).length} tone="primary" /><MetricCard label="Importados" value={importedCount} tone="ok" /><MetricCard label="Por revisar" value={reviewCount} tone={reviewCount ? "warn" : "ok"} /></div>
-      <Card><SectionTitle title="Mapa de inmuebles" helper="Vista ejecutiva de ubicación. Los predios con coordenadas quedan listos para conexión a mapa real." /> <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>{rows.slice(0, 18).map((a) => <button key={a.id} onClick={() => setAssetDetail(a)} style={{ border: `1px solid ${c.border}`, borderRadius: 18, background: "white", padding: 12, textAlign: "left", cursor: "pointer" }}><b>{a.name}</b><div style={{ color: c.muted, fontSize: 12 }}>{a.type} · {a.location}</div><div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}><Pill tone={a.status === "Ocupado" ? "ok" : a.status === "Revisión pendiente" ? "warn" : "primary"}>{a.status}</Pill>{a.mapsUrl ? <Pill>Abrir mapa</Pill> : null}</div></button>)}</div>{rows.length > 18 ? <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>Mostrando 18 de {rows.length}. Usa búsqueda para filtrar.</div> : null}</Card>
-      <Card><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}><Field label="Buscar inmueble"><input style={inputStyle({ maxWidth: 420 })} placeholder="Nombre, tipo, dirección, propietario, cuenta" value={search} onChange={(e) => setSearch(e.target.value)} /></Field><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.assets || []).map((a) => a.status)} total={(data.assets || []).length} shown={filterByStatus(rows, statusFilter).length} /></div><MiniTable columns={[{ key: "name", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(r)}>{r.name}</EntityLink> }, { key: "type", label: "Tipo" }, { key: "ownerName", label: "Propietario", render: (r) => r.ownerName || (data.propertyOwners || []).find((o) => o.id === r.ownerId)?.name || "Pendiente" }, { key: "depositAccountAlias", label: "Cuenta depósito", render: (r) => r.depositAccountAlias || "Pendiente" }, { key: "location", label: "Ubicación" }, { key: "area", label: "m²" }, { key: "rentalPrice", label: "Precio/renta", render: (r) => Number(r.rentalPrice || 0) ? money(r.rentalPrice) : "Por definir" }, { key: "cadastralId", label: "Cédula" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Ocupado" ? "ok" : r.status === "Revisión pendiente" ? "warn" : "primary"}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setAssetDetail(r)}>Abrir</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("asset"); }}>Editar</Button></ActionCell> }]} rows={filterByStatus(rows, statusFilter)} /></Card>{assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}
-    </div>;
-  }
-  if (mode === "arr_contratos") {
-    const contractRows = (data.contracts || []).filter((ct) => {
-      const tenant = tenantMap[ct.tenantId];
-      const asset = assetMap[ct.assetId];
-      const inc = annualIncreaseInfo(ct);
-      const matchesText = [tenant?.name, asset?.name, ct.contractType, ct.reference, ct.status].join(" ").toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === "todos" || ct.status === statusFilter;
-      const matchesIncrease = increaseFilter === "todos" || inc.status === increaseFilter;
-      return matchesText && matchesStatus && matchesIncrease;
-    });
-    const dueCount = (data.contracts || []).filter((ct) => annualIncreaseInfo(ct).status === "Vencido").length;
-    const soonCount = (data.contracts || []).filter((ct) => annualIncreaseInfo(ct).status === "Por vencer").length;
-    return <div style={{ display: "grid", gap: 16 }}>
-      <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <SectionTitle title="Contratos de arrendamiento" helper="Alta de arrendatario y contrato en un solo movimiento. Expediente con pagos, incremento anual, vigencia, anexos y facturación." />
-          <Button onClick={() => { setForm({}); setShowForm(showForm === "leaseContract" ? null : "leaseContract"); }}>Nuevo contrato</Button>
-        </div>
-        {showForm === "leaseContract" ? <RentalContractForm data={data} tenantMap={tenantMap} assetMap={assetMap} form={form} setForm={setForm} onSave={saveContract} editing={!!form.id} /> : null}
-      </Card>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-        <MetricCard label="Incrementos vencidos" value={dueCount} tone={dueCount ? "danger" : "ok"} />
-        <MetricCard label="Por vencer ≤45 días" value={soonCount} tone={soonCount ? "warn" : "ok"} />
-        <MetricCard label="Contratos activos" value={(data.contracts || []).filter((ct) => ct.status === "Activo").length} tone="primary" />
-      </div>
-      <Card>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}>
-          <Field label="Buscar"><input style={inputStyle({ width: 280 })} placeholder="Arrendatario, inmueble, referencia" value={search} onChange={(e) => setSearch(e.target.value)} /></Field>
-          <StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.contracts || []).map((r) => r.status)} total={(data.contracts || []).length} shown={contractRows.length} />
-          <Field label="Incremento anual"><select style={inputStyle({ width: 210 })} value={increaseFilter} onChange={(e) => setIncreaseFilter(e.target.value)}><option value="todos">Todos</option><option value="Vencido">Vencidos</option><option value="Por vencer">Por vencer</option><option value="Al día">Al día</option></select></Field>
-        </div>
-        <MiniTable columns={[{ key: "tenantId", label: "Arrendatario", render: (r) => <EntityLink onClick={() => setTenantDetail(tenantMap[r.tenantId])}>{tenantMap[r.tenantId]?.name || "Arrendatario"}</EntityLink> }, { key: "assetId", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[r.assetId])}>{assetMap[r.assetId]?.name || "Inmueble"}</EntityLink> }, { key: "rentBase", label: "Renta", render: (r) => money(r.rentBase) }, { key: "maintenancePct", label: "Mantto %", render: (r) => `${r.maintenancePct || 0}%` }, { key: "paymentDay", label: "Día pago" }, { key: "annualIncrease", label: "Incremento anual", render: (r) => { const inc = annualIncreaseInfo(r); return <div><Pill tone={inc.status === "Vencido" ? "danger" : inc.status === "Por vencer" ? "warn" : "ok"}>{inc.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 4 }}>{inc.nextDate}</div></div>; } }, { key: "endDate", label: "Vence" }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "view", label: "Consultar", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setContractDetail(r)}>Abrir</Button> }, { key: "edit", label: "Editar", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("leaseContract"); }}>Editar</Button> }]} rows={contractRows} />
-      </Card>
-      {tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}
-      {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}
-      {contractDetail ? <LeaseContractDrawer contract={contractDetail} data={data} tenantMap={tenantMap} assetMap={assetMap} onClose={() => setContractDetail(null)} onEdit={(ct) => { setContractDetail(null); setForm({ ...ct }); setShowForm("leaseContract"); }} /> : null}
-    </div>;
-  }
+  if (mode === "arr_inmuebles") return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Inmuebles / predios" helper="Alta y expediente de locales, terrenos, casas, departamentos y oficinas. Incluye ubicación, m², precio, cédula, documentos y mapa." /><Button onClick={() => { setForm({}); setShowForm(showForm === "asset" ? null : "asset"); }}>Nuevo inmueble</Button></div>{showForm === "asset" ? <AssetForm data={data} form={form} setForm={setForm} onSave={saveAsset} editing={!!form.id} /> : null}</Card><Card><SectionTitle title="Mapa de inmuebles" helper="Vista ejecutiva de ubicación. Los predios con coordenadas quedan listos para conexión a mapa real." /> <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>{(data.assets || []).map((a) => <button key={a.id} onClick={() => setAssetDetail(a)} style={{ border: `1px solid ${c.border}`, borderRadius: 18, background: "white", padding: 12, textAlign: "left", cursor: "pointer" }}><b>{a.name}</b><div style={{ color: c.muted, fontSize: 12 }}>{a.type} · {a.location}</div><div style={{ marginTop: 8 }}><Pill tone={a.status === "Ocupado" ? "ok" : "warn"}>{a.status}</Pill></div></button>)}</div></Card><Card><MiniTable columns={[{ key: "name", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(r)}>{r.name}</EntityLink> }, { key: "type", label: "Tipo" }, { key: "location", label: "Ubicación" }, { key: "area", label: "m²" }, { key: "rentalPrice", label: "Precio/renta", render: (r) => money(r.rentalPrice) }, { key: "cadastralId", label: "Cédula" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Ocupado" ? "ok" : "warn"}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("asset"); }}>Editar</Button> }]} rows={data.assets || []} /></Card>{assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}</div>;
+  if (mode === "arr_contratos") return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Contratos de arrendamiento" helper="Alta de arrendatario y contrato en un solo movimiento. Expediente con pagos, INPC, vigencia, anexos y facturación." /><Button onClick={() => { setForm({}); setShowForm(showForm === "leaseContract" ? null : "leaseContract"); }}>Nuevo contrato</Button></div>{showForm === "leaseContract" ? <RentalContractForm data={data} tenantMap={tenantMap} assetMap={assetMap} form={form} setForm={setForm} onSave={saveContract} editing={!!form.id} /> : null}</Card><Card><MiniTable columns={[{ key: "tenantId", label: "Arrendatario", render: (r) => <EntityLink onClick={() => setTenantDetail(tenantMap[r.tenantId])}>{tenantMap[r.tenantId]?.name || "Arrendatario"}</EntityLink> }, { key: "assetId", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[r.assetId])}>{assetMap[r.assetId]?.name || "Inmueble"}</EntityLink> }, { key: "rentBase", label: "Renta", render: (r) => money(r.rentBase) }, { key: "maintenancePct", label: "Mantto %", render: (r) => `${r.maintenancePct || 0}%` }, { key: "paymentDay", label: "Día pago" }, { key: "inpcMonth", label: "INPC" }, { key: "endDate", label: "Vence" }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "view", label: "Consultar", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setContractDetail(r)}>Abrir</Button> }, { key: "edit", label: "Editar", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("leaseContract"); }}>Editar</Button> }]} rows={data.contracts || []} /></Card>{tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}{assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}{contractDetail ? <LeaseContractDrawer contract={contractDetail} data={data} tenantMap={tenantMap} assetMap={assetMap} onClose={() => setContractDetail(null)} onEdit={(ct) => { setContractDetail(null); setForm({ ...ct }); setShowForm("leaseContract"); }} /> : null}</div>;
   if (mode === "arr_reportes") {
     const reconciled = (data.rentCharges || []).filter((r) => r.reconciled || r.status === "Conciliado");
     const pending = (data.rentCharges || []).filter((r) => !(r.reconciled || r.status === "Conciliado"));
-    const overdueIncreases = (data.contracts || []).filter((ct) => annualIncreaseInfo(ct).status === "Vencido");
-    const soonIncreases = (data.contracts || []).filter((ct) => annualIncreaseInfo(ct).status === "Por vencer");
-    return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Reportes de arrendamientos" helper="Las rentas cobradas del mes solo aparecen como cobradas cuando están conciliadas con bancos. Los incrementos anuales se revisan por contrato." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><MetricCard label="Cobrado conciliado" value={money(reconciled.reduce((a, r) => a + Number(r.paidAmount || 0), 0))} tone="ok" /><MetricCard label="Pendiente / no conciliado" value={money(pending.reduce((a, r) => a + Math.max(0, rentChargeTotal(r) - Number(r.paidAmount || 0)), 0))} tone="warn" /><MetricCard label="Incrementos vencidos" value={overdueIncreases.length} tone={overdueIncreases.length ? "danger" : "ok"} /><MetricCard label="Por vencer ≤45 días" value={soonIncreases.length} tone={soonIncreases.length ? "warn" : "ok"} /></div></Card><Card><SectionTitle title="Incrementos anuales por atender" helper="Vista rápida para aplicar incrementos antes de facturar o renovar." /><MiniTable columns={[{ key: "tenant", label: "Arrendatario", render: (r) => tenantMap[r.tenantId]?.name }, { key: "asset", label: "Inmueble", render: (r) => assetMap[r.assetId]?.name }, { key: "rentBase", label: "Renta actual", render: (r) => money(r.rentBase) }, { key: "next", label: "Próximo incremento", render: (r) => annualIncreaseInfo(r).nextDate }, { key: "status", label: "Estado", render: (r) => <Pill tone={annualIncreaseInfo(r).status === "Vencido" ? "danger" : "warn"}>{annualIncreaseInfo(r).status}</Pill> }]} rows={[...overdueIncreases, ...soonIncreases]} /></Card><Card><SectionTitle title="Rentas cobradas conciliadas" helper="Base oficial para reporte mensual." /><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "period", label: "Periodo" }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "bankReference", label: "Referencia" }, { key: "invoiceStatus", label: "Factura" }]} rows={reconciled} /></Card></div>;
+    return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Reportes de arrendamientos" helper="Las rentas cobradas del mes solo aparecen como cobradas cuando están conciliadas con bancos." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><MetricCard label="Cobrado conciliado" value={money(reconciled.reduce((a, r) => a + Number(r.paidAmount || 0), 0))} tone="ok" /><MetricCard label="Pendiente / no conciliado" value={money(pending.reduce((a, r) => a + Math.max(0, rentChargeTotal(r) - Number(r.paidAmount || 0)), 0))} tone="warn" /><MetricCard label="Contratos activos" value={(data.contracts || []).filter((c) => c.status === "Activo").length} tone="primary" /></div></Card><Card><SectionTitle title="Rentas cobradas conciliadas" helper="Base oficial para reporte mensual." /><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "period", label: "Periodo" }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "bankReference", label: "Referencia" }, { key: "invoiceStatus", label: "Factura" }]} rows={reconciled} /></Card></div>;
   }
   if (mode === "arr_conciliacion") return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Conciliación bancaria de rentas" helper="Solo al conciliar un cargo de renta puede entrar al reporte mensual de rentas cobradas." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.rentCharges || []).map((r) => r.status)} total={(data.rentCharges || []).length} shown={charges.length} /></Card><Card><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "period", label: "Periodo" }, { key: "expected", label: "Esperado", render: (r) => money(rentChargeTotal(r)) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "bankReference", label: "Referencia" }, { key: "reconciled", label: "Conciliado", render: (r) => r.reconciled || r.status === "Conciliado" ? <Pill tone="ok">Sí</Pill> : <Pill tone="warn">No</Pill> }, { key: "actions", label: "Acciones", render: (r) => <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Conciliado", reconciled: true, paidAmount: Number(r.paidAmount || 0) || rentChargeTotal(r), reconciledAt: todayIso() })}>Conciliar</Button> }]} rows={charges} /></Card></div>;
-  if (mode === "arr_facturacion") {
-    const invoiceRows = (data.rentCharges || []).filter((r) => [tenantName(r, data), assetMap[contractMap[r.contractId]?.assetId]?.name, r.period, r.invoiceStatus, r.status].join(" ").toLowerCase().includes(search.toLowerCase()));
-    const selectedRows = invoiceRows.filter((r) => selectedInvoiceIds.includes(r.id));
-    const setInvoicePatch = (ids, patch) => ids.forEach((id) => updateRecord("rentCharges", id, patch));
-    const allSelected = invoiceRows.length > 0 && invoiceRows.every((r) => selectedInvoiceIds.includes(r.id));
-    const toggleAll = () => setSelectedInvoiceIds(allSelected ? [] : invoiceRows.map((r) => r.id));
-    return <div style={{ display: "grid", gap: 16 }}>
-      <Card>
-        <SectionTitle title="Facturación de rentas" helper="Emisión manual, selección por lote y preparación para API/servicio de facturación. La factura queda ligada al cargo mensual y al contrato." />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-          <Info label="Proveedor/API" value={data.invoiceApiConfig?.provider || "Pendiente conectar"} />
-          <Info label="Modo" value={data.invoiceApiConfig?.mode || "Manual / API preparada"} />
-          <Info label="Programación" value={data.invoiceApiConfig?.autoSend ? `Día ${data.invoiceApiConfig?.scheduleDay || 1}` : "Manual o lote"} />
-          <Info label="Seleccionadas" value={`${selectedRows.length} factura(s)`} />
-        </div>
-      </Card>
-      <Card>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}>
-          <Field label="Buscar"><input style={inputStyle({ width: 290 })} placeholder="Arrendatario, inmueble, periodo, factura" value={search} onChange={(e) => setSearch(e.target.value)} /></Field>
-          <StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.rentCharges || []).map((r) => r.invoiceStatus || "Pendiente")} total={(data.rentCharges || []).length} shown={invoiceRows.filter((r) => statusFilter === "todos" || (r.invoiceStatus || "Pendiente") === statusFilter).length} />
-          <Button variant="secondary" onClick={toggleAll}>{allSelected ? "Quitar selección" : "Seleccionar visibles"}</Button>
-          <Button disabled={!selectedRows.length} onClick={() => setInvoicePatch(selectedInvoiceIds, { invoiceStatus: "Emitida", invoicedAt: todayIso(), invoiceLog: [invoiceActionLog("Emisión por lote"), ...(selectedRows[0]?.invoiceLog || [])] })}>Emitir lote</Button>
-          <Button disabled={!selectedRows.length} variant="secondary" onClick={() => setInvoicePatch(selectedInvoiceIds, { invoiceStatus: "Enviada", invoiceSentAt: todayIso(), invoiceDelivery: "Correo programado/manual" })}>Enviar lote</Button>
-          <Button disabled={!selectedRows.length} variant="secondary" onClick={() => setInvoicePatch(selectedInvoiceIds, { invoiceStatus: "Programada", invoiceScheduledAt: todayIso() })}>Programar envío</Button>
-        </div>
-        <MiniTable columns={[{ key: "select", label: "Sel.", sortable: false, render: (r) => <input type="checkbox" checked={selectedInvoiceIds.includes(r.id)} onChange={(e) => setSelectedInvoiceIds((prev) => e.target.checked ? [...new Set([...prev, r.id])] : prev.filter((id) => id !== r.id))} /> }, { key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "asset", label: "Inmueble", render: (r) => assetMap[contractMap[r.contractId]?.assetId]?.name || "—" }, { key: "period", label: "Periodo" }, { key: "total", label: "Importe", render: (r) => money(rentChargeTotal(r)) }, { key: "invoiceStatus", label: "Factura", render: (r) => <Pill tone={r.invoiceStatus === "Emitida" || r.invoiceStatus === "Enviada" ? "ok" : r.invoiceStatus === "Programada" ? "warn" : "primary"}>{r.invoiceStatus || "Pendiente"}</Pill> }, { key: "status", label: "Cobranza", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "actions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { invoiceStatus: "Emitida", invoicedAt: todayIso(), invoiceLog: [invoiceActionLog("Emisión manual"), ...(r.invoiceLog || [])] })}>Emitir</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { invoiceStatus: "Enviada", invoiceSentAt: todayIso(), invoiceDelivery: "Correo manual" })}>Enviar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { invoiceStatus: "Programada", invoiceScheduledAt: todayIso() })}>Programar</Button></ActionCell> }]} rows={invoiceRows.filter((r) => statusFilter === "todos" || (r.invoiceStatus || "Pendiente") === statusFilter)} />
-      </Card>
-    </div>;
-  }
+  if (mode === "arr_facturacion") return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Facturación de rentas" helper="Control de facturas mensuales, cédulas vigentes y contratos con facturación automática." /></Card><Card><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "period", label: "Periodo" }, { key: "invoiceStatus", label: "Factura" }, { key: "status", label: "Cobranza", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { invoiceStatus: "Emitida", invoicedAt: todayIso() })}>Marcar emitida</Button> }]} rows={data.rentCharges || []} /></Card></div>;
   return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Cobranza de rentas" helper="Control mensual de rentas, mantenimientos, adeudos, facturación y conciliación." /><Button onClick={() => setShowForm(showForm === "rent" ? null : "rent")}>Generar renta manual</Button></div>{showForm === "rent" ? <div style={{ display: "grid", gap: 10, marginTop: 12 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Contrato"><select style={inputStyle()} value={form.contractId || "r1"} onChange={(e) => setForm({ ...form, contractId: e.target.value })}>{data.contracts.map((r) => <option key={r.id} value={r.id}>{tenantMap[r.tenantId]?.name} · {assetMap[r.assetId]?.name}</option>)}</select></Field><Field label="Periodo"><input style={inputStyle()} value={form.period || "2026-03"} onChange={(e) => setForm({ ...form, period: e.target.value })} /></Field></div><Button onClick={() => { const ct = data.contracts.find((x) => x.id === (form.contractId || "r1")); addRecord("rentCharges", { contractId: ct?.id || "r1", period: form.period || "2026-03", rent: Number(ct?.rentBase || 0), maintenance: Number(ct?.rentBase || 0) * Number(ct?.maintenancePct || 0) / 100, status: "Pendiente", paidAmount: 0, dueDate: `${form.period || "2026-03"}-${String(ct?.paymentDay || 10).padStart(2, "0")}`, bankReference: ct?.reference || "", invoiceStatus: ct?.autoInvoice ? "Por emitir" : "No automática", reconciled: false }); }}>Generar cargo</Button></div> : null}</Card><Card><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}><Field label="Buscar"><input style={inputStyle({ width: 260 })} placeholder="Arrendatario, inmueble, periodo, referencia" value={search} onChange={(e) => setSearch(e.target.value)} /></Field><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.rentCharges || []).map((r) => r.status)} total={(data.rentCharges || []).length} shown={charges.length} /></div><MiniTable columns={[{ key: "contractId", label: "Cliente", render: (r) => <EntityLink onClick={() => setTenantDetail(tenantMap[contractMap[r.contractId]?.tenantId])}>{tenantName(r, data)}</EntityLink> }, { key: "contractId2", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[contractMap[r.contractId]?.assetId])}>{assetMap[contractMap[r.contractId]?.assetId]?.name}</EntityLink> }, { key: "period", label: "Periodo" }, { key: "rent", label: "Renta base", render: (r) => money(r.rent) }, { key: "maintenance", label: "Mantto", render: (r) => money(r.maintenance) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "reconciled", label: "Conciliado", render: (r) => r.reconciled || r.status === "Conciliado" ? <Pill tone="ok">Sí</Pill> : <Pill tone="warn">No</Pill> }, { key: "bankReference", label: "Referencia" }, { key: "invoiceStatus", label: "Factura" }, { key: "actions", label: "Acciones", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Pagado", paidAmount: rentChargeTotal(r), invoiceStatus: "Emitida" })}>Registrar pago</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Vencido" })}>Vencido</Button></div> }]} rows={charges} /></Card>{tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}{assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}</div>;
 }
 
@@ -2124,40 +1936,24 @@ function UsersAdmin({ data, setData }) {
 function Config({ data, setData }) {
   const [activeCatalog, setActiveCatalog] = useState("finanzas");
   const [localForm, setLocalForm] = useState({});
-  const [editing, setEditing] = useState(null);
+  function addConfigItem(collectionName, payload) {
+    if (!setData) return;
+    setData((prev) => ({ ...prev, [collectionName]: [{ id: uid(collectionName), ...payload, createdAt: todayIso(), updatedAt: todayIso() }, ...(prev[collectionName] || [])] }));
+    setLocalForm({});
+  }
   const tabs = [
     { id: "finanzas", label: "Finanzas" }, { id: "arrendamientos", label: "Arrendamientos" }, { id: "tramites", label: "Trámites" }, { id: "documentos", label: "Documentos" }, { id: "bancos", label: "Bancos" }, { id: "reglas", label: "Reglas" },
   ];
-  function setCollection(name, rows) { setData((prev) => ({ ...prev, [name]: rows })); }
-  function upsert(collectionName, payload) {
-    const rows = data[collectionName] || [];
-    if (editing?.collection === collectionName) {
-      setCollection(collectionName, rows.map((r) => r.id === editing.id ? { ...r, ...payload, updatedAt: todayIso() } : r));
-    } else {
-      setCollection(collectionName, [{ id: uid(collectionName), ...payload, status: payload.status || "Activo", createdAt: todayIso(), updatedAt: todayIso() }, ...rows]);
-    }
-    setLocalForm({}); setEditing(null);
-  }
-  function editRow(collection, row) { setEditing({ collection, id: row.id }); setLocalForm({ ...row }); }
-  function deactivateRow(collection, row) { setCollection(collection, (data[collection] || []).map((r) => r.id === row.id ? { ...r, status: r.status === "Inactivo" ? "Activo" : "Inactivo", updatedAt: todayIso() } : r)); }
-  function addStringItem(collection, value) {
-    const v = String(value || "").trim(); if (!v) return;
-    if (!(data[collection] || []).includes(v)) setCollection(collection, [v, ...(data[collection] || [])]);
-    setLocalForm({});
-  }
-  function removeStringItem(collection, value) { setCollection(collection, (data[collection] || []).filter((x) => x !== value)); }
-  const categoryForm = <div style={{ display: "grid", gap: 10, marginBottom: 12 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Categoría / partida"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Grupo"><input style={inputStyle()} value={localForm.group || ""} onChange={(e) => setLocalForm({ ...localForm, group: e.target.value })} /></Field><Field label="Presupuestable"><select style={inputStyle()} value={localForm.budgetable === false ? "No" : "Sí"} onChange={(e) => setLocalForm({ ...localForm, budgetable: e.target.value === "Sí" })}><option>Sí</option><option>No</option></select></Field></div><Button style={{ justifySelf: "start" }} onClick={() => upsert("categories", { name: localForm.name || "Categoría", group: localForm.group || "General", budgetable: localForm.budgetable !== false })}>{editing?.collection === "categories" ? "Guardar categoría" : "Agregar categoría"}</Button></div>;
-  const genericStringEditor = (collection, label, helper) => <Card><SectionTitle title={label} helper={helper} /><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>{(data[collection] || []).map((item) => <span key={item} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: c.soft, borderRadius: 999, padding: "6px 8px" }}><b>{item}</b><button onClick={() => removeStringItem(collection, item)} style={{ border: 0, background: "white", borderRadius: 999, cursor: "pointer" }}>×</button></span>)}</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><input style={inputStyle({ maxWidth: 320 })} value={localForm[collection] || ""} onChange={(e) => setLocalForm({ ...localForm, [collection]: e.target.value })} placeholder="Nuevo valor" /><Button onClick={() => addStringItem(collection, localForm[collection])}>Agregar</Button></div></Card>;
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Catálogos y reglas" helper="Parámetros operativos del ERP. Todo catálogo usado en movimientos debe desactivarse, no borrarse, para conservar historial." /><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{tabs.map((t) => <Button key={t.id} variant={activeCatalog === t.id ? "primary" : "secondary"} onClick={() => { setActiveCatalog(t.id); setLocalForm({}); setEditing(null); }}>{t.label}</Button>)}</div></Card>
-    {activeCatalog === "finanzas" && <Card><SectionTitle title="Categorías y partidas presupuestales" helper="Base para que ningún pago avance sin presupuesto, partida y trazabilidad." />{categoryForm}<MiniTable columns={[{ key: "name", label: "Categoría" }, { key: "group", label: "Grupo" }, { key: "budgetable", label: "Presupuestable", render: (r) => r.budgetable ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Inactivo" ? "warn" : "ok"}>{r.status || "Activo"}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("categories", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("categories", r)}>{r.status === "Inactivo" ? "Activar" : "Desactivar"}</Button></ActionCell> }]} rows={data.categories || []} /></Card>}
-    {activeCatalog === "arrendamientos" && <div style={{ display: "grid", gap: 16 }}>{genericStringEditor("assetTypes", "Tipos de inmueble", "Define locales, terrenos, casas, departamentos, oficinas y otros activos.")}{genericStringEditor("rentalContractTypes", "Tipos de contrato", "Tipos de arrendamiento y uso del inmueble.")}<Card><SectionTitle title="Reglas de arrendamientos" helper="Incremento anual, facturación y regla de reporte solo conciliado." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Regla"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Valor"><input style={inputStyle()} value={localForm.value || ""} onChange={(e) => setLocalForm({ ...localForm, value: e.target.value })} /></Field><Field label="Descripción"><input style={inputStyle()} value={localForm.description || ""} onChange={(e) => setLocalForm({ ...localForm, description: e.target.value })} /></Field></div><Button style={{ marginBottom: 12 }} onClick={() => upsert("rentalRules", { name: localForm.name || "Regla", value: localForm.value || "", description: localForm.description || "" })}>{editing?.collection === "rentalRules" ? "Guardar regla" : "Agregar regla"}</Button><MiniTable columns={[{ key: "name", label: "Regla" }, { key: "value", label: "Valor" }, { key: "description", label: "Descripción" }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("rentalRules", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("rentalRules", r)}>Desactivar</Button></ActionCell> }]} rows={data.rentalRules || []} /></Card></div>}
-    {activeCatalog === "arrendamientos" && <Card><SectionTitle title="Facturación / API" helper="Parámetros para conectar un servicio de facturación y controlar emisión manual, por lote o programada." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Proveedor de facturación"><input style={inputStyle()} value={data.invoiceApiConfig?.provider || ""} onChange={(e) => setData((prev) => ({ ...prev, invoiceApiConfig: { ...(prev.invoiceApiConfig || {}), provider: e.target.value } }))} /></Field><Field label="Endpoint/API"><input style={inputStyle()} value={data.invoiceApiConfig?.endpoint || ""} onChange={(e) => setData((prev) => ({ ...prev, invoiceApiConfig: { ...(prev.invoiceApiConfig || {}), endpoint: e.target.value } }))} /></Field><Field label="Alias de API key"><input style={inputStyle()} value={data.invoiceApiConfig?.apiKeyAlias || ""} onChange={(e) => setData((prev) => ({ ...prev, invoiceApiConfig: { ...(prev.invoiceApiConfig || {}), apiKeyAlias: e.target.value } }))} /></Field><Field label="Día programación"><input type="number" style={inputStyle()} value={data.invoiceApiConfig?.scheduleDay || 1} onChange={(e) => setData((prev) => ({ ...prev, invoiceApiConfig: { ...(prev.invoiceApiConfig || {}), scheduleDay: Number(e.target.value || 1) } }))} /></Field></div><label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 900 }}><input type="checkbox" checked={!!data.invoiceApiConfig?.autoSend} onChange={(e) => setData((prev) => ({ ...prev, invoiceApiConfig: { ...(prev.invoiceApiConfig || {}), autoSend: e.target.checked, status: e.target.checked ? "Programación activa" : "Manual / sin programación" } }))} /> Envío automático mensual si el contrato lo permite</label></Card>}
-
-    {activeCatalog === "tramites" && <Card><SectionTitle title="Plantillas de trámites" helper="Lista base de permisos por tipo de proyecto. Cada trámite debe tener dependencia, documentos, responsable, siguiente acción y fecha compromiso." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Trámite"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Etapa"><input style={inputStyle()} value={localForm.stage || ""} onChange={(e) => setLocalForm({ ...localForm, stage: e.target.value })} /></Field><Field label="Dependencia"><input style={inputStyle()} value={localForm.agency || ""} onChange={(e) => setLocalForm({ ...localForm, agency: e.target.value })} /></Field><Field label="Documentos"><input style={inputStyle()} value={localForm.documents || ""} onChange={(e) => setLocalForm({ ...localForm, documents: e.target.value })} /></Field></div><Button style={{ marginBottom: 12 }} onClick={() => upsert("permitTemplates", { name: localForm.name || "Trámite", stage: localForm.stage || "Etapa", agency: localForm.agency || "Dependencia", documents: localForm.documents || "" })}>{editing?.collection === "permitTemplates" ? "Guardar plantilla" : "Agregar plantilla"}</Button><MiniTable columns={[{ key: "name", label: "Trámite" }, { key: "stage", label: "Etapa" }, { key: "agency", label: "Dependencia" }, { key: "documents", label: "Documentos" }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("permitTemplates", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("permitTemplates", r)}>Desactivar</Button></ActionCell> }]} rows={data.permitTemplates || []} /></Card>}
-    {activeCatalog === "documentos" && <Card><SectionTitle title="Documentos obligatorios" helper="Checklist documental para proveedores, solicitudes de pago, contratos de arrendamiento y trámites." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Módulo"><input style={inputStyle()} value={localForm.module || ""} onChange={(e) => setLocalForm({ ...localForm, module: e.target.value })} /></Field><Field label="Documento"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Aplica a"><input style={inputStyle()} value={localForm.appliesTo || ""} onChange={(e) => setLocalForm({ ...localForm, appliesTo: e.target.value })} /></Field><Field label="Vigencia días"><input type="number" style={inputStyle()} value={localForm.validityDays || 0} onChange={(e) => setLocalForm({ ...localForm, validityDays: e.target.value })} /></Field></div><label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 900, marginBottom: 10 }}><input type="checkbox" checked={localForm.required !== false} onChange={(e) => setLocalForm({ ...localForm, required: e.target.checked })} /> Obligatorio</label><Button style={{ marginBottom: 12 }} onClick={() => upsert("requiredDocuments", { module: localForm.module || "General", name: localForm.name || "Documento", appliesTo: localForm.appliesTo || "Todos", required: localForm.required !== false, validityDays: Number(localForm.validityDays || 0) })}>{editing?.collection === "requiredDocuments" ? "Guardar documento" : "Agregar documento"}</Button><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "name", label: "Documento" }, { key: "appliesTo", label: "Aplica a" }, { key: "required", label: "Obligatorio", render: (r) => r.required ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }, { key: "validityDays", label: "Vigencia días" }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("requiredDocuments", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("requiredDocuments", r)}>Desactivar</Button></ActionCell> }]} rows={data.requiredDocuments || []} /></Card>}
-    {activeCatalog === "bancos" && <Card><SectionTitle title="Bancos y cuentas" helper="Cuentas origen/destino para pagos, ingresos, rentas y conciliación." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Nombre"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Banco"><input style={inputStyle()} value={localForm.bank || ""} onChange={(e) => setLocalForm({ ...localForm, bank: e.target.value })} /></Field><Field label="Cuenta"><input style={inputStyle()} value={localForm.account || ""} onChange={(e) => setLocalForm({ ...localForm, account: e.target.value })} /></Field><Field label="CLABE"><input style={inputStyle()} value={localForm.clabe || ""} onChange={(e) => setLocalForm({ ...localForm, clabe: e.target.value })} /></Field><Field label="Uso"><input style={inputStyle()} value={localForm.use || ""} onChange={(e) => setLocalForm({ ...localForm, use: e.target.value })} /></Field></div><Button style={{ marginBottom: 12 }} onClick={() => upsert("bankAccounts", { name: localForm.name || "Cuenta", bank: localForm.bank || "Banco", account: localForm.account || "", clabe: localForm.clabe || "", currency: "MXN", use: localForm.use || "Operación", status: localForm.status || "Activa" })}>{editing?.collection === "bankAccounts" ? "Guardar cuenta" : "Agregar cuenta"}</Button><MiniTable columns={[{ key: "name", label: "Nombre" }, { key: "bank", label: "Banco" }, { key: "account", label: "Cuenta" }, { key: "use", label: "Uso" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={r.status === "Inactivo" ? "warn" : "ok"}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("bankAccounts", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("bankAccounts", r)}>{r.status === "Inactivo" ? "Activar" : "Desactivar"}</Button></ActionCell> }]} rows={data.bankAccounts || []} /></Card>}
-    {activeCatalog === "reglas" && <Card><SectionTitle title="Reglas de autorización y control" helper="Estados por movimiento, autorizaciones por rol/monto, sobregiro justificado y conciliación antes de reporte." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Módulo"><input style={inputStyle()} value={localForm.module || ""} onChange={(e) => setLocalForm({ ...localForm, module: e.target.value })} /></Field><Field label="Monto umbral"><input type="number" style={inputStyle()} value={localForm.threshold || 0} onChange={(e) => setLocalForm({ ...localForm, threshold: e.target.value })} /></Field><Field label="Rol"><input style={inputStyle()} value={localForm.role || ""} onChange={(e) => setLocalForm({ ...localForm, role: e.target.value })} /></Field><Field label="Descripción"><input style={inputStyle()} value={localForm.description || ""} onChange={(e) => setLocalForm({ ...localForm, description: e.target.value })} /></Field></div><div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10 }}><label style={{ fontWeight: 900 }}><input type="checkbox" checked={!!localForm.requiresAdminReview} onChange={(e) => setLocalForm({ ...localForm, requiresAdminReview: e.target.checked })} /> Revisión admin</label><label style={{ fontWeight: 900 }}><input type="checkbox" checked={!!localForm.requiresMaster} onChange={(e) => setLocalForm({ ...localForm, requiresMaster: e.target.checked })} /> Master</label></div><Button style={{ marginBottom: 12 }} onClick={() => upsert("approvalRules", { module: localForm.module || "Cuentas por pagar", threshold: Number(localForm.threshold || 0), role: localForm.role || "Master", requiresAdminReview: !!localForm.requiresAdminReview, requiresMaster: !!localForm.requiresMaster, description: localForm.description || "Regla" })}>{editing?.collection === "approvalRules" ? "Guardar regla" : "Agregar regla"}</Button><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "threshold", label: "Monto", render: (r) => money(r.threshold) }, { key: "role", label: "Rol" }, { key: "requiresAdminReview", label: "Revisión admin", render: (r) => r.requiresAdminReview ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }, { key: "requiresMaster", label: "Master", render: (r) => r.requiresMaster ? <Pill tone="warn">Sí</Pill> : <Pill>No</Pill> }, { key: "description", label: "Regla" }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("approvalRules", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("approvalRules", r)}>Desactivar</Button></ActionCell> }]} rows={data.approvalRules || []} /></Card>}
+    <Card><SectionTitle title="Catálogos y reglas" helper="Parámetros operativos del ERP. Se separan de Usuarios para no mezclar seguridad con catálogos del negocio." />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{tabs.map((t) => <Button key={t.id} variant={activeCatalog === t.id ? "primary" : "secondary"} onClick={() => setActiveCatalog(t.id)}>{t.label}</Button>)}</div>
+    </Card>
+    {activeCatalog === "finanzas" && <Card><SectionTitle title="Categorías y partidas presupuestales" helper="Base para que ningún pago avance sin presupuesto, partida y trazabilidad." /><MiniTable columns={[{ key: "name", label: "Categoría" }, { key: "group", label: "Grupo" }, { key: "budgetable", label: "Presupuestable", render: (r) => r.budgetable ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }]} rows={data.categories || []} /></Card>}
+    {activeCatalog === "arrendamientos" && <Card><SectionTitle title="Parámetros de arrendamientos" helper="Tipos de inmueble, reglas de INPC, facturación y conciliación antes de reportar como cobrado." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}><div><b>Tipos de inmueble</b><div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{(data.assetTypes || []).map((x) => <Pill key={x} tone="primary">{x}</Pill>)}</div></div><div><b>Tipos de contrato</b><div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{(data.rentalContractTypes || []).map((x) => <Pill key={x}>{x}</Pill>)}</div></div></div><div style={{ marginTop: 14 }}><MiniTable columns={[{ key: "name", label: "Regla" }, { key: "value", label: "Valor" }, { key: "description", label: "Descripción" }]} rows={data.rentalRules || []} /></div></Card>}
+    {activeCatalog === "tramites" && <Card><SectionTitle title="Plantillas de trámites" helper="Lista base de permisos por tipo de proyecto. Cada trámite debe tener dependencia, documentos, responsable, siguiente acción y fecha compromiso." /><MiniTable columns={[{ key: "name", label: "Trámite" }, { key: "stage", label: "Etapa" }, { key: "agency", label: "Dependencia" }, { key: "documents", label: "Documentos" }]} rows={data.permitTemplates || [{ id: "pt1", name: "Licencia de uso de suelo", stage: "Uso de suelo", agency: "Municipio", documents: "Escritura, predial, croquis, memoria" }, { id: "pt2", name: "Licencia de construcción", stage: "Construcción", agency: "Municipio", documents: "Planos, memoria, pagos, DRO" }, { id: "pt3", name: "Factibilidades CFE/JAPAY", stage: "Factibilidades", agency: "CFE / JAPAY", documents: "Planos, carga, ubicación" }]} /></Card>}
+    {activeCatalog === "documentos" && <Card><SectionTitle title="Documentos obligatorios" helper="Checklist documental para proveedores, solicitudes de pago, contratos de arrendamiento y trámites." /><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "name", label: "Documento" }, { key: "appliesTo", label: "Aplica a" }, { key: "required", label: "Obligatorio", render: (r) => r.required ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }, { key: "validityDays", label: "Vigencia días" }]} rows={data.requiredDocuments || []} /></Card>}
+    {activeCatalog === "bancos" && <Card><SectionTitle title="Bancos y cuentas" helper="Cuentas origen/destino para pagos, ingresos, rentas y conciliación." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Nombre"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Banco"><input style={inputStyle()} value={localForm.bank || ""} onChange={(e) => setLocalForm({ ...localForm, bank: e.target.value })} /></Field><Field label="Uso"><input style={inputStyle()} value={localForm.use || ""} onChange={(e) => setLocalForm({ ...localForm, use: e.target.value })} /></Field></div><Button onClick={() => addConfigItem("bankAccounts", { name: localForm.name || "Cuenta", bank: localForm.bank || "Banco", account: localForm.account || "", clabe: localForm.clabe || "", currency: "MXN", use: localForm.use || "Operación", status: "Activa" })}>Agregar cuenta</Button><div style={{ marginTop: 14 }}><MiniTable columns={[{ key: "name", label: "Nombre" }, { key: "bank", label: "Banco" }, { key: "account", label: "Cuenta" }, { key: "use", label: "Uso" }, { key: "status", label: "Estatus", render: (r) => <Pill tone="ok">{r.status}</Pill> }]} rows={data.bankAccounts || []} /></div></Card>}
+    {activeCatalog === "reglas" && <Card><SectionTitle title="Reglas de autorización y control" helper="Mejores prácticas: estados por movimiento, autorizaciones por rol/monto, sobregiro justificado y conciliación antes de reporte." /><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "threshold", label: "Monto", render: (r) => money(r.threshold) }, { key: "role", label: "Rol" }, { key: "requiresAdminReview", label: "Revisión admin", render: (r) => r.requiresAdminReview ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }, { key: "requiresMaster", label: "Master", render: (r) => r.requiresMaster ? <Pill tone="warn">Sí</Pill> : <Pill>No</Pill> }, { key: "description", label: "Regla" }]} rows={data.approvalRules || []} /></Card>}
   </div>;
 }
 
