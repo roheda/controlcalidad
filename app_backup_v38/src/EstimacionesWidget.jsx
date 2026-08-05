@@ -21,7 +21,7 @@ const inputBase = {
   borderRadius: 14,
   padding: "9px 11px",
   background: "#fff",
-  color: "#242322",
+  color: "#1d1d1f",
   outline: "none",
   boxSizing: "border-box",
 };
@@ -40,7 +40,7 @@ const th = {
   padding: "10px",
   fontSize: 11,
   fontWeight: 950,
-  color: "#6B6862",
+  color: "#6e6e73",
   textTransform: "uppercase",
   letterSpacing: 0.35,
   background: "rgba(242,242,247,0.96)",
@@ -55,7 +55,7 @@ const td = {
   borderBottom: "1px solid rgba(60,60,67,0.10)",
   verticalAlign: "top",
   fontSize: 13,
-  color: "#242322",
+  color: "#1d1d1f",
 };
 
 const statusLabel = {
@@ -234,7 +234,7 @@ function appendHistory(lot, action, detail, by = "Sistema") {
 function Field({ label, children }) {
   return (
     <label style={{ display: "block", marginBottom: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 850, color: "#242322", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 850, color: "#1d1d1f", marginBottom: 6 }}>{label}</div>
       {children}
     </label>
   );
@@ -243,8 +243,8 @@ function Field({ label, children }) {
 function Card({ title, subtitle, children, style }) {
   return (
     <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 28px rgba(0,0,0,0.055)", marginBottom: 16, ...style }}>
-      {title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#242322" }}>{title}</div> : null}
-      {subtitle ? <div style={{ marginTop: 4, color: "#6B6862", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}
+      {title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f" }}>{title}</div> : null}
+      {subtitle ? <div style={{ marginTop: 4, color: "#6e6e73", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}
       {children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}
     </div>
   );
@@ -253,9 +253,9 @@ function Card({ title, subtitle, children, style }) {
 function Metric({ label, value, helper }) {
   return (
     <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 20, padding: 15, background: "#fff" }}>
-      <div style={{ color: "#6B6862", fontSize: 12, fontWeight: 800 }}>{label}</div>
-      <div style={{ color: "#242322", fontSize: 23, fontWeight: 950, marginTop: 4 }}>{value}</div>
-      {helper ? <div style={{ color: "#6B6862", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}
+      <div style={{ color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>{label}</div>
+      <div style={{ color: "#1d1d1f", fontSize: 23, fontWeight: 950, marginTop: 4 }}>{value}</div>
+      {helper ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}
     </div>
   );
 }
@@ -265,7 +265,7 @@ function ExportButtons({ lot }) {
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
       <button type="button" onClick={() => printLotToPdf(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Imprimir / PDF</button>
-      <button type="button" onClick={() => exportLotToExcel(lot)} style={{ ...buttonBase, background: "#fff", color: "#242322" }}>Exportar Excel</button>
+      <button type="button" onClick={() => exportLotToExcel(lot)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Exportar Excel</button>
     </div>
   );
 }
@@ -1170,7 +1170,7 @@ export default function EstimacionesWidget() {
             <Field label="Obra"><select value={selectedObraId} onChange={(event) => setSelectedObraId(event.target.value)} style={inputBase}>{obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id}</option>)}</select></Field>
             <Field label="Casa base"><select value={selectedHouseId} onChange={(event) => setSelectedHouseId(event.target.value)} style={inputBase}>{houses.map((house) => <option key={house.id} value={house.id}>{house.name || house.id}</option>)}</select></Field>
             <Field label="Periodo"><input type="month" value={lotForm.periodo} onChange={(event) => setLotForm((prev) => ({ ...prev, periodo: event.target.value, nombre: "" }))} style={inputBase} /></Field>
-            <Field label="Número de estimación"><input value={nextNumber} readOnly style={{ ...inputBase, background: "#f5f5f7", color: "#6B6862" }} /></Field>
+            <Field label="Número de estimación"><input value={nextNumber} readOnly style={{ ...inputBase, background: "#f5f5f7", color: "#6e6e73" }} /></Field>
           </div>
           <Field label="Nombre del borrador">
             <input value={lotForm.nombre || ""} placeholder="Déjalo vacío para autonombre con código único" onChange={(event) => setLotForm((prev) => ({ ...prev, nombre: event.target.value }))} style={inputBase} />
@@ -1181,8 +1181,8 @@ export default function EstimacionesWidget() {
         <Card title="Catálogo por partidas" subtitle="Captura el porcentaje a estimar. El disponible descuenta lo ya aprobado en estimaciones anteriores.">
           <FilterBar search={filters.captura} setSearch={(value) => setFilters((prev) => ({ ...prev, captura: value }))} partida={filters.partida} setPartida={(value) => setFilters((prev) => ({ ...prev, partida: value }))} partidas={partidas} showPartida />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#242322" }}>Solo pendientes por estimar</button>
-            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#242322" }}>Ver todo</button>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "pendientes" }))} style={{ ...buttonBase, background: captureOnlyPending ? "#111827" : "#fff", color: captureOnlyPending ? "#fff" : "#1d1d1f" }}>Solo pendientes por estimar</button>
+            <button type="button" onClick={() => setFilters((prev) => ({ ...prev, status: "todos" }))} style={{ ...buttonBase, background: !captureOnlyPending ? "#111827" : "#fff", color: !captureOnlyPending ? "#fff" : "#1d1d1f" }}>Ver todo</button>
           </div>
 
 
@@ -1234,9 +1234,9 @@ export default function EstimacionesWidget() {
                               <td style={td}>{available}%</td>
                               <td style={td}>
                                 <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, Math.min(50, available))} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= 50 ? "#dbeafe" : "#fff", color: available <= 0 ? "#a1a1aa" : "#242322", cursor: available <= 0 ? "not-allowed" : "pointer" }}>50%</button>
-                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, available)} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= available ? "#dcfce7" : "#fff", color: available <= 0 ? "#a1a1aa" : "#242322", cursor: available <= 0 ? "not-allowed" : "pointer" }}>100%</button>
-                                  <input type="text" inputMode="decimal" disabled={available <= 0} value={draftRows[concept.id]?.percent || ""} placeholder={available <= 0 ? "100%" : "Manual"} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} onWheel={(event) => event.currentTarget.blur()} style={{ ...inputBase, width: 86, minHeight: 36, background: available <= 0 ? "#f4f4f5" : "#fff", color: available <= 0 ? "#a1a1aa" : "#242322" }} />
+                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, Math.min(50, available))} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= 50 ? "#dbeafe" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f", cursor: available <= 0 ? "not-allowed" : "pointer" }}>50%</button>
+                                  <button type="button" disabled={available <= 0} onClick={() => setDraftPercent(concept.id, available)} style={{ ...buttonBase, padding: "7px 10px", background: available <= 0 ? "#f4f4f5" : draftPercent(concept) >= available ? "#dcfce7" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f", cursor: available <= 0 ? "not-allowed" : "pointer" }}>100%</button>
+                                  <input type="text" inputMode="decimal" disabled={available <= 0} value={draftRows[concept.id]?.percent || ""} placeholder={available <= 0 ? "100%" : "Manual"} onChange={(event) => updateDraft(concept.id, { percent: event.target.value })} onWheel={(event) => event.currentTarget.blur()} style={{ ...inputBase, width: 86, minHeight: 36, background: available <= 0 ? "#f4f4f5" : "#fff", color: available <= 0 ? "#a1a1aa" : "#1d1d1f" }} />
                                 </div>
                               </td>
                               <td style={td}><strong>{money(plannedAmount(concept))}</strong></td>
@@ -1254,10 +1254,10 @@ export default function EstimacionesWidget() {
         <div style={{ position: "sticky", bottom: 16, zIndex: 20, margin: "18px auto 0", maxWidth: 980, padding: "12px 14px", borderRadius: 22, background: "rgba(255,255,255,0.84)", border: "1px solid rgba(60,60,67,0.14)", boxShadow: "0 18px 45px rgba(0,0,0,0.14)", WebkitBackdropFilter: "blur(18px) saturate(180%)", backdropFilter: "blur(18px) saturate(180%)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div>
             <strong>{selectedHouse?.name || selectedHouseId || "Casa sin seleccionar"}</strong>
-            <div style={{ color: "#6B6862", fontSize: 12 }}>{draftSummary.count} concepto(s) capturado(s) · Bruto {money(draftSummary.subtotal)}</div>
+            <div style={{ color: "#6e6e73", fontSize: 12 }}>{draftSummary.count} concepto(s) capturado(s) · Bruto {money(draftSummary.subtotal)}</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ color: "#6B6862", fontSize: 12 }}>Neto estimado</div>
+            <div style={{ color: "#6e6e73", fontSize: 12 }}>Neto estimado</div>
             <div style={{ fontSize: 24, fontWeight: 950 }}>{money(draftSummary.neto)}</div>
           </div>
         </div>
@@ -1275,7 +1275,7 @@ export default function EstimacionesWidget() {
         {mergeable.length > 1 ? (
           <div style={{ padding: 12, borderRadius: 18, background: "#f5f5f7", marginBottom: 12 }}>
             <strong>Unir borradores</strong>
-            <div style={{ color: "#6B6862", fontSize: 12, marginTop: 4 }}>Usa esto cuando haya casas con avances diferentes. Capturas varios borradores y aquí los unes antes de enviar a aprobación. El sistema no permite unir borradores que repitan la misma unidad.</div>
+            <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>Usa esto cuando haya casas con avances diferentes. Capturas varios borradores y aquí los unes antes de enviar a aprobación. El sistema no permite unir borradores que repitan la misma unidad.</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               {mergeable.map((lot) => (
                 <label key={lot.id} style={{ display: "inline-flex", gap: 6, alignItems: "center", padding: "8px 10px", background: "#fff", borderRadius: 999, border: "1px solid rgba(60,60,67,0.12)" }}>
@@ -1293,7 +1293,7 @@ export default function EstimacionesWidget() {
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <div>
                   <strong>{lot.nombre}</strong>
-                  <div style={{ color: "#6B6862", fontSize: 12, marginTop: 4 }}>{lot.officialCode || lot.draftCode || `Estimación ${lot.numero}`} · {lot.obraName || selectedObraId} · {lot.periodo} · {Object.keys(lot.houses || {}).length} casa(s)</div>
+                  <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{lot.officialCode || lot.draftCode || `Estimación ${lot.numero}`} · {lot.obraName || selectedObraId} · {lot.periodo} · {Object.keys(lot.houses || {}).length} casa(s)</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <span style={statusStyle(lot.status)}>{statusLabel[lot.status] || lot.status}</span>
@@ -1351,7 +1351,7 @@ export default function EstimacionesWidget() {
           {editable ? (
             <div style={{ marginTop: 14, padding: 12, borderRadius: 16, background: "#f5f5f7" }}>
               <strong>Copiar lote a otras casas</strong>
-              <div style={{ color: "#6B6862", fontSize: 12, marginTop: 4 }}>La copia se queda en borrador. No se envía a aprobación hasta que tú lo decidas.</div>
+              <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>La copia se queda en borrador. No se envía a aprobación hasta que tú lo decidas.</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                 {houses.filter((house) => !lot.houses?.[house.id]).map((house) => (
                   <label key={house.id} style={{ display: "inline-flex", gap: 6, alignItems: "center", padding: "8px 10px", background: "#fff", borderRadius: 999, border: "1px solid rgba(60,60,67,0.12)" }}>
@@ -1360,7 +1360,7 @@ export default function EstimacionesWidget() {
                   </label>
                 ))}
               </div>
-              <button type="button" onClick={() => copyLotToHouses(lot)} style={{ ...buttonBase, marginTop: 10, background: "#fff", color: "#242322" }}>Guardar copia en casas seleccionadas</button>
+              <button type="button" onClick={() => copyLotToHouses(lot)} style={{ ...buttonBase, marginTop: 10, background: "#fff", color: "#1d1d1f" }}>Guardar copia en casas seleccionadas</button>
             </div>
           ) : null}
         </Card>
@@ -1398,7 +1398,7 @@ export default function EstimacionesWidget() {
                             <td style={td}>{editable && lot.status !== "borrador_observado" ? <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => updateLotRow(lot, houseId, rowId, { avanceSolicitado: event.target.value })} style={{ ...inputBase, width: 95 }} /> : `${row.avanceSolicitado || 0}%`}</td>
                             <td style={td}>{money(row.importeSolicitado)}</td>
                             <td style={td}><span style={statusStyle(row.status)}>{rowStatusLabel[row.status] || statusLabel[row.status] || row.status}</span></td>
-                            <td style={td}>{row.comentarioSupervision || "—"}{row.porcentajeObservadoSupervision !== undefined ? <div style={{ fontSize: 11, color: "#6B6862", marginTop: 4 }}>Ajuste sugerido: {clampPercent(row.porcentajeObservadoSupervision)}%</div> : null}</td>
+                            <td style={td}>{row.comentarioSupervision || "—"}{row.porcentajeObservadoSupervision !== undefined ? <div style={{ fontSize: 11, color: "#6e6e73", marginTop: 4 }}>Ajuste sugerido: {clampPercent(row.porcentajeObservadoSupervision)}%</div> : null}</td>
                             <td style={td}>{editable && lot.status === "borrador_observado" && row.status === "observada_supervision" ? (
                               <div style={{ display: "grid", gap: 8 }}>
                                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1409,7 +1409,7 @@ export default function EstimacionesWidget() {
                                 {row.constructorResolution === "modificar" ? (
                                   <input type="text" inputMode="decimal" defaultValue={row.avanceSolicitado || ""} onWheel={(event) => event.currentTarget.blur()} onBlur={(event) => resolveObservedRow(lot, houseId, rowId, "modificar", event.target.value)} style={{ ...inputBase, minHeight: 34, padding: "7px 8px", width: 110 }} />
                                 ) : null}
-                                <div style={{ fontSize: 11, color: "#6B6862" }}>{contractorResolutionLabel(row)}</div>
+                                <div style={{ fontSize: 11, color: "#6e6e73" }}>{contractorResolutionLabel(row)}</div>
                               </div>
                             ) : (row.respuestaConstructora || "—")}</td>
                           </tr>
@@ -1427,7 +1427,7 @@ export default function EstimacionesWidget() {
             {(lot.history || []).slice().reverse().map((item, index) => (
               <div key={`${item.at}-${index}`} style={{ padding: 12, borderRadius: 14, background: "#fff", border: "1px solid rgba(60,60,67,0.10)" }}>
                 <strong>{item.action}</strong>
-                <div style={{ color: "#6B6862", fontSize: 12, marginTop: 3 }}>{item.by} · {item.at ? new Date(item.at).toLocaleString("es-MX") : ""}</div>
+                <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{item.by} · {item.at ? new Date(item.at).toLocaleString("es-MX") : ""}</div>
                 <div style={{ marginTop: 5 }}>{item.detail}</div>
               </div>
             ))}
@@ -1509,12 +1509,12 @@ export default function EstimacionesWidget() {
             showPartida
             customStatusOptions={approvalRowStatusOptions}
           />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{approvalLots.map((item) => <button key={item.id} onClick={() => { setSelectedLotId(item.id); setSelectedReviewRowIds({}); }} style={{ ...buttonBase, background: item.id === lot?.id ? "#111827" : "#fff", color: item.id === lot?.id ? "#fff" : "#242322" }}>{item.officialCode || item.nombre}</button>)}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{approvalLots.map((item) => <button key={item.id} onClick={() => { setSelectedLotId(item.id); setSelectedReviewRowIds({}); }} style={{ ...buttonBase, background: item.id === lot?.id ? "#111827" : "#fff", color: item.id === lot?.id ? "#fff" : "#1d1d1f" }}>{item.officialCode || item.nombre}</button>)}</div>
           {lot ? (
             <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <button type="button" onClick={() => finishEngineeringReview(lot)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Terminar revisión del lote</button>
               <ExportButtons lot={lot} />
-              <span style={{ color: "#6B6862", fontSize: 12 }}>No podrás terminar si queda algún concepto pendiente. Las decisiones se pueden modificar antes de cerrar.</span>
+              <span style={{ color: "#6e6e73", fontSize: 12 }}>No podrás terminar si queda algún concepto pendiente. Las decisiones se pueden modificar antes de cerrar.</span>
             </div>
           ) : null}
         </Card>
@@ -1536,11 +1536,11 @@ export default function EstimacionesWidget() {
           return (
             <Card key={houseId} title={house.houseName || houseId} subtitle={`${pendingCount} pendiente(s) · ${approvedCount} aprobada(s) · ${observedCount} observada(s)`}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
-                <button type="button" onClick={() => toggleHouseSelection(houseId, house)} disabled={!selectableIds.length} style={{ ...buttonBase, background: allSelected ? "#eef2ff" : "#fff", color: allSelected ? "#3730a3" : "#242322", opacity: selectableIds.length ? 1 : 0.55 }}>{allSelected ? "Quitar selección" : "Seleccionar visible"}</button>
+                <button type="button" onClick={() => toggleHouseSelection(houseId, house)} disabled={!selectableIds.length} style={{ ...buttonBase, background: allSelected ? "#eef2ff" : "#fff", color: allSelected ? "#3730a3" : "#1d1d1f", opacity: selectableIds.length ? 1 : 0.55 }}>{allSelected ? "Quitar selección" : "Seleccionar visible"}</button>
                 <button type="button" onClick={() => reviewRows(lot, houseId, selectedValidIds, true)} disabled={!selectedValidIds.length} style={{ ...buttonBase, background: selectedValidIds.length ? "#e8f7ed" : "#f4f4f5", color: selectedValidIds.length ? "#157347" : "#98a2b3" }}>Aprobar selección ({selectedValidIds.length})</button>
                 <button type="button" onClick={() => reviewRows(lot, houseId, selectableIds, true)} disabled={!selectableIds.length} style={{ ...buttonBase, background: selectableIds.length ? "#dcfce7" : "#f4f4f5", color: selectableIds.length ? "#166534" : "#98a2b3" }}>Aprobar visibles ({selectableIds.length})</button>
                 <button type="button" onClick={() => reviewRows(lot, houseId, selectedValidIds, false)} disabled={!selectedValidIds.length} style={{ ...buttonBase, background: selectedValidIds.length ? "#fff3cd" : "#f4f4f5", color: selectedValidIds.length ? "#9a6700" : "#98a2b3" }}>Observar selección</button>
-                <span style={{ color: "#6B6862", fontSize: 12 }}>Puedes volver a seleccionar una aprobada u observada para cambiarla antes de terminar.</span>
+                <span style={{ color: "#6e6e73", fontSize: 12 }}>Puedes volver a seleccionar una aprobada u observada para cambiarla antes de terminar.</span>
               </div>
               <div style={{ overflowX: "visible" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
@@ -1595,7 +1595,7 @@ export default function EstimacionesWidget() {
                               onBlur={(event) => updateReviewRow(lot, houseId, id, { avanceAprobado: event.target.value })}
                               style={{ ...inputBase, minHeight: 36, padding: "7px 8px", textAlign: "center" }}
                             />
-                            <div style={{ fontSize: 10.5, color: "#6B6862", marginTop: 3 }}>Solicitado {row.avanceSolicitado}%</div>
+                            <div style={{ fontSize: 10.5, color: "#6e6e73", marginTop: 3 }}>Solicitado {row.avanceSolicitado}%</div>
                           </td>
                           <td style={approvalTd}>{money(row.importeAprobado || row.importeSolicitado)}</td>
                           <td style={approvalTd}>{row.comentarioSupervision || "—"}{row.constructorResolution ? <div style={{ marginTop: 6, padding: "6px 8px", borderRadius: 10, background: row.constructorResolution === "modificar" ? "#eef2ff" : row.constructorResolution === "eliminar" ? "#fee4e2" : "#e8f7ed", color: row.constructorResolution === "modificar" ? "#3730a3" : row.constructorResolution === "eliminar" ? "#b42318" : "#157347", fontSize: 11, fontWeight: 850 }}>{contractorResolutionLabel(row)}</div> : null}</td>
@@ -1627,12 +1627,12 @@ export default function EstimacionesWidget() {
           {filtered.map((lot) => (
             <div key={lot.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div><strong>{lot.nombre}</strong><div style={{ color: "#6B6862", fontSize: 12 }}>{lot.officialCode || `Estimación ${lot.numero}`} · {lot.periodo} · {Object.keys(lot.houses || {}).length} casa(s)</div></div>
+                <div><strong>{lot.nombre}</strong><div style={{ color: "#6e6e73", fontSize: 12 }}>{lot.officialCode || `Estimación ${lot.numero}`} · {lot.periodo} · {Object.keys(lot.houses || {}).length} casa(s)</div></div>
                 <div style={{ textAlign: "right" }}><span style={statusStyle(lot.status)}>{statusLabel[lot.status]}</span><div style={{ fontWeight: 950, marginTop: 6 }}>{money(lot.totals?.neto)}</div></div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                <button onClick={() => setAdminStatus(lot, "administracion_revision")} style={{ ...buttonBase, background: "#fff", color: "#242322" }}>En revisión administración</button>
-                <button onClick={() => setAdminStatus(lot, "pago_programado")} style={{ ...buttonBase, background: "#fff", color: "#242322" }}>Pago programado</button>
+                <button onClick={() => setAdminStatus(lot, "administracion_revision")} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>En revisión administración</button>
+                <button onClick={() => setAdminStatus(lot, "pago_programado")} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Pago programado</button>
                 <button onClick={() => setAdminStatus(lot, "pagada")} style={{ ...buttonBase, background: "#e8f7ed", color: "#157347" }}>Pagada</button>
                 <button onClick={() => { setSelectedLotId(lot.id); setActiveTab("borradores"); }} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Ver detalle en seguimiento</button>
                 <ExportButtons lot={lot} />
@@ -1653,8 +1653,8 @@ export default function EstimacionesWidget() {
       <style>{`
           @media (max-width: 900px) { .triton-estimaciones-module { left: 0 !important; z-index: 2147483647 !important; } .triton-estimaciones-two-col { grid-template-columns: 1fr !important; } }
           .triton-concept-wrap { position: relative; display: block; min-width: 0; }
-          .triton-concept-preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.28; max-height: 3.85em; font-size: 12.2px; color: #242322; }
-          .triton-concept-tooltip { display: none; position: absolute; left: 0; top: calc(100% + 8px); z-index: 2147483647; width: min(560px, 78vw); padding: 12px 14px; border-radius: 14px; background: #fff; color: #242322; border: 1px solid rgba(60,60,67,0.16); box-shadow: 0 18px 45px rgba(0,0,0,0.18); font-size: 13px; line-height: 1.45; white-space: normal; }
+          .triton-concept-preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.28; max-height: 3.85em; font-size: 12.2px; color: #1d1d1f; }
+          .triton-concept-tooltip { display: none; position: absolute; left: 0; top: calc(100% + 8px); z-index: 2147483647; width: min(560px, 78vw); padding: 12px 14px; border-radius: 14px; background: #fff; color: #1d1d1f; border: 1px solid rgba(60,60,67,0.16); box-shadow: 0 18px 45px rgba(0,0,0,0.18); font-size: 13px; line-height: 1.45; white-space: normal; }
           .triton-concept-wrap:hover .triton-concept-tooltip { display: block; }
         `}</style>
       <div style={{ maxWidth: 1480, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 42px" }}>
@@ -1662,8 +1662,8 @@ export default function EstimacionesWidget() {
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <img src="/triton-logo.png" alt="Triton" style={{ width: 58, height: 58, objectFit: "contain", background: "#111", borderRadius: 18, padding: 6, boxShadow: "0 10px 28px rgba(0,0,0,0.12)" }} />
             <div>
-              <div style={{ fontSize: 34, fontWeight: 950, color: "#242322", letterSpacing: -0.7 }}>Estimaciones</div>
-              <div style={{ color: "#6B6862", fontSize: 16, marginTop: 6 }}>Captura crea borradores. Borradores da seguimiento, une lotes, copia casas y envía a aprobación.</div>
+              <div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Estimaciones</div>
+              <div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Captura crea borradores. Borradores da seguimiento, une lotes, copia casas y envía a aprobación.</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1672,10 +1672,10 @@ export default function EstimacionesWidget() {
               <option value="supervision">Perfil supervisión</option>
               <option value="admin">Perfil administración</option>
             </select>
-            <button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#242322" }}>Volver</button>
+            <button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Volver</button>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>{tabs.map((tab) => <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{ ...buttonBase, background: currentTab === tab ? "#111827" : "#fff", color: currentTab === tab ? "#fff" : "#242322" }}>{tabLabel(tab)}</button>)}</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>{tabs.map((tab) => <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{ ...buttonBase, background: currentTab === tab ? "#111827" : "#fff", color: currentTab === tab ? "#fff" : "#1d1d1f" }}>{tabLabel(tab)}</button>)}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 16 }}>
           <Metric label="Obra" value={selectedObra.name || selectedObraId} helper={loading ? "Cargando..." : `${catalog.length} conceptos`} />
           <Metric label="Contrato base" value={money(contractTotal)} helper="Catálogo × unidades" />

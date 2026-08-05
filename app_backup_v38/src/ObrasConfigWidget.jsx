@@ -4,10 +4,10 @@ import { collection, deleteDoc, doc, getDocs, getFirestore, orderBy, query, serv
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const defaultObraId = "";
-const inputBase = { width: "100%", minHeight: 44, border: "1px solid rgba(60,60,67,0.16)", borderRadius: 14, padding: "10px 12px", background: "#fff", color: "#242322", outline: "none", boxSizing: "border-box" };
+const inputBase = { width: "100%", minHeight: 44, border: "1px solid rgba(60,60,67,0.16)", borderRadius: 14, padding: "10px 12px", background: "#fff", color: "#1d1d1f", outline: "none", boxSizing: "border-box" };
 const buttonBase = { border: "1px solid rgba(60,60,67,0.12)", borderRadius: 999, padding: "10px 14px", fontWeight: 850, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" };
-const th = { padding: "10px", fontSize: 11, fontWeight: 950, color: "#6B6862", textTransform: "uppercase", letterSpacing: 0.35, background: "rgba(242,242,247,0.96)", borderBottom: "1px solid rgba(60,60,67,0.10)" };
-const td = { padding: "10px", borderBottom: "1px solid rgba(60,60,67,0.10)", verticalAlign: "top", fontSize: 13, color: "#242322" };
+const th = { padding: "10px", fontSize: 11, fontWeight: 950, color: "#6e6e73", textTransform: "uppercase", letterSpacing: 0.35, background: "rgba(242,242,247,0.96)", borderBottom: "1px solid rgba(60,60,67,0.10)" };
+const td = { padding: "10px", borderBottom: "1px solid rgba(60,60,67,0.10)", verticalAlign: "top", fontSize: 13, color: "#1d1d1f" };
 
 function getDb() { const app = getApps()[0]; return app ? getFirestore(app) : null; }
 function getStorageClient() { const app = getApps()[0]; return app ? getStorage(app) : null; }
@@ -606,8 +606,8 @@ const documentCategories = ["Planos del proyecto", "Renders", "Detalles de arqui
 const documentScopes = ["Toda la obra", "Modelo específico", "Bloque específico", "Unidades específicas"];
 const defaultDocBatchMeta = { category: "Planos del proyecto", version: "", scope: "Toda la obra", model: "", units: "", status: "vigente", authorizedBy: "", authorizationDate: "", description: "" };
 const blockTypes = ["Bloque de obra", "Residente", "Frente de trabajo", "Etapa", "Torre / edificio", "Modelo", "Otro"];
-const blockColors = ["#F5B21A", "#F5B21A", "#ff9500", "#af52de", "#ff3b30", "#5856d6", "#111827"];
-const defaultBlockForm = { name: "", type: "Bloque de obra", responsible: "", units: "", color: "#F5B21A", notes: "", status: "activo" };
+const blockColors = ["#007aff", "#34c759", "#ff9500", "#af52de", "#ff3b30", "#5856d6", "#111827"];
+const defaultBlockForm = { name: "", type: "Bloque de obra", responsible: "", units: "", color: "#007aff", notes: "", status: "activo" };
 
 const smartDefaultProfile = {
   tipoObra: "Casas",
@@ -702,9 +702,9 @@ function buildSmartElements(profile = smartDefaultProfile) {
   return elements.filter((item, index, arr) => arr.findIndex((other) => other.id === item.id) === index).map((item, index) => ({ ...item, order: index + 1 }));
 }
 function splitUnits(value = "") { return String(value).split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean); }
-function Field({ label, children }) { return <label style={{ display: "block", marginBottom: 12 }}><div style={{ fontSize: 13, fontWeight: 850, color: "#242322", marginBottom: 6 }}>{label}</div>{children}</label>; }
-function Card({ title, subtitle, children }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 28px rgba(0,0,0,0.055)", marginBottom: 16 }}>{title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#242322" }}>{title}</div> : null}{subtitle ? <div style={{ marginTop: 4, color: "#6B6862", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}{children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}</div>; }
-function Metric({ label, value, helper }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 20, padding: 15, background: "#fff" }}><div style={{ color: "#6B6862", fontSize: 12, fontWeight: 800 }}>{label}</div><div style={{ color: "#242322", fontSize: 24, fontWeight: 950, marginTop: 4 }}>{value}</div>{helper ? <div style={{ color: "#6B6862", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}</div>; }
+function Field({ label, children }) { return <label style={{ display: "block", marginBottom: 12 }}><div style={{ fontSize: 13, fontWeight: 850, color: "#1d1d1f", marginBottom: 6 }}>{label}</div>{children}</label>; }
+function Card({ title, subtitle, children }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 22, padding: 16, background: "rgba(255,255,255,0.92)", boxShadow: "0 8px 28px rgba(0,0,0,0.055)", marginBottom: 16 }}>{title ? <div style={{ fontSize: 18, fontWeight: 950, color: "#1d1d1f" }}>{title}</div> : null}{subtitle ? <div style={{ marginTop: 4, color: "#6e6e73", fontSize: 13, lineHeight: 1.45 }}>{subtitle}</div> : null}{children ? <div style={{ marginTop: title || subtitle ? 14 : 0 }}>{children}</div> : null}</div>; }
+function Metric({ label, value, helper }) { return <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 20, padding: 15, background: "#fff" }}><div style={{ color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>{label}</div><div style={{ color: "#1d1d1f", fontSize: 24, fontWeight: 950, marginTop: 4 }}>{value}</div>{helper ? <div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{helper}</div> : null}</div>; }
 
 export default function ObrasConfigWidget() {
   const [open, setOpen] = useState(false);
@@ -981,7 +981,7 @@ export default function ObrasConfigWidget() {
       type: blockForm.type || "Bloque de obra",
       responsible: cleanText(blockForm.responsible || ""),
       units,
-      color: blockForm.color || "#F5B21A",
+      color: blockForm.color || "#007aff",
       notes: cleanText(blockForm.notes || ""),
       status: blockForm.status || "activo",
       unitCount: units.length,
@@ -997,7 +997,7 @@ export default function ObrasConfigWidget() {
       type: block.type || "Bloque de obra",
       responsible: block.responsible || "",
       units: Array.isArray(block.units) ? block.units.join(", ") : "",
-      color: block.color || "#F5B21A",
+      color: block.color || "#007aff",
       notes: block.notes || "",
       status: block.status || "activo",
     });
@@ -1081,7 +1081,7 @@ export default function ObrasConfigWidget() {
       <div onClick={() => setQualityImagePreview(null)} style={{ position: "fixed", inset: 0, zIndex: 2147483647, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: 22 }}>
         <div onClick={(e) => e.stopPropagation()} style={{ width: "min(1100px, 96vw)", maxHeight: "92vh", borderRadius: 24, background: "#fff", overflow: "hidden", boxShadow: "0 24px 80px rgba(0,0,0,0.35)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: "1px solid rgba(60,60,67,0.12)" }}>
-            <div style={{ fontWeight: 950, color: "#242322" }}>{qualityImagePreview.title || "Imagen de referencia"}</div>
+            <div style={{ fontWeight: 950, color: "#1d1d1f" }}>{qualityImagePreview.title || "Imagen de referencia"}</div>
             <button type="button" onClick={() => setQualityImagePreview(null)} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Cerrar</button>
           </div>
           <div style={{ padding: 16, maxHeight: "calc(92vh - 68px)", overflow: "auto", background: "#f5f5f7" }}>
@@ -1091,17 +1091,17 @@ export default function ObrasConfigWidget() {
       </div>
     ) : null}
     <div style={{ maxWidth: 1420, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top, 0px)) 18px 42px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18, flexWrap: "wrap" }}><div><div style={{ fontSize: 34, fontWeight: 950, color: "#242322", letterSpacing: -0.7 }}>Obras</div><div style={{ color: "#6B6862", fontSize: 16, marginTop: 6 }}>Alta de obra, catálogo de conceptos, Fecha Entrega y configuración económica para estimaciones.</div></div><button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#242322" }}>Volver</button></div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 18, flexWrap: "wrap" }}><div><div style={{ fontSize: 34, fontWeight: 950, color: "#1d1d1f", letterSpacing: -0.7 }}>Obras</div><div style={{ color: "#6e6e73", fontSize: 16, marginTop: 6 }}>Alta de obra, catálogo de conceptos, Fecha Entrega y configuración económica para estimaciones.</div></div><button type="button" onClick={() => setOpen(false)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Volver</button></div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
-        <Card title="Obras actuales" subtitle="Selecciona la obra que vas a configurar."><Field label="Obra"><select value={selectedObraId} onChange={(e) => setSelectedObraId(e.target.value)} style={inputBase}>{obras.length ? obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id} · {obra.status || "sin estatus"}</option>) : <option value="">Sin obras cargadas</option>}</select></Field>{selectedObra ? <div style={{ padding: 12, borderRadius: 16, background: "#fff", border: "1px solid rgba(60,60,67,0.12)" }}><div style={{ fontWeight: 950 }}>{selectedObra.name || selectedObra.id}</div><div style={{ color: "#6B6862", fontSize: 13, marginTop: 4 }}>{selectedObra.location || "Sin ubicación"}</div></div> : null}</Card>
+        <Card title="Obras actuales" subtitle="Selecciona la obra que vas a configurar."><Field label="Obra"><select value={selectedObraId} onChange={(e) => setSelectedObraId(e.target.value)} style={inputBase}>{obras.length ? obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id} · {obra.status || "sin estatus"}</option>) : <option value="">Sin obras cargadas</option>}</select></Field>{selectedObra ? <div style={{ padding: 12, borderRadius: 16, background: "#fff", border: "1px solid rgba(60,60,67,0.12)" }}><div style={{ fontWeight: 950 }}>{selectedObra.name || selectedObra.id}</div><div style={{ color: "#6e6e73", fontSize: 13, marginTop: 4 }}>{selectedObra.location || "Sin ubicación"}</div></div> : null}</Card>
         <Card title="Alta rápida de obra" subtitle="Crea una obra base para después cargar catálogo."><Field label="Nombre"><input value={obraForm.name} onChange={(e) => setObraForm((prev) => ({ ...prev, name: e.target.value }))} style={inputBase} /></Field><Field label="Código"><input value={obraForm.code} onChange={(e) => setObraForm((prev) => ({ ...prev, code: e.target.value }))} style={inputBase} /></Field><Field label="Ubicación"><input value={obraForm.location} onChange={(e) => setObraForm((prev) => ({ ...prev, location: e.target.value }))} style={inputBase} /></Field><Field label="Unidades"><input type="number" value={obraForm.totalUnits} onChange={(e) => setObraForm((prev) => ({ ...prev, totalUnits: e.target.value }))} style={inputBase} /></Field><button type="button" onClick={saveObra} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar obra</button></Card>
         <Card title="Configuración económica" subtitle="Estos datos se consumen en Estimaciones de forma informativa y para cálculo de neto."><Field label="Anticipo a amortizar (%)"><input type="number" value={configForm.anticipoPorcentaje} onChange={(e) => setConfigForm((prev) => ({ ...prev, anticipoPorcentaje: e.target.value }))} style={inputBase} /></Field><Field label="Retención (%)"><input type="number" value={configForm.retencionPorcentaje} onChange={(e) => setConfigForm((prev) => ({ ...prev, retencionPorcentaje: e.target.value }))} style={inputBase} /></Field><Field label="Multa diaria"><input type="number" value={configForm.multaDiaria} onChange={(e) => setConfigForm((prev) => ({ ...prev, multaDiaria: e.target.value }))} style={inputBase} /></Field><button type="button" onClick={saveEstimationConfig} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar configuración</button></Card>
       </div>
       <Card title="Catálogo de conceptos" subtitle="Carga el CSV desde alta/configuración de obra. Columnas esperadas: PARTIDA, clave, descripcion, Unidades, unidad, P.U. Opcional: Fecha Entrega.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}><Metric label="Conceptos" value={catalog.length} helper={loading ? "Cargando..." : "cargados"} /><Metric label="Partidas" value={partidasCount} /><Metric label="Total por unidad/casa" value={money(catalogTotal)} /></div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
-          <button type="button" onClick={downloadCatalogTemplate} style={{ ...buttonBase, background: "#fff", color: "#F5B21A" }}>Descargar plantilla CSV</button>
-          <div style={{ color: "#6B6862", fontSize: 13 }}>Usa la plantilla para evitar errores de columnas al subir el catálogo.</div>
+          <button type="button" onClick={downloadCatalogTemplate} style={{ ...buttonBase, background: "#fff", color: "#007aff" }}>Descargar plantilla CSV</button>
+          <div style={{ color: "#6e6e73", fontSize: 13 }}>Usa la plantilla para evitar errores de columnas al subir el catálogo.</div>
         </div>
         <input type="file" accept=".csv,text/csv" disabled={importing} onChange={(e) => importCatalogFile(e.target.files?.[0])} style={inputBase} />
         {importInfo ? <div style={{ marginTop: 10, color: "#157347", fontWeight: 850 }}>Última carga: {importInfo.rows} conceptos · {importInfo.partidas} partidas · {money(importInfo.total)}</div> : null}
@@ -1120,20 +1120,20 @@ export default function ObrasConfigWidget() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
           <button type="button" onClick={saveUnitBlock} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar bloque</button>
-          <button type="button" onClick={() => setBlockForm(defaultBlockForm)} style={{ ...buttonBase, background: "#fff", color: "#242322" }}>Limpiar formulario</button>
-          <div style={{ color: "#6B6862", fontSize: 13 }}>{blockUnitsPreview.length} unidades en el formulario · {assignedUnits.size} unidades asignadas en bloques</div>
+          <button type="button" onClick={() => setBlockForm(defaultBlockForm)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Limpiar formulario</button>
+          <div style={{ color: "#6e6e73", fontSize: 13 }}>{blockUnitsPreview.length} unidades en el formulario · {assignedUnits.size} unidades asignadas en bloques</div>
         </div>
         {unitBlocks.length ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
           {unitBlocks.map((block) => <div key={block.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 14, background: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-              <div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 10, height: 10, borderRadius: 99, background: block.color || "#F5B21A", display: "inline-block" }} /><strong>{block.name}</strong></div><div style={{ color: "#6B6862", fontSize: 12, marginTop: 4 }}>{block.type || "Bloque"} · {block.status || "activo"}</div></div>
-              <button type="button" onClick={() => editUnitBlock(block)} style={{ ...buttonBase, background: "#fff", color: "#F5B21A", padding: "8px 10px" }}>Editar</button>
+              <div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 10, height: 10, borderRadius: 99, background: block.color || "#007aff", display: "inline-block" }} /><strong>{block.name}</strong></div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 4 }}>{block.type || "Bloque"} · {block.status || "activo"}</div></div>
+              <button type="button" onClick={() => editUnitBlock(block)} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Editar</button>
             </div>
-            <div style={{ marginTop: 10, color: "#242322", fontSize: 13 }}><strong>Responsable:</strong> {block.responsible || "Sin responsable"}</div>
-            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>{(Array.isArray(block.units) ? block.units : []).slice(0, 18).map((unit) => <span key={unit} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 999, padding: "4px 8px", fontSize: 12, background: "rgba(242,242,247,0.82)" }}>{unit}</span>)}{Array.isArray(block.units) && block.units.length > 18 ? <span style={{ color: "#6B6862", fontSize: 12 }}>+{block.units.length - 18} más</span> : null}</div>
-            {block.notes ? <div style={{ marginTop: 8, color: "#6B6862", fontSize: 12 }}>{block.notes}</div> : null}
+            <div style={{ marginTop: 10, color: "#1d1d1f", fontSize: 13 }}><strong>Responsable:</strong> {block.responsible || "Sin responsable"}</div>
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>{(Array.isArray(block.units) ? block.units : []).slice(0, 18).map((unit) => <span key={unit} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 999, padding: "4px 8px", fontSize: 12, background: "rgba(242,242,247,0.82)" }}>{unit}</span>)}{Array.isArray(block.units) && block.units.length > 18 ? <span style={{ color: "#6e6e73", fontSize: 12 }}>+{block.units.length - 18} más</span> : null}</div>
+            {block.notes ? <div style={{ marginTop: 8, color: "#6e6e73", fontSize: 12 }}>{block.notes}</div> : null}
           </div>)}
-        </div> : <div style={{ padding: 14, borderRadius: 16, background: "rgba(242,242,247,0.82)", color: "#6B6862", fontSize: 13 }}>Todavía no hay bloques configurados para esta obra.</div>}
+        </div> : <div style={{ padding: 14, borderRadius: 16, background: "rgba(242,242,247,0.82)", color: "#6e6e73", fontSize: 13 }}>Todavía no hay bloques configurados para esta obra.</div>}
       </Card>
       <Card title="Configuración inteligente de obra" subtitle="Define la obra por partes para que el sistema sugiera zonas, elementos y relaciones automáticas con el checklist. Esta matriz se puede revisar antes de usarla para exigir calidad por elemento.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
@@ -1150,7 +1150,7 @@ export default function ObrasConfigWidget() {
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
           <button type="button" onClick={generateSmartSuggestions} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Generar zonas y elementos sugeridos</button>
-          <button type="button" onClick={saveSmartSetup} style={{ ...buttonBase, background: "#fff", color: "#F5B21A" }}>Guardar configuración inteligente</button>
+          <button type="button" onClick={saveSmartSetup} style={{ ...buttonBase, background: "#fff", color: "#007aff" }}>Guardar configuración inteligente</button>
           <button type="button" onClick={createQualityScopesFromElements} style={{ ...buttonBase, background: "#fff", color: "#157347" }}>Generar relación checklist ↔ elementos</button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
@@ -1161,27 +1161,27 @@ export default function ObrasConfigWidget() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 1fr) minmax(240px, 1fr)", gap: 14, alignItems: "start" }}>
           <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#fff" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}><strong>Zonas de la obra</strong><button type="button" onClick={addSmartZone} style={{ ...buttonBase, background: "#fff", color: "#F5B21A", padding: "8px 10px" }}>Agregar zona</button></div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}><strong>Zonas de la obra</strong><button type="button" onClick={addSmartZone} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Agregar zona</button></div>
             <div style={{ display: "grid", gap: 8, maxHeight: 360, overflow: "auto" }}>
               {smartZones.map((zone) => <div key={zone.id} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}><input value={zone.name || ""} onChange={(e) => updateSmartZone(zone.id, { name: e.target.value })} style={{ ...inputBase, minHeight: 38, padding: "8px 10px" }} /><button type="button" onClick={() => deleteSmartZone(zone.id)} style={{ ...buttonBase, color: "#ff3b30", background: "#fff", padding: "8px 10px" }}>Eliminar</button></div>)}
-              {!smartZones.length ? <div style={{ color: "#6B6862", fontSize: 13 }}>Genera o agrega zonas para esta obra.</div> : null}
+              {!smartZones.length ? <div style={{ color: "#6e6e73", fontSize: 13 }}>Genera o agrega zonas para esta obra.</div> : null}
             </div>
           </div>
           <div style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#fff" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}><strong>Elementos de la obra</strong><button type="button" onClick={addSmartElement} style={{ ...buttonBase, background: "#fff", color: "#F5B21A", padding: "8px 10px" }}>Agregar elemento</button></div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}><strong>Elementos de la obra</strong><button type="button" onClick={addSmartElement} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Agregar elemento</button></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 190px", gap: 8, marginBottom: 10 }}><input value={smartSearch} onChange={(e) => setSmartSearch(e.target.value)} placeholder="Buscar elemento" style={{ ...inputBase, minHeight: 38 }} /><select value={smartElementTypeFilter} onChange={(e) => setSmartElementTypeFilter(e.target.value)} style={{ ...inputBase, minHeight: 38 }}><option value="todos">Todos los tipos</option>{smartElementTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
             <div style={{ display: "grid", gap: 10, maxHeight: 420, overflow: "auto" }}>
               {filteredSmartElements.map((element) => <div key={element.id} style={{ border: "1px solid rgba(60,60,67,0.10)", borderRadius: 14, padding: 10, background: "rgba(250,250,252,0.9)" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "170px 1fr", gap: 8 }}><select value={element.tipo || "Otro"} onChange={(e) => updateSmartElement(element.id, { tipo: e.target.value })} style={{ ...inputBase, minHeight: 38 }}>{elementTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}</select><input value={element.name || ""} onChange={(e) => updateSmartElement(element.id, { name: e.target.value })} style={{ ...inputBase, minHeight: 38 }} /></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 8 }}><input value={element.zone || ""} onChange={(e) => updateSmartElement(element.id, { zone: e.target.value })} placeholder="Zona" style={{ ...inputBase, minHeight: 38 }} /><button type="button" onClick={() => deleteSmartElement(element.id)} style={{ ...buttonBase, color: "#ff3b30", background: "#fff", padding: "8px 10px" }}>Eliminar</button></div>
               </div>)}
-              {!filteredSmartElements.length ? <div style={{ color: "#6B6862", fontSize: 13 }}>Sin elementos en el filtro actual.</div> : null}
+              {!filteredSmartElements.length ? <div style={{ color: "#6e6e73", fontSize: 13 }}>Sin elementos en el filtro actual.</div> : null}
             </div>
           </div>
         </div>
         <div style={{ marginTop: 14, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#fff" }}>
           <div style={{ fontWeight: 950, marginBottom: 6 }}>Matriz predefinida de relación automática</div>
-          <div style={{ color: "#6B6862", fontSize: 13, marginBottom: 10 }}>Revísala antes de hacerla obligatoria. Aquí ya incluí mármol/pisos, cancelería, puertas, eléctrico, hidráulico, impermeabilización, piscina y carpintería.</div>
+          <div style={{ color: "#6e6e73", fontSize: 13, marginBottom: 10 }}>Revísala antes de hacerla obligatoria. Aquí ya incluí mármol/pisos, cancelería, puertas, eléctrico, hidráulico, impermeabilización, piscina y carpintería.</div>
           <div style={{ display: "grid", gap: 10 }}>
             {relationRules.map((rule) => <div key={rule.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 10, borderTop: "1px solid rgba(60,60,67,0.08)", paddingTop: 10 }}>
               <div><select value={rule.tipoElemento} onChange={(e) => updateRelationRule(rule.id, { tipoElemento: e.target.value })} style={{ ...inputBase, minHeight: 38 }}>{elementTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
@@ -1197,9 +1197,9 @@ export default function ObrasConfigWidget() {
           <Metric label="Activos" value={qualitySpecs.filter((item) => item.active !== false).length} />
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-          <button type="button" onClick={downloadQualitySpecTemplate} style={{ ...buttonBase, background: "#fff", color: "#F5B21A" }}>Descargar plantilla checklist</button>
+          <button type="button" onClick={downloadQualitySpecTemplate} style={{ ...buttonBase, background: "#fff", color: "#007aff" }}>Descargar plantilla checklist</button>
           <button type="button" onClick={seedManualQualitySpecs} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Cargar base TR-AC-M01 con imágenes</button>
-          <label style={{ ...buttonBase, background: importingQualitySpecs ? "#e5e5ea" : "#fff", color: importingQualitySpecs ? "#8e8e93" : "#F5B21A" }}>
+          <label style={{ ...buttonBase, background: importingQualitySpecs ? "#e5e5ea" : "#fff", color: importingQualitySpecs ? "#8e8e93" : "#007aff" }}>
             {importingQualitySpecs ? "Importando..." : "Subir CSV de calidad"}
             <input type="file" accept=".csv,text/csv" disabled={importingQualitySpecs} onChange={(e) => importQualitySpecFile(e.target.files?.[0])} style={{ display: "none" }} />
           </label>
@@ -1245,18 +1245,18 @@ export default function ObrasConfigWidget() {
           {qualityReferenceImageUrl ? (
             <div style={{ marginTop: 10, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, padding: 12, background: "#f9fafb" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#242322" }}>Imagen de referencia del punto</div>
-                <button type="button" onClick={() => setQualityImagePreview({ url: qualityReferenceImageUrl, title: `${qualitySpecForm.clave || "Punto"} · ${qualitySpecForm.concepto || "Imagen de referencia"}` })} style={{ ...buttonBase, background: "#fff", color: "#F5B21A", padding: "8px 10px" }}>Ver imagen</button>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "#1d1d1f" }}>Imagen de referencia del punto</div>
+                <button type="button" onClick={() => setQualityImagePreview({ url: qualityReferenceImageUrl, title: `${qualitySpecForm.clave || "Punto"} · ${qualitySpecForm.concepto || "Imagen de referencia"}` })} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Ver imagen</button>
               </div>
               <button type="button" onClick={() => setQualityImagePreview({ url: qualityReferenceImageUrl, title: `${qualitySpecForm.clave || "Punto"} · ${qualitySpecForm.concepto || "Imagen de referencia"}` })} style={{ border: 0, background: "transparent", padding: 0, margin: 0, cursor: "zoom-in", textAlign: "left" }} title="Clic para ampliar">
                 <img src={qualityReferenceImageUrl} alt="Imagen de referencia" style={{ width: "100%", maxWidth: 360, maxHeight: 220, objectFit: "contain", display: "block", borderRadius: 14, border: "1px solid rgba(60,60,67,0.12)", background: "#fff" }} />
-                <div style={{ marginTop: 6, fontSize: 11, color: "#6B6862" }}>Clic para ampliar</div>
+                <div style={{ marginTop: 6, fontSize: 11, color: "#6e6e73" }}>Clic para ampliar</div>
               </button>
             </div>
           ) : null}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button type="button" onClick={saveQualitySpec} style={{ ...buttonBase, background: "#111827", color: "#fff" }}>Guardar punto</button>
-            <button type="button" onClick={() => setQualitySpecForm(qualityEmptyForm)} style={{ ...buttonBase, background: "#fff", color: "#242322" }}>Limpiar</button>
+            <button type="button" onClick={() => setQualitySpecForm(qualityEmptyForm)} style={{ ...buttonBase, background: "#fff", color: "#1d1d1f" }}>Limpiar</button>
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 1fr) minmax(220px, 320px)", gap: 10, alignItems: "end", marginBottom: 12 }}>
@@ -1270,19 +1270,19 @@ export default function ObrasConfigWidget() {
             </select>
           </Field>
         </div>
-        <div style={{ marginBottom: 10, color: "#6B6862", fontSize: 12, fontWeight: 800 }}>Mostrando {filteredQualitySpecs.length} de {qualitySpecs.length} puntos configurados.</div>
+        <div style={{ marginBottom: 10, color: "#6e6e73", fontSize: 12, fontWeight: 800 }}>Mostrando {filteredQualitySpecs.length} de {qualitySpecs.length} puntos configurados.</div>
         <div style={{ display: "grid", gap: 10 }}>
           {filteredQualitySpecs.slice(0, 120).map((spec) => <div key={spec.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 16, padding: 12, background: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <div><div style={{ fontWeight: 950 }}>{spec.clave} · {spec.concepto}</div><div style={{ color: "#6B6862", fontSize: 12, marginTop: 3 }}>{spec.partida} · Hito {spec.stagePercent || 100}% · {spec.requiresPhotos === false ? "sin fotos obligatorias" : `${spec.evidenceRequired || 1} foto(s) · ${spec.evidenceLevel === "punto" ? "a nivel punto" : "por alcance/elemento"}`}</div></div>
+              <div><div style={{ fontWeight: 950 }}>{spec.clave} · {spec.concepto}</div><div style={{ color: "#6e6e73", fontSize: 12, marginTop: 3 }}>{spec.partida} · Hito {spec.stagePercent || 100}% · {spec.requiresPhotos === false ? "sin fotos obligatorias" : `${spec.evidenceRequired || 1} foto(s) · ${spec.evidenceLevel === "punto" ? "a nivel punto" : "por alcance/elemento"}`}</div></div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" onClick={() => editQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#F5B21A", padding: "8px 10px" }}>Editar</button>
+                <button type="button" onClick={() => editQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#007aff", padding: "8px 10px" }}>Editar</button>
                 <button type="button" onClick={() => deleteQualitySpec(spec)} style={{ ...buttonBase, background: "#fff", color: "#ff3b30", padding: "8px 10px" }}>Eliminar</button>
               </div>
             </div>
-            {spec.criterioAceptacion ? <div style={{ marginTop: 8, color: "#242322", fontSize: 13 }}><strong>Criterio:</strong> {spec.criterioAceptacion}</div> : null}
+            {spec.criterioAceptacion ? <div style={{ marginTop: 8, color: "#1d1d1f", fontSize: 13 }}><strong>Criterio:</strong> {spec.criterioAceptacion}</div> : null}
           </div>)}
-          {!filteredQualitySpecs.length ? <div style={{ padding: 14, borderRadius: 16, background: "rgba(242,242,247,0.82)", color: "#6B6862", fontSize: 13 }}>Todavía no hay puntos de calidad configurados.</div> : null}
+          {!filteredQualitySpecs.length ? <div style={{ padding: 14, borderRadius: 16, background: "rgba(242,242,247,0.82)", color: "#6e6e73", fontSize: 13 }}>Todavía no hay puntos de calidad configurados.</div> : null}
         </div>
       </Card>
       <Card title="Documentos técnicos por lote" subtitle="Selecciona varios archivos a la vez y luego captura o ajusta sus datos antes de subirlos a la obra.">
@@ -1293,10 +1293,10 @@ export default function ObrasConfigWidget() {
         </div>
         <input type="file" multiple onChange={(e) => handleTechnicalDocBatch(e.target.files)} style={inputBase} />
         {docBatchRows.length ? <div style={{ marginTop: 14, border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, overflow: "hidden", background: "#fff" }}>
-          <div style={{ padding: 12, background: "rgba(242,242,247,0.96)", fontSize: 13, fontWeight: 950, color: "#242322" }}>{docBatchRows.length} archivos listos para clasificar</div>
+          <div style={{ padding: 12, background: "rgba(242,242,247,0.96)", fontSize: 13, fontWeight: 950, color: "#1d1d1f" }}>{docBatchRows.length} archivos listos para clasificar</div>
           <div style={{ display: "grid", gap: 10, padding: 12 }}>
             {docBatchRows.map((row) => <div key={row.id} style={{ border: "1px solid rgba(60,60,67,0.12)", borderRadius: 16, padding: 12, background: "#fff" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}><div><div style={{ fontWeight: 950 }}>{row.file.name}</div><div style={{ color: "#6B6862", fontSize: 12 }}>{Math.round((row.file.size || 0) / 1024)} KB · {row.file.type || "archivo"}</div></div><button type="button" onClick={() => removeDocBatchRow(row.id)} style={{ ...buttonBase, background: "#fff", color: "#ff3b30" }}>Quitar</button></div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}><div><div style={{ fontWeight: 950 }}>{row.file.name}</div><div style={{ color: "#6e6e73", fontSize: 12 }}>{Math.round((row.file.size || 0) / 1024)} KB · {row.file.type || "archivo"}</div></div><button type="button" onClick={() => removeDocBatchRow(row.id)} style={{ ...buttonBase, background: "#fff", color: "#ff3b30" }}>Quitar</button></div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                 <Field label="Nombre"><input value={row.title} onChange={(e) => updateDocBatchRow(row.id, { title: e.target.value })} style={inputBase} /></Field>
                 <Field label="Categoría"><select value={row.category} onChange={(e) => updateDocBatchRow(row.id, { category: e.target.value })} style={inputBase}>{documentCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></Field>
@@ -1310,13 +1310,13 @@ export default function ObrasConfigWidget() {
               <Field label="Descripción / nota"><textarea value={row.description} onChange={(e) => updateDocBatchRow(row.id, { description: e.target.value })} rows={2} style={{ ...inputBase, resize: "vertical" }} /></Field>
             </div>)}
           </div>
-        </div> : <div style={{ marginTop: 10, color: "#6B6862", fontSize: 13 }}>Todavía no hay archivos seleccionados.</div>}
+        </div> : <div style={{ marginTop: 10, color: "#6e6e73", fontSize: 13 }}>Todavía no hay archivos seleccionados.</div>}
         <button type="button" onClick={saveTechnicalDocBatch} disabled={uploadingDocs || !docBatchRows.length} style={{ ...buttonBase, marginTop: 12, background: uploadingDocs || !docBatchRows.length ? "#e5e5ea" : "#111827", color: uploadingDocs || !docBatchRows.length ? "#8e8e93" : "#fff" }}>{uploadingDocs ? "Subiendo lote..." : "Guardar lote de documentos"}</button>
       </Card>
       <Card title="Vista previa del catálogo" subtitle="Aquí puedes definir o ajustar Fecha Entrega por concepto. Después se podrá especializar por casa para multas automáticas.">
         <input value={catalogSearch} onChange={(e) => setCatalogSearch(e.target.value)} placeholder="Buscar por partida, clave, concepto o fecha" style={{ ...inputBase, marginBottom: 12 }} />
         <div style={{ overflowX: "auto", border: "1px solid rgba(60,60,67,0.12)", borderRadius: 18, background: "#fff" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}><thead><tr><th style={th}>Partida</th><th style={th}>Clave</th><th style={th}>Concepto</th><th style={th}>Unidad</th><th style={th}>Unidades</th><th style={th}>P.U.</th><th style={th}>Total</th><th style={th}>Fecha Entrega</th></tr></thead><tbody>{filteredCatalog.slice(0, 250).map((item) => <tr key={item.id}><td style={td}>{item.partida}</td><td style={td}>{item.clave}</td><td style={{ ...td, minWidth: 300 }}>{item.concepto}</td><td style={td}>{item.unidad}</td><td style={td}>{item.cantidad}</td><td style={td}>{money(item.precioUnitario)}</td><td style={td}>{money(item.importe)}</td><td style={td}><input type="date" value={item.fechaEntrega || ""} onChange={(e) => updateConceptFechaEntrega(item, e.target.value)} style={{ ...inputBase, minWidth: 150 }} /></td></tr>)}</tbody></table></div>
-        {filteredCatalog.length > 250 ? <div style={{ marginTop: 10, color: "#6B6862", fontSize: 13 }}>Mostrando 250 de {filteredCatalog.length} conceptos. Usa el buscador para filtrar.</div> : null}
+        {filteredCatalog.length > 250 ? <div style={{ marginTop: 10, color: "#6e6e73", fontSize: 13 }}>Mostrando 250 de {filteredCatalog.length} conceptos. Usa el buscador para filtrar.</div> : null}
       </Card>
     </div>
   </div>;

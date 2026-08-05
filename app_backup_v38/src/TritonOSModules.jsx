@@ -398,17 +398,15 @@ const legacyDemoUserIds = [
 ];
 
 const c = {
-  text: "#242322",
-  muted: "#6B6862",
-  border: "rgba(88,84,76,0.16)",
-  soft: "#F6F3EE",
-  warmSoft: "#F3EEE4",
+  text: "#1d1d1f",
+  muted: "#6e6e73",
+  border: "rgba(60,60,67,0.14)",
+  soft: "#f5f5f7",
   card: "rgba(255,255,255,0.94)",
-  primary: "#F5B21A",
-  primaryDark: "#8A6400",
-  primarySoft: "rgba(245,178,26,0.14)",
-  green: "#F5B21A",
-  greenSoft: "rgba(245,178,26,0.14)",
+  primary: "#007aff",
+  primarySoft: "rgba(0,122,255,0.10)",
+  green: "#34c759",
+  greenSoft: "rgba(52,199,89,0.13)",
   orange: "#ff9500",
   orangeSoft: "rgba(255,149,0,0.14)",
   red: "#ff3b30",
@@ -559,7 +557,7 @@ function Pill({ children, tone = "idle" }) {
     ok: { bg: c.greenSoft, color: "#1f7a35" },
     warn: { bg: c.orangeSoft, color: "#9a5a00" },
     danger: { bg: c.redSoft, color: "#b42318" },
-    primary: { bg: c.primarySoft, color: "#8A6400" },
+    primary: { bg: c.primarySoft, color: "#005ecb" },
     purple: { bg: c.purpleSoft, color: c.purple },
     idle: { bg: c.soft, color: c.text },
   };
@@ -567,8 +565,8 @@ function Pill({ children, tone = "idle" }) {
   return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900, background: style.bg, color: style.color, whiteSpace: "nowrap" }}>{children}</span>;
 }
 
-function Card({ children, style, className }) {
-  return <div className={className} style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 24, padding: 18, boxShadow: "0 10px 30px rgba(0,0,0,0.04)", ...style }}>{children}</div>;
+function Card({ children, style }) {
+  return <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 24, padding: 18, boxShadow: "0 10px 30px rgba(0,0,0,0.04)", ...style }}>{children}</div>;
 }
 
 function Button({ children, onClick, variant = "primary", disabled, style, type = "button" }) {
@@ -1268,15 +1266,15 @@ function roleLabel(role) {
 }
 function toggleChipStyle(active, disabled = false) {
   return {
-    border: `1px solid ${active ? c.primary : c.border}`,
-    background: disabled ? "#f7f7f8" : active ? "linear-gradient(180deg, #FFD46A, #F5B21A)" : "white",
-    color: disabled ? "#b8b8bd" : active ? "#3B2A00" : c.muted,
+    border: `1px solid ${active ? "#8EEA75" : c.border}`,
+    background: disabled ? "#f7f7f8" : active ? "linear-gradient(180deg, #b9ff9c, #8fff72)" : "white",
+    color: disabled ? "#b8b8bd" : active ? "#114f00" : c.muted,
     borderRadius: 999,
     padding: "8px 13px",
     minWidth: 54,
     fontWeight: 950,
     cursor: disabled ? "not-allowed" : "pointer",
-    boxShadow: active && !disabled ? "0 0 0 4px rgba(245,178,26,.22)" : "none",
+    boxShadow: active && !disabled ? "0 0 0 4px rgba(126, 255, 98, .25)" : "none",
   };
 }
 
@@ -1367,55 +1365,47 @@ function UsersAdmin({ data, setData }) {
     resetUserForm();
   }
   const matrix = normalizePermissionMatrix(userForm);
-  const users = data.users || [];
-  return <div className="triton-users-workspace">
+  return <div style={{ display: "grid", gap: 16 }}>
     <Card>
-      <SectionTitle title="Usuarios y permisos" helper="Administra seguridad de TRITON OS por usuario, módulo y acción. Usuarios vive separado de Catálogos para no mezclar permisos con configuración operativa." />
-      {message ? <div style={{ marginBottom: 12, padding: 12, borderRadius: 16, background: message.includes("error") ? c.redSoft : c.greenSoft, color: message.includes("error") ? c.red : c.primaryDark, fontWeight: 850, border: `1px solid ${message.includes("error") ? c.red : c.primary}` }}>{message}</div> : null}
-      <div className="triton-users-top">
-        <Card style={{ boxShadow: "none" }}>
-          <SectionTitle title={editingUserId ? "Editar usuario" : "Agregar usuario"} helper="Al editar, los datos existentes se cargan completos. La contraseña se administra en Firebase Authentication." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
-            <Field label="Nombre"><input style={inputStyle()} value={userForm.name || ""} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nombre completo" /></Field>
-            <Field label="Correo"><input type="email" style={inputStyle()} value={userForm.email || ""} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="correo@tritondesarrollos.com" /></Field>
-            <Field label="Rol base"><select style={inputStyle()} value={userForm.role || "usuario"} onChange={(e) => applyRole(e.target.value)}><option value="master">Master</option><option value="finanzas_pagos">Finanzas / pagos</option><option value="supervisora">Supervisión</option><option value="cobranza">Cobranza</option><option value="gestoria">Gestoría</option><option value="usuario">Usuario consulta</option></select></Field>
-            <Field label="Estatus"><select style={inputStyle()} value={userForm.active === false ? "Inactivo" : "Activo"} onChange={(e) => setUserForm({ ...userForm, active: e.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></Field>
-            <Field label="Alcance de visibilidad"><select style={inputStyle()} value={userForm.accessScope || "total"} onChange={(e) => setUserForm({ ...userForm, accessScope: e.target.value })}><option value="total">Total</option><option value="proyectos_asignados">Proyectos asignados</option><option value="obra_asignada">Obra asignada</option><option value="bloques_asignados">Bloques asignados</option><option value="unidades_asignadas">Unidades asignadas</option></select></Field>
-            <Field label="@ usuario"><input style={inputStyle()} value={userForm.mentionHandle || ""} onChange={(e) => setUserForm({ ...userForm, mentionHandle: e.target.value.replace(/^@/, "") })} placeholder="rodrigo" /></Field>
-            <Field label="Proyectos permitidos"><input style={inputStyle()} value={userForm.allowedProjects || ""} onChange={(e) => setUserForm({ ...userForm, allowedProjects: e.target.value })} placeholder="arenna, residente" /></Field>
-            <Field label="Bloques asignados"><input style={inputStyle()} value={userForm.assignedBlocks || ""} onChange={(e) => setUserForm({ ...userForm, assignedBlocks: e.target.value })} placeholder="A, B, C" /></Field>
-            <Field label="Unidades asignadas"><input style={inputStyle()} value={userForm.assignedUnits || ""} onChange={(e) => setUserForm({ ...userForm, assignedUnits: e.target.value })} placeholder="Casa 1, TH09" /></Field>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-            <Button onClick={saveUserProfile}>{editingUserId ? "Guardar cambios" : "Agregar usuario"}</Button>
-            {editingUserId ? <Button variant="secondary" onClick={resetUserForm}>Cancelar edición</Button> : <Button variant="secondary" onClick={resetUserForm}>Limpiar</Button>}
+      <SectionTitle title="Usuarios y permisos" helper="Configura permisos por módulo y por acción. Esta sección está separada de Catálogos para no mezclar seguridad con configuración operativa." />
+      {message ? <div style={{ marginBottom: 12, padding: 12, borderRadius: 14, background: message.includes("error") ? c.redSoft : c.greenSoft, color: message.includes("error") ? c.red : "#166534", fontWeight: 800 }}>{message}</div> : null}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "grid", gap: 12 }}>
+          <Card style={{ boxShadow: "none" }}>
+            <SectionTitle title={editingUserId ? "Editar usuario" : "Agregar usuario"} helper="La cuenta real y contraseña se administran en Firebase Authentication. Aquí se controla acceso, visibilidad y permisos." />
+            <div style={{ display: "grid", gap: 10 }}>
+              <Field label="Nombre"><input style={inputStyle()} value={userForm.name || ""} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} /></Field>
+              <Field label="Correo"><input type="email" style={inputStyle()} value={userForm.email || ""} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} /></Field>
+              <Field label="Rol base"><select style={inputStyle()} value={userForm.role || "usuario"} onChange={(e) => applyRole(e.target.value)}><option value="master">Master</option><option value="finanzas_pagos">Finanzas / pagos</option><option value="supervisora">Supervisión</option><option value="cobranza">Cobranza</option><option value="gestoria">Gestoría</option><option value="usuario">Usuario consulta</option></select></Field>
+              <Field label="Estatus"><select style={inputStyle()} value={userForm.active === false ? "Inactivo" : "Activo"} onChange={(e) => setUserForm({ ...userForm, active: e.target.value === "Activo" })}><option>Activo</option><option>Inactivo</option></select></Field>
+              <Field label="Alcance de visibilidad"><select style={inputStyle()} value={userForm.accessScope || "total"} onChange={(e) => setUserForm({ ...userForm, accessScope: e.target.value })}><option value="total">Total</option><option value="proyectos_asignados">Proyectos asignados</option><option value="obra_asignada">Obra asignada</option><option value="bloques_asignados">Bloques asignados</option><option value="unidades_asignadas">Unidades asignadas</option></select></Field>
+              <Field label="Proyectos permitidos"><input style={inputStyle()} value={userForm.allowedProjects || ""} onChange={(e) => setUserForm({ ...userForm, allowedProjects: e.target.value })} placeholder="arenna, residente" /></Field>
+              <Field label="Bloques asignados"><input style={inputStyle()} value={userForm.assignedBlocks || ""} onChange={(e) => setUserForm({ ...userForm, assignedBlocks: e.target.value })} placeholder="A, B, C" /></Field>
+              <Field label="Unidades asignadas"><input style={inputStyle()} value={userForm.assignedUnits || ""} onChange={(e) => setUserForm({ ...userForm, assignedUnits: e.target.value })} placeholder="Casa 1, TH09" /></Field>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={saveUserProfile}>{editingUserId ? "Guardar cambios" : "Agregar usuario"}</Button>{editingUserId ? <Button variant="secondary" onClick={resetUserForm}>Cancelar</Button> : null}</div>
+            </div>
+          </Card>
+          <Card style={{ boxShadow: "none" }}>
+            <SectionTitle title="Usuarios actuales" helper="Haz clic en editar para cargar los datos existentes; no se abre en blanco." />
+            <MiniTable columns={[{ key: "name", label: "Usuario", render: (r) => <button type="button" onClick={() => beginEditUser(r)} style={{ border: 0, background: "transparent", padding: 0, color: c.primary, fontWeight: 950, cursor: "pointer", textAlign: "left" }}>{r.name || r.email}</button> }, { key: "role", label: "Rol", render: (r) => roleLabel(r.role) }, { key: "active", label: "Estado", render: (r) => <Pill tone={r.active === false ? "danger" : "ok"}>{r.active === false ? "Inactivo" : "Activo"}</Pill> }, { key: "actions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => beginEditUser(r)}>Editar</Button><Button variant={r.active === false ? "success" : "danger"} style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const active = r.active === false; setData((prev) => ({ ...prev, users: (prev.users || []).map((u) => (u.id || u.email) === (r.id || r.email) ? { ...u, active } : u) })); }}>{r.active === false ? "Activar" : "Desactivar"}</Button></ActionCell> }]} rows={data.users || []} />
+          </Card>
+        </div>
+        <Card style={{ boxShadow: "none", overflow: "hidden" }}>
+          <SectionTitle title="Matriz de permisos" helper="Cada fila es un módulo y cada columna una acción. Las columnas no aplicables se bloquean con — para evitar permisos ambiguos." />
+          <div style={{ overflow: "auto", border: `1px solid ${c.border}`, borderRadius: 20 }}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, minWidth: 1040 }}>
+              <thead><tr style={{ background: "#eeece9" }}><th style={{ textAlign: "left", padding: 14, fontSize: 12, color: c.muted, letterSpacing: .5 }}>MÓDULO</th>{permissionActions.map((action) => <th key={action.key} style={{ textAlign: "center", padding: 12, fontSize: 12, color: c.muted, letterSpacing: .5, minWidth: 86 }}>{action.label.toUpperCase()}</th>)}<th style={{ textAlign: "center", padding: 12, fontSize: 12, color: c.muted }}>TODO</th></tr></thead>
+              <tbody>{permissionModules.map((module) => {
+                const allActive = module.actions.every((action) => matrix[module.id]?.[action]);
+                return <tr key={module.id}><td style={{ padding: "16px 14px", borderTop: `1px solid ${c.border}`, minWidth: 260 }}><div style={{ fontWeight: 950 }}>{module.label}</div><div style={{ color: c.muted, fontSize: 12, marginTop: 4, lineHeight: 1.35 }}>{module.helper}</div></td>{permissionActions.map((action) => {
+                  const allowed = module.actions.includes(action.key);
+                  const active = !!matrix[module.id]?.[action.key];
+                  return <td key={action.key} style={{ textAlign: "center", padding: "13px 8px", borderTop: `1px solid ${c.border}` }}>{allowed ? <button type="button" onClick={() => togglePermission(module.id, action.key)} style={toggleChipStyle(active)}>{active ? "Sí" : "No"}</button> : <span style={{ color: "#c7c7cc", fontWeight: 950 }}>—</span>}</td>;
+                })}<td style={{ textAlign: "center", padding: "13px 8px", borderTop: `1px solid ${c.border}` }}><button type="button" onClick={() => toggleRow(module.id, !allActive)} style={toggleChipStyle(allActive)}>{allActive ? "Sí" : "No"}</button></td></tr>;
+              })}</tbody>
+            </table>
           </div>
         </Card>
-        <Card style={{ boxShadow: "none" }}>
-          <SectionTitle title="Usuarios actuales" helper="Haz clic en el nombre o en Editar para abrirlo en el formulario con toda la información precargada." />
-          <MiniTable columns={[
-            { key: "name", label: "Usuario", render: (r) => <button type="button" onClick={() => beginEditUser(r)} style={{ border: 0, background: "transparent", padding: 0, color: c.primaryDark, fontWeight: 950, cursor: "pointer", textAlign: "left" }}>{r.name || r.email}</button> },
-            { key: "role", label: "Rol", render: (r) => roleLabel(r.role) },
-            { key: "active", label: "Estado", render: (r) => <Pill tone={r.active === false ? "danger" : "ok"}>{r.active === false ? "Inactivo" : "Activo"}</Pill> },
-            { key: "actions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => beginEditUser(r)}>Editar</Button><Button variant={r.active === false ? "success" : "danger"} style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const active = r.active === false; setData((prev) => ({ ...prev, users: (prev.users || []).map((u) => (u.id || u.email) === (r.id || r.email) ? { ...u, active } : u) })); }}>{r.active === false ? "Activar" : "Desactivar"}</Button></ActionCell> }
-          ]} rows={users} />
-        </Card>
-      </div>
-    </Card>
-    <Card className="triton-permission-card" style={{ overflow: "hidden" }}>
-      <SectionTitle title="Matriz de permisos" helper="Cada fila es un módulo y cada columna una acción. Las acciones que no aplican se bloquean con — para evitar permisos ambiguos." />
-      <div className="triton-permission-table-wrap" style={{ border: `1px solid ${c.border}` }}>
-        <table className="triton-permission-table">
-          <thead><tr style={{ background: c.warmSoft }}><th style={{ textAlign: "left", padding: 14, fontSize: 12, color: c.muted, letterSpacing: .5 }}>MÓDULO</th>{permissionActions.map((action) => <th key={action.key} style={{ textAlign: "center", padding: 12, fontSize: 12, color: c.muted, letterSpacing: .5, minWidth: 88 }}>{action.label.toUpperCase()}</th>)}<th style={{ textAlign: "center", padding: 12, fontSize: 12, color: c.muted }}>TODO</th></tr></thead>
-          <tbody>{permissionModules.map((module) => {
-            const allActive = module.actions.every((action) => matrix[module.id]?.[action]);
-            return <tr key={module.id}><td style={{ padding: "16px 14px", borderTop: `1px solid ${c.border}`, minWidth: 280, background: "rgba(255,255,255,.7)" }}><div style={{ fontWeight: 950 }}>{module.label}</div><div style={{ color: c.muted, fontSize: 12, marginTop: 4, lineHeight: 1.35 }}>{module.helper}</div></td>{permissionActions.map((action) => {
-              const allowed = module.actions.includes(action.key);
-              const active = !!matrix[module.id]?.[action.key];
-              return <td key={action.key} style={{ textAlign: "center", padding: "13px 8px", borderTop: `1px solid ${c.border}` }}>{allowed ? <button type="button" onClick={() => togglePermission(module.id, action.key)} style={toggleChipStyle(active)}>{active ? "Sí" : "No"}</button> : <span style={{ color: "#c7c1b3", fontWeight: 950 }}>—</span>}</td>;
-            })}<td style={{ textAlign: "center", padding: "13px 8px", borderTop: `1px solid ${c.border}` }}><button type="button" onClick={() => toggleRow(module.id, !allActive)} style={toggleChipStyle(allActive)}>{allActive ? "Sí" : "No"}</button></td></tr>;
-          })}</tbody>
-        </table>
       </div>
     </Card>
   </div>;
