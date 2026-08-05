@@ -63,9 +63,9 @@ const initialData = {
     { projectId: "arenna", categoryId: "intereses", budget: 4316666 },
   ],
   payables: [
-    { id: "p1", projectId: "arenna", supplierId: "sup-mun", supplier: "MUNICIPIO DE MÉRIDA", concept: "Derecho de factibilidad de uso de suelo", categoryId: "tramites", amount: 519, iva: 0, requestedBy: "Residente", requiredDate: todayIso(), status: "Solicitado", priority: "Alta", documentStatus: "Soporte cargado", notes: "Base importada del control de gastos." },
-    { id: "p2", projectId: "arenna", supplierId: "sup-cons", supplier: "Constructora", concept: "Estimación de obra", categoryId: "construccion", amount: 3400000, iva: 0, requestedBy: "Obra", requiredDate: todayIso(), status: "En revisión", priority: "Alta", documentStatus: "Pendiente factura", notes: "Debe relacionarse con estimaciones." },
-    { id: "p3", projectId: "residente", supplierId: "sup-arq", supplier: "Despacho arquitectónico", concept: "Anteproyecto y coordinación", categoryId: "proyecto", amount: 180000, iva: 28800, requestedBy: "Dirección", requiredDate: todayIso(), status: "Autorizado", priority: "Media", documentStatus: "Factura OK", notes: "Pago programable." },
+    { id: "p1", projectId: "arenna", supplier: "MUNICIPIO DE MÉRIDA", concept: "Derecho de factibilidad de uso de suelo", categoryId: "tramites", amount: 519, iva: 0, requestedBy: "Residente", requiredDate: todayIso(), status: "Solicitado", priority: "Alta", documentStatus: "Soporte cargado", notes: "Base importada del control de gastos." },
+    { id: "p2", projectId: "arenna", supplier: "Constructora", concept: "Estimación de obra", categoryId: "construccion", amount: 3400000, iva: 0, requestedBy: "Obra", requiredDate: todayIso(), status: "En revisión", priority: "Alta", documentStatus: "Pendiente factura", notes: "Debe relacionarse con estimaciones." },
+    { id: "p3", projectId: "residente", supplier: "Despacho arquitectónico", concept: "Anteproyecto y coordinación", categoryId: "proyecto", amount: 180000, iva: 28800, requestedBy: "Dirección", requiredDate: todayIso(), status: "Autorizado", priority: "Media", documentStatus: "Factura OK", notes: "Pago programable." },
   ],
   payments: [
     { id: "pay1", payableId: "p1", projectId: "arenna", amount: 519, bank: "Banorte", date: todayIso(), reference: "SPEI-DEMO", reconciled: true },
@@ -101,49 +101,29 @@ const initialData = {
     { id: "t2", projectId: "arenna", name: "Régimen en condominio", agency: "Notaría / Registro", status: "Preparando documentos", priority: "Alta", owner: "Legal", nextAction: "Integrar planos finales y tabla de indivisos", dueDate: todayIso(), documents: "Proyecto, cédulas, planos" },
     { id: "t3", projectId: "residente", name: "Factibilidad de uso de suelo", agency: "Municipio", status: "No iniciado", priority: "Media", owner: "Dirección", nextAction: "Confirmar alineamiento del predio", dueDate: todayIso(), documents: "Escritura, predial, croquis" },
   ],
-  suppliers: [
-    { id: "sup-arq", tradeName: "Despacho Arquitectónico", legalName: "Despacho Arquitectónico Demo S.A. de C.V.", rfc: "DAD260101XXX", type: "Servicios profesionales", contact: "Coordinación", email: "facturacion@despacho.demo", phone: "", status: "Activo", fiscalStatus: "Validado", bankStatus: "Validado", bank: "BBVA", clabe: "012180000000000000", categoryId: "proyecto", requiresContract: true, documents: ["Constancia fiscal", "Carátula bancaria", "Contrato marco"] },
-    { id: "sup-cons", tradeName: "Constructora Base", legalName: "Constructora Base S.A. de C.V.", rfc: "CBA260101XXX", type: "Constructora", contact: "Residente externo", email: "pagos@constructora.demo", phone: "", status: "Pendiente revisión", fiscalStatus: "Pendiente", bankStatus: "Pendiente", bank: "", clabe: "", categoryId: "construccion", requiresContract: true, documents: ["Contrato pendiente"] },
-    { id: "sup-mun", tradeName: "Municipio de Mérida", legalName: "Municipio de Mérida", rfc: "MMM000000XXX", type: "Dependencia", contact: "Ventanilla", email: "", phone: "", status: "Activo", fiscalStatus: "Validado", bankStatus: "No aplica", bank: "", clabe: "", categoryId: "tramites", requiresContract: false, documents: ["Recibo oficial"] },
-  ],
-  financeContracts: [
-    { id: "fc1", supplierId: "sup-arq", projectId: "residente", name: "Contrato anteproyecto Residente", amount: 580000, startDate: "2026-01-01", endDate: "2026-12-31", status: "Vigente", documents: ["Contrato firmado PDF"] },
-    { id: "fc2", supplierId: "sup-cons", projectId: "arenna", name: "Contrato obra Arenna", amount: 60710338, startDate: "2026-01-01", endDate: "2026-12-31", status: "Pendiente firma", documents: ["Borrador contrato"] },
-  ],
-  paymentDocuments: [
-    { id: "doc1", payableId: "p3", type: "Factura PDF", fileName: "factura-demo.pdf", uploadedBy: "admin@tritondesarrollos.com", status: "Válido", uploadedAt: todayIso() },
-    { id: "doc2", payableId: "p3", type: "XML", fileName: "factura-demo.xml", uploadedBy: "admin@tritondesarrollos.com", status: "Válido", uploadedAt: todayIso() },
-  ],
-  auditTrail: [
-    { id: "audit1", module: "Cuentas por pagar", itemId: "p3", action: "Solicitud autorizada", user: "rodrigo@tritondesarrollos.com", date: todayIso(), comment: "Demo de bitácora ERP." },
-  ],
-  constructionTeam: [
-    { id: "ct1", name: "Constructora Base", contact: "Encargado de obra", email: "constructora@tritondesarrollos.com", role: "constructora", projectId: "arenna", status: "Activo", createdBy: "supervision@tritondesarrollos.com" },
-  ],
   users: [
-    { id: "master-rodrigo", name: "Rodrigo Herrera", role: "master", email: "rodrigo@tritondesarrollos.com", permissions: "Acceso total" },
-    { id: "finanzas-admin", name: "Administración / Finanzas", role: "finanzas_pagos", email: "admin@tritondesarrollos.com", permissions: "Finanzas, proveedores, pagos, caja chica y reportes" },
-    { id: "supervision-calidad", name: "Supervisión Calidad y Obra", role: "supervisora", email: "supervision@tritondesarrollos.com", permissions: "Obra, calidad, estimaciones, trámites y equipo de construcción" },
+    { id: "u1", name: "Rodrigo Herrera", role: "Dirección", email: "rodri@triton.local" },
+    { id: "u2", name: "Administración Triton", role: "Administración", email: "admin@triton.local" },
+    { id: "u3", name: "Residente Juan", role: "Residente", email: "residente@triton.local" },
+    { id: "u4", name: "Supervisión", role: "Supervisión", email: "supervision@triton.local" },
   ],
 };
 
 const moduleMeta = {
   dashboard: { title: "Dashboard", subtitle: "Vista directiva de toda la operación", icon: "▦" },
   proyectos: { title: "Proyectos", subtitle: "Base para cruzar obra, pagos, rentas y trámites", icon: "⌂" },
-  finanzas: { title: "Finanzas", subtitle: "Resumen ERP: presupuesto, proveedores, pagos y conciliación", icon: "$" },
-  proveedores: { title: "Proveedores", subtitle: "Alta, documentos, validación fiscal y cuentas bancarias", icon: "◧" },
-  cxp: { title: "Cuentas por pagar", subtitle: "Solicitud → revisión → autorización → pago → conciliación", icon: "↗" },
+  finanzas: { title: "Finanzas", subtitle: "Presupuesto, egresos, ingresos y estado de resultados", icon: "$" },
+  cxp: { title: "Cuentas por pagar", subtitle: "Solicitud → autorización → pago → conciliación", icon: "↗" },
   caja_chica: { title: "Caja chica", subtitle: "Fondos, comprobantes, liquidación y reposición", icon: "▣" },
   cobranza: { title: "Cobranza / rentas", subtitle: "Contratos, INPC, rentas mensuales, facturación y conciliación", icon: "↙" },
   tramites: { title: "Trámites", subtitle: "Permisos, dependencias, responsables y siguientes acciones", icon: "◷" },
-  equipo_obra: { title: "Equipo de construcción", subtitle: "Alta y baja de usuarios de constructoras por obra", icon: "👷" },
   reportes_os: { title: "Reportes", subtitle: "Indicadores consolidados por proyecto", icon: "▤" },
   config_os: { title: "Configuración", subtitle: "Catálogos, roles y reglas de operación", icon: "⚙" },
 };
 
 function readData() {
   try {
-    const raw = localStorage.getItem("triton_os_v28");
+    const raw = localStorage.getItem("triton_os_v27");
     if (!raw) return initialData;
     const parsed = JSON.parse(raw);
     return { ...initialData, ...parsed };
@@ -197,7 +177,7 @@ export default function TritonOSModules() {
   const [showForm, setShowForm] = useState(null);
   const [form, setForm] = useState({});
 
-  useEffect(() => { localStorage.setItem("triton_os_v28", JSON.stringify(data)); }, [data]);
+  useEffect(() => { localStorage.setItem("triton_os_v27", JSON.stringify(data)); }, [data]);
   useEffect(() => {
     const openHandler = (event) => { setActive(event.detail?.module || "dashboard"); setOpen(true); };
     const closeHandler = () => setOpen(false);
@@ -236,7 +216,7 @@ export default function TritonOSModules() {
     setData((prev) => ({ ...prev, [collectionName]: prev[collectionName].map((item) => item.id === id ? { ...item, ...patch } : item) }));
   }
   function resetDemo() {
-    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v28"); setData(initialData); }
+    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v27"); setData(initialData); }
   }
 
   if (!open) return null;
@@ -257,13 +237,11 @@ export default function TritonOSModules() {
       <main style={{ overflow: "auto", padding: 22 }}>
         {active === "dashboard" && <Dashboard totals={totals} data={data} projectMap={projectMap} setActive={setActive} />}
         {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "finanzas" && <Finance data={data} projectMap={projectMap} categoryMap={categoryMap} projectFilter={projectFilter} setActive={setActive} />}
-        {active === "proveedores" && <Suppliers data={data} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
+        {active === "finanzas" && <Finance data={data} projectMap={projectMap} categoryMap={categoryMap} projectFilter={projectFilter} />}
         {active === "cxp" && <Payables data={data} projectMap={projectMap} categoryMap={categoryMap} rows={filteredPayables} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "caja_chica" && <PettyCash data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "cobranza" && <Rentals data={data} projectMap={projectMap} tenantMap={tenantMap} assetMap={assetMap} contractMap={contractMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "tramites" && <Permits data={data} projectMap={projectMap} rows={filteredPermits} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "equipo_obra" && <ConstructionTeam data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "reportes_os" && <Reports totals={totals} data={data} projectMap={projectMap} categoryMap={categoryMap} />}
         {active === "config_os" && <Config data={data} setData={setData} resetDemo={resetDemo} />}
       </main>
@@ -298,7 +276,7 @@ function Projects({ data, addRecord, showForm, setShowForm, form, setForm }) {
   return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><SectionTitle title="Proyectos" helper="Cada módulo debe cruzarse por proyecto para tener estado de resultados, trámites, pagos y cobranza." /><Button onClick={() => setShowForm(showForm === "project" ? null : "project")}>Nuevo proyecto</Button></div>{showForm === "project" ? <SimpleForm fields={["name", "type", "status", "budget", "incomeTarget"]} labels={{ name: "Nombre", type: "Tipo", status: "Estatus", budget: "Presupuesto", incomeTarget: "Ingresos proyectados" }} form={form} setForm={setForm} onSubmit={() => addRecord("projects", { ...form, budget: Number(form.budget || 0), incomeTarget: Number(form.incomeTarget || 0), owner: "TRITON" })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo" }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "incomeTarget", label: "Ingresos proyectados", render: (r) => money(r.incomeTarget) }]} rows={data.projects} /></Card></div>;
 }
 
-function Finance({ data, projectMap, categoryMap, projectFilter, setActive }) {
+function Finance({ data, projectMap, categoryMap, projectFilter }) {
   const projectIds = projectFilter === "todos" ? data.projects.map((p) => p.id) : [projectFilter];
   const rows = [];
   for (const projectId of projectIds) {
@@ -312,111 +290,17 @@ function Finance({ data, projectMap, categoryMap, projectFilter, setActive }) {
     }
   }
   const totalBudget = rows.reduce((a, r) => a + r.budget, 0), totalCommitted = rows.reduce((a, r) => a + r.committed, 0);
-  const activeSuppliers = data.suppliers.filter((s) => s.status === "Activo").length;
-  const pendingSuppliers = data.suppliers.filter((s) => s.status !== "Activo").length;
-  const pendingDocs = data.payables.filter((p) => String(p.documentStatus || "").toLowerCase().includes("pendiente")).length;
-  return <div style={{ display: "grid", gap: 16 }}>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 14 }}>
-      <Card><Pill tone="primary">Presupuesto</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalBudget)}</div></Card>
-      <Card><Pill tone="warn">Comprometido</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalCommitted)}</div></Card>
-      <Card><Pill tone={totalBudget - totalCommitted >= 0 ? "ok" : "danger"}>Saldo</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalBudget - totalCommitted)}</div></Card>
-      <Card><Pill tone={pendingDocs ? "danger" : "ok"}>Soporte pendiente</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{pendingDocs}</div></Card>
-    </div>
-    <Card><SectionTitle title="Flujo financiero ERP" helper="Operación simplificada: proveedor validado → solicitud con anexos → autorización → pago → conciliación." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-        <button onClick={() => setActive("proveedores")} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>Proveedores</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{activeSuppliers} activos · {pendingSuppliers} pendientes</div></button>
-        <button onClick={() => setActive("cxp")} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>Cuentas por pagar</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{data.payables.length} solicitudes</div></button>
-        <button onClick={() => setActive("caja_chica")} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>Caja chica</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{data.pettyCash.filter((x) => x.status !== "Cerrada").length} abiertas</div></button>
-      </div>
-    </Card>
-    <Card><SectionTitle title="Presupuesto vs real" helper="Base para estado de resultados al día por proyecto. Las categorías salen de tus hojas de gastos y presupuestos." /><MiniTable columns={[{ key: "project", label: "Proyecto" }, { key: "category", label: "Categoría" }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "committed", label: "Solicitado / comprometido", render: (r) => money(r.committed) }, { key: "variance", label: "Saldo", render: (r) => <Pill tone={r.variance >= 0 ? "ok" : "danger"}>{money(r.variance)}</Pill> }]} rows={rows} /></Card>
-  </div>;
+  return <div style={{ display: "grid", gap: 16 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 14 }}><Card><Pill tone="primary">Presupuesto</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalBudget)}</div></Card><Card><Pill tone="warn">Comprometido</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalCommitted)}</div></Card><Card><Pill tone={totalBudget - totalCommitted >= 0 ? "ok" : "danger"}>Saldo</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalBudget - totalCommitted)}</div></Card></div><Card><SectionTitle title="Presupuesto vs real" helper="Base para estado de resultados al día por proyecto. Las categorías salen de tus hojas de gastos y presupuestos." /><MiniTable columns={[{ key: "project", label: "Proyecto" }, { key: "category", label: "Categoría" }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "committed", label: "Solicitado / comprometido", render: (r) => money(r.committed) }, { key: "variance", label: "Saldo", render: (r) => <Pill tone={r.variance >= 0 ? "ok" : "danger"}>{money(r.variance)}</Pill> }]} rows={rows} /></Card></div>;
 }
 
 function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
   const statuses = ["Solicitado", "En revisión", "Observado", "Autorizado", "Programado", "Pagado", "Conciliado", "Rechazado", "Cancelado"];
   const next = { "Solicitado": "En revisión", "En revisión": "Autorizado", "Observado": "En revisión", "Autorizado": "Programado", "Programado": "Pagado", "Pagado": "Conciliado" };
-  const docTypes = ["Factura PDF", "XML", "Contrato", "Orden de compra", "Estimación autorizada", "Cotización", "Carátula bancaria", "Comprobante", "Otro"];
-  function addPayable() {
-    const supplier = data.suppliers.find((s) => s.id === (form.supplierId || data.suppliers[0]?.id));
-    const anexos = String(form.attachments || "").split(",").map((x) => x.trim()).filter(Boolean);
-    addRecord("payables", { projectId: form.projectId || "arenna", supplierId: supplier?.id || "", supplier: supplier?.tradeName || form.supplier || "Proveedor", concept: form.concept || "Solicitud de pago", categoryId: form.categoryId || supplier?.categoryId || "construccion", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), requestedBy: "Usuario", requiredDate: form.requiredDate || todayIso(), status: "Solicitado", priority: form.priority || "Media", documentStatus: anexos.length ? "Soporte cargado" : "Pendiente soporte", notes: form.notes || "", attachments: anexos.map((name, index) => ({ id: `att_${Date.now()}_${index}`, type: form.docType || "Factura PDF", fileName: name, status: "Por revisar" })) });
-  }
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Solicitudes de pago" helper="ERP simplificado: proveedor validado, documentos/anexos, revisión administrativa, autorización, programación, pago y conciliación." /><Button onClick={() => setShowForm(showForm === "payable" ? null : "payable")}>Nueva solicitud</Button></div>
-      {showForm === "payable" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-          <Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Proveedor"><select style={inputStyle()} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(e) => { const supplier = data.suppliers.find((s) => s.id === e.target.value); setForm({ ...form, supplierId: e.target.value, categoryId: supplier?.categoryId || form.categoryId }); }}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName} · {s.status}</option>)}</select></Field>
-          <Field label="Categoría / partida"><select style={inputStyle()} value={form.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Monto antes de IVA"><input style={inputStyle()} type="number" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
-          <Field label="IVA"><input style={inputStyle()} type="number" value={form.iva || ""} onChange={(e) => setForm({ ...form, iva: e.target.value })} /></Field>
-          <Field label="Retención"><input style={inputStyle()} type="number" value={form.retention || ""} onChange={(e) => setForm({ ...form, retention: e.target.value })} /></Field>
-          <Field label="Fecha requerida"><input style={inputStyle()} type="date" value={form.requiredDate || todayIso()} onChange={(e) => setForm({ ...form, requiredDate: e.target.value })} /></Field>
-          <Field label="Prioridad"><select style={inputStyle()} value={form.priority || "Media"} onChange={(e) => setForm({ ...form, priority: e.target.value })}><option>Alta</option><option>Media</option><option>Baja</option></select></Field>
-        </div>
-        <Field label="Concepto / descripción"><textarea style={inputStyle({ minHeight: 70 })} value={form.concept || ""} onChange={(e) => setForm({ ...form, concept: e.target.value })} /></Field>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(180px,240px) 1fr", gap: 10 }}>
-          <Field label="Tipo de anexo"><select style={inputStyle()} value={form.docType || "Factura PDF"} onChange={(e) => setForm({ ...form, docType: e.target.value })}>{docTypes.map((d) => <option key={d}>{d}</option>)}</select></Field>
-          <Field label="Anexos / facturas / contratos"><input style={inputStyle()} placeholder="factura.pdf, factura.xml, contrato.pdf" value={form.attachments || ""} onChange={(e) => setForm({ ...form, attachments: e.target.value })} /></Field>
-        </div>
-        <Field label="Notas para revisión"><textarea style={inputStyle({ minHeight: 60 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-        <Button style={{ marginTop: 4 }} onClick={addPayable}>Guardar solicitud</Button>
-      </div> : null}
-    </Card>
-    <Card><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplier", label: "Proveedor", render: (r) => supplierDisplayName(r, data) }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", render: (r) => money(Number(r.amount || 0) + Number(r.iva || 0) - Number(r.retention || 0)) }, { key: "documentStatus", label: "Soporte", render: (r) => <Pill tone={String(r.documentStatus || "").includes("Pendiente") ? "danger" : "ok"}>{r.documentStatus || "Pendiente"}</Pill> }, { key: "status", label: "Estado", render: (r) => <select value={r.status} onChange={(e) => updateRecord("payables", r.id, { status: e.target.value })} style={inputStyle({ padding: 8, minWidth: 145 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "attachments", label: "Anexos", render: (r) => (r.attachments || []).map((a) => a.fileName).join(", ") || "Sin anexos" }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{next[r.status] ? <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: next[r.status] })}>Avanzar</Button> : null}<Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Observado" })}>Observar</Button></div> }]} rows={rows} /></Card>
-    <Card><SectionTitle title="Bitácora de auditoría" helper="Cada paso debe guardar quién hizo qué, cuándo y con qué soporte. En Firebase se debe volver no editable." /><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "itemId", label: "Registro" }, { key: "action", label: "Acción" }, { key: "user", label: "Usuario" }, { key: "date", label: "Fecha" }, { key: "comment", label: "Comentario" }]} rows={data.auditTrail} /></Card>
-  </div>;
+  return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Solicitudes de pago" helper="Control completo: solicitud, revisión administrativa, autorización, programación, pago y conciliación." /><Button onClick={() => setShowForm(showForm === "payable" ? null : "payable")}>Nueva solicitud</Button></div>{showForm === "payable" ? <div style={{ marginTop: 12 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="Proveedor"><input style={inputStyle()} value={form.supplier || ""} onChange={(e) => setForm({ ...form, supplier: e.target.value })} /></Field><Field label="Categoría"><select style={inputStyle()} value={form.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="Monto"><input style={inputStyle()} type="number" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field><Field label="IVA"><input style={inputStyle()} type="number" value={form.iva || ""} onChange={(e) => setForm({ ...form, iva: e.target.value })} /></Field><Field label="Fecha requerida"><input style={inputStyle()} type="date" value={form.requiredDate || todayIso()} onChange={(e) => setForm({ ...form, requiredDate: e.target.value })} /></Field></div><Field label="Concepto"><textarea style={inputStyle({ minHeight: 70 })} value={form.concept || ""} onChange={(e) => setForm({ ...form, concept: e.target.value })} /></Field><Button style={{ marginTop: 10 }} onClick={() => addRecord("payables", { projectId: form.projectId || "arenna", supplier: form.supplier || "Proveedor", concept: form.concept || "Solicitud de pago", categoryId: form.categoryId || "construccion", amount: Number(form.amount || 0), iva: Number(form.iva || 0), requestedBy: "Usuario", requiredDate: form.requiredDate || todayIso(), status: "Solicitado", priority: "Media", documentStatus: "Pendiente soporte", notes: "" })}>Guardar solicitud</Button></div> : null}</Card><Card><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplier", label: "Proveedor" }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", render: (r) => money(Number(r.amount || 0) + Number(r.iva || 0)) }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Pagado" || r.status === "Conciliado" ? "ok" : r.status === "Observado" ? "danger" : "warn"}>{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{next[r.status] ? <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: next[r.status] })}>{next[r.status]}</Button> : null}<Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Observado" })}>Observar</Button></div> }]} rows={rows} /></Card></div>;
 }
 
 function PettyCash({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
   return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Caja chica" helper="Fondos por responsable. Cada gasto exige comprobante o motivo de excepción y se liquida antes de abrir otra caja." /><Button onClick={() => setShowForm(showForm === "cash" ? null : "cash")}>Crear caja</Button></div>{showForm === "cash" ? <SimpleForm fields={["name", "responsible", "amount"]} labels={{ name: "Nombre de caja", responsible: "Responsable", amount: "Monto asignado" }} form={form} setForm={setForm} onSubmit={() => addRecord("pettyCash", { projectId: "arenna", name: form.name || "Caja chica", responsible: form.responsible || "Responsable", amount: Number(form.amount || 0), status: "Abierta", openedAt: todayIso() })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Caja" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "responsible", label: "Responsable" }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Cerrada" ? "ok" : "primary"}>{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6 }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyCash", r.id, { status: "En revisión" })}>Liquidar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyCash", r.id, { status: "Cerrada" })}>Cerrar</Button></div> }]} rows={data.pettyCash} /></Card><Card><SectionTitle title="Comprobantes de caja" /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "status", label: "Estado", render: (r) => <Pill tone="warn">{r.status}</Pill> }, { key: "hasReceipt", label: "Comprobante", render: (r) => r.hasReceipt ? "Sí" : "No" }]} rows={data.pettyExpenses} /></Card></div>;
-}
-
-
-function supplierDisplayName(row, data) {
-  const supplier = data.suppliers.find((s) => s.id === row.supplierId);
-  return supplier?.tradeName || row.supplier || "Proveedor";
-}
-
-function Suppliers({ data, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  const statuses = ["Pendiente revisión", "Activo", "Bloqueado", "Inactivo"];
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Alta de proveedores" helper="Catálogo controlado: fiscal, bancario, documentos y estatus. No debe pagarse a proveedores bloqueados o sin validación." /><Button onClick={() => setShowForm(showForm === "supplier" ? null : "supplier")}>Nuevo proveedor</Button></div>
-      {showForm === "supplier" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-          <Field label="Nombre comercial"><input style={inputStyle()} value={form.tradeName || ""} onChange={(e) => setForm({ ...form, tradeName: e.target.value })} /></Field>
-          <Field label="Razón social"><input style={inputStyle()} value={form.legalName || ""} onChange={(e) => setForm({ ...form, legalName: e.target.value })} /></Field>
-          <Field label="RFC"><input style={inputStyle()} value={form.rfc || ""} onChange={(e) => setForm({ ...form, rfc: e.target.value })} /></Field>
-          <Field label="Tipo"><input style={inputStyle()} value={form.type || ""} onChange={(e) => setForm({ ...form, type: e.target.value })} /></Field>
-          <Field label="Correo"><input style={inputStyle()} value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-          <Field label="Categoría"><select style={inputStyle()} value={form.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field>
-          <Field label="Banco"><input style={inputStyle()} value={form.bank || ""} onChange={(e) => setForm({ ...form, bank: e.target.value })} /></Field>
-          <Field label="CLABE"><input style={inputStyle()} value={form.clabe || ""} onChange={(e) => setForm({ ...form, clabe: e.target.value })} /></Field>
-        </div>
-        <Field label="Documentos cargados"><textarea style={inputStyle({ minHeight: 68 })} placeholder="Constancia fiscal, carátula bancaria, contrato..." value={form.documents || ""} onChange={(e) => setForm({ ...form, documents: e.target.value })} /></Field>
-        <Button onClick={() => addRecord("suppliers", { tradeName: form.tradeName || "Proveedor", legalName: form.legalName || form.tradeName || "Razón social", rfc: form.rfc || "", type: form.type || "Proveedor", contact: form.contact || "", email: form.email || "", phone: "", status: "Pendiente revisión", fiscalStatus: "Pendiente", bankStatus: "Pendiente", bank: form.bank || "", clabe: form.clabe || "", categoryId: form.categoryId || "construccion", requiresContract: false, documents: String(form.documents || "").split(",").map((x) => x.trim()).filter(Boolean) })}>Guardar proveedor</Button>
-      </div> : null}
-    </Card>
-    <Card><MiniTable columns={[{ key: "tradeName", label: "Proveedor" }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal" }, { key: "bankStatus", label: "Banco" }, { key: "documents", label: "Anexos", render: (r) => (r.documents || []).join(", ") || "Pendiente" }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }]} rows={data.suppliers} /></Card>
-  </div>;
-}
-
-function ConstructionTeam({ data, projectMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Alta de equipo de construcción" helper="Este módulo vive dentro de Operación/Calidad. Sirve para dar acceso operativo a constructoras sin mezclarlas con usuarios del sistema completo." /><Button onClick={() => setShowForm(showForm === "constructionTeam" ? null : "constructionTeam")}>Agregar constructora</Button></div>
-      {showForm === "constructionTeam" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-          <Field label="Obra / proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Empresa"><input style={inputStyle()} value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="Contacto"><input style={inputStyle()} value={form.contact || ""} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></Field>
-          <Field label="Correo"><input style={inputStyle()} value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-        </div>
-        <Button onClick={() => addRecord("constructionTeam", { projectId: form.projectId || "arenna", name: form.name || "Constructora", contact: form.contact || "", email: form.email || "", role: "constructora", status: "Activo", createdBy: "supervision@tritondesarrollos.com" })}>Guardar acceso operativo</Button>
-      </div> : null}
-    </Card>
-    <Card><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "name", label: "Empresa" }, { key: "contact", label: "Contacto" }, { key: "email", label: "Correo" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={r.status === "Activo" ? "ok" : "danger"}>{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <Button variant={r.status === "Activo" ? "danger" : "secondary"} style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("constructionTeam", r.id, { status: r.status === "Activo" ? "Baja" : "Activo" })}>{r.status === "Activo" ? "Dar baja" : "Reactivar"}</Button> }]} rows={data.constructionTeam} /></Card>
-  </div>;
 }
 
 function tenantName(charge, data) { const contract = data.contracts.find((c) => c.id === charge.contractId); return data.tenants.find((t) => t.id === contract?.tenantId)?.name || "Arrendatario"; }
@@ -434,7 +318,7 @@ function Reports({ totals, data, projectMap, categoryMap }) {
 }
 
 function Config({ data, setData, resetDemo }) {
-  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Catálogos base" helper="Se cargaron categorías derivadas de tus hojas de gastos/presupuestos y tipos de rentas: locales, terrenos, casas, departamentos y oficinas." /><MiniTable columns={[{ key: "name", label: "Categoría" }, { key: "group", label: "Grupo" }, { key: "budgetable", label: "Presupuestable", render: (r) => r.budgetable ? "Sí" : "No" }]} rows={data.categories} /></Card><Card><SectionTitle title="Usuarios base del sistema" helper="Usuarios de lanzamiento. Constructoras se gestionan en Operación → Equipo construcción, no en configuración general." /><MiniTable columns={[{ key: "name", label: "Nombre" }, { key: "role", label: "Rol" }, { key: "email", label: "Correo" }, { key: "permissions", label: "Permisos" }]} rows={data.users} /></Card><Card><SectionTitle title="Mantenimiento" /><Button variant="danger" onClick={resetDemo}>Restablecer datos demo</Button></Card></div>;
+  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Catálogos base" helper="Se cargaron categorías derivadas de tus hojas de gastos/presupuestos y tipos de rentas: locales, terrenos, casas, departamentos y oficinas." /><MiniTable columns={[{ key: "name", label: "Categoría" }, { key: "group", label: "Grupo" }, { key: "budgetable", label: "Presupuestable", render: (r) => r.budgetable ? "Sí" : "No" }]} rows={data.categories} /></Card><Card><SectionTitle title="Usuarios y roles ejemplo" helper="Después esto se debe conectar con Firebase Auth y permisos reales por módulo." /><MiniTable columns={[{ key: "name", label: "Nombre" }, { key: "role", label: "Rol" }, { key: "email", label: "Correo" }]} rows={data.users} /></Card><Card><SectionTitle title="Mantenimiento" /><Button variant="danger" onClick={resetDemo}>Restablecer datos demo</Button></Card></div>;
 }
 
 function SimpleForm({ fields, labels, form, setForm, onSubmit }) {

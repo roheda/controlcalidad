@@ -33,17 +33,12 @@ const storage = getStorage(app);
 
 const defaultObraId = "";
 
-const baseSystemUsers = [
-  { id: "master-rodrigo", uid: "master-rodrigo", name: "Rodrigo Herrera", role: "master", email: "rodrigo@tritondesarrollos.com", mentionHandle: "rodrigo", isSystem: true },
-  { id: "finanzas-admin", uid: "finanzas-admin", name: "Administración / Finanzas", role: "finanzas_pagos", email: "admin@tritondesarrollos.com", mentionHandle: "admin", isSystem: true },
-  { id: "supervision-calidad", uid: "supervision-calidad", name: "Supervisión Calidad y Obra", role: "supervisora", email: "supervision@tritondesarrollos.com", mentionHandle: "supervision", isSystem: true },
+const sampleMentionUsers = [
+  { id: "demo-constructora", uid: "demo-constructora", name: "Constructora ABC", role: "constructora", email: "constructora@triton.local", mentionHandle: "constructoraabc", isSample: true },
+  { id: "demo-residente", uid: "demo-residente", name: "Juan Residente", role: "residente", email: "residente@triton.local", mentionHandle: "juanresidente", isSample: true },
+  { id: "demo-supervision", uid: "demo-supervision", name: "María Supervisión", role: "supervisora", email: "supervision@triton.local", mentionHandle: "mariasupervision", isSample: true },
+  { id: "demo-admin", uid: "demo-admin", name: "Administración Triton", role: "admin", email: "admin@triton.local", mentionHandle: "admintriton", isSample: true },
 ];
-
-const systemProfileByEmail = {
-  "rodrigo@tritondesarrollos.com": { name: "Rodrigo Herrera", role: "master", permissions: "all" },
-  "admin@tritondesarrollos.com": { name: "Administración / Finanzas", role: "finanzas_pagos", permissions: "finanzas_pagos" },
-  "supervision@tritondesarrollos.com": { name: "Supervisión Calidad y Obra", role: "supervisora", permissions: "obra_calidad" },
-};
 
 
 const partidaTemplates = [
@@ -518,7 +513,7 @@ function extractMentionsFromText(text = "", users = []) {
 function mergeMentionUsers(realUsers = [], currentUser = null) {
   const combined = [...(realUsers || [])];
   if (currentUser?.uid || currentUser?.email) combined.unshift(currentUser);
-  baseSystemUsers.forEach((sample) => {
+  sampleMentionUsers.forEach((sample) => {
     const sampleHandle = userMentionHandle(sample);
     const exists = combined.some((user) => userMentionHandle(user) === sampleHandle || (user.email && sample.email && user.email === sample.email));
     if (!exists) combined.push(sample);
@@ -816,8 +811,8 @@ function LoginScreen() {
       }}
     >
       <div style={{ ...cardStyle(), width: "100%", maxWidth: 410, padding: 30 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, color: c.text, marginBottom: 8 }}>TRITON OS</div>
-        <div style={{ color: c.muted, marginBottom: 22 }}>Acceso operativo, calidad, finanzas y supervisión</div>
+        <div style={{ fontSize: 32, fontWeight: 800, color: c.text, marginBottom: 8 }}>Control de obra</div>
+        <div style={{ color: c.muted, marginBottom: 22 }}>Acceso para supervisora y constructora</div>
 
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: 14 }}>
@@ -952,8 +947,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
       if (snap.exists()) {
         setProfile(snap.data());
       } else {
-        const emailKey = String(user.email || "").toLowerCase();
-        setProfile(systemProfileByEmail[emailKey] || { role: "constructora", name: user.email });
+        setProfile({ role: "constructora", name: user.email });
       }
       setLoadingAuth(false);
     });
@@ -1110,7 +1104,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   const selectedPartida =
     selectedHouse?.partidas?.find((p) => p.id === selectedPartidaId) || selectedHouse?.partidas?.[0] || null;
 
-  const isSupervisora = ["supervisora", "master"].includes(profile?.role);
+  const isSupervisora = profile?.role === "supervisora";
   const isConstructora = profile?.role === "constructora";
   const currentUserMentionHandle = userMentionHandle({ id: authUser?.uid, uid: authUser?.uid, name: profile?.name, email: authUser?.email });
   const allMentionUsers = useMemo(
