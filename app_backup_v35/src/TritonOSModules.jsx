@@ -128,29 +128,6 @@ function EntityLink({ children, onClick, title }) {
   return <button type="button" title={title || "Ver detalle"} onClick={onClick} style={{ border: 0, background: "transparent", padding: 0, margin: 0, color: c.primary, fontWeight: 950, cursor: "pointer", textAlign: "left", textDecoration: "underline", textDecorationThickness: 1, textUnderlineOffset: 3 }}>{children}</button>;
 }
 
-function useSyncedDraft(record) {
-  const [draft, setDraft] = useState(record || {});
-  useEffect(() => {
-    setDraft(record ? { ...record } : {});
-  }, [record?.id]);
-  return [draft, setDraft];
-}
-
-function changeSummary(before = {}, after = {}, labels = {}) {
-  const skip = new Set(["communicationLog", "documents", "updatedAt", "reviewedBy"]);
-  const fields = Object.keys(after || {}).filter((key) => !skip.has(key) && JSON.stringify(before?.[key] ?? "") !== JSON.stringify(after?.[key] ?? ""));
-  if (!fields.length) return "Sin cambios críticos.";
-  return fields.slice(0, 8).map((key) => labels[key] || key).join(", ") + (fields.length > 8 ? ` +${fields.length - 8}` : "");
-}
-
-function ValidationBanner({ title = "Controles ERP", checks = [] }) {
-  const pending = checks.filter((check) => !check.ok);
-  return <div style={{ border: `1px solid ${pending.length ? c.orange : c.border}`, borderRadius: 18, padding: 12, background: pending.length ? c.orangeSoft : c.greenSoft, display: "grid", gap: 8 }}>
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><b>{title}</b><Pill tone={pending.length ? "warn" : "ok"}>{pending.length ? `${pending.length} pendiente(s)` : "Sin riesgos"}</Pill></div>
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{checks.map((check) => <Pill key={check.label} tone={check.ok ? "ok" : "warn"}>{check.label}</Pill>)}</div>
-  </div>;
-}
-
 function SupplierContextModal({ supplier, data, projectMap, categoryMap, onClose, onEdit }) {
   if (!supplier) return null;
   const relatedPayables = (data.payables || []).filter((p) => p.supplierId === supplier.id);
@@ -196,7 +173,7 @@ function SupplierContextModal({ supplier, data, projectMap, categoryMap, onClose
 
 
 function SupplierEditModal({ supplier, data, categoryMap, onClose, onSave }) {
-  const [draft, setDraft] = useSyncedDraft(supplier);
+  const [draft, setDraft] = useState(supplier || {});
   if (!supplier) return null;
   const notificationEvents = [
     { key: "notifyOnRequested", label: "Solicitud recibida" },
@@ -205,7 +182,7 @@ function SupplierEditModal({ supplier, data, categoryMap, onClose, onSave }) {
   ];
   const addLog = (channel, event, detail) => {
     const item = { date: todayIso(), channel, event, detail };
-    setDraft((current) => ({ ...current, communicationLog: [item, ...(current.communicationLog || [])] }));
+    setDraft({ ...draft, communicationLog: [item, ...(draft.communicationLog || [])] });
   };
   return <div style={{ position: "fixed", inset: 0, zIndex: 2147483643, pointerEvents: "none" }}>
     <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.16)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
@@ -215,7 +192,6 @@ function SupplierEditModal({ supplier, data, categoryMap, onClose, onSave }) {
         <button onClick={onClose} style={{ border: 0, background: c.soft, borderRadius: 14, width: 40, height: 40, cursor: "pointer", fontWeight: 950 }}>×</button>
       </header>
       <main style={{ padding: 20, overflow: "auto", display: "grid", gap: 14 }}>
-        <ValidationBanner title="Validación del proveedor antes de poder pagar" checks={[{ label: "Datos fiscales", ok: !!draft.rfc && !!draft.legalName }, { label: "Correo de pagos", ok: !!draft.email }, { label: "Banco/CLABE", ok: draft.bankStatus === "No aplica" || (!!draft.bank && !!draft.clabe) }, { label: "Documentos", ok: attachmentCount(draft.documents) > 0 }, { label: "Estatus activo", ok: draft.status === "Activo" }]} />
         <Card style={{ boxShadow: "none" }}><SectionTitle title="Datos generales" helper="Esta información aparece en solicitudes, contratos, autorizaciones y pagos históricos." />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
             <Field label="Nombre comercial"><input style={inputStyle()} value={draft.tradeName || ""} onChange={(e) => setDraft({ ...draft, tradeName: e.target.value })} /></Field>
@@ -253,17 +229,13 @@ function SupplierEditModal({ supplier, data, categoryMap, onClose, onSave }) {
           {(draft.communicationLog || []).length ? <div style={{ display: "grid", gap: 8, marginTop: 12 }}>{(draft.communicationLog || []).slice(0, 5).map((item, idx) => <div key={idx} style={{ padding: 10, borderRadius: 14, background: c.soft, border: `1px solid ${c.border}` }}><b>{item.event}</b><div style={{ color: c.muted, fontSize: 12 }}>{item.date} · {item.channel} · {item.detail}</div></div>)}</div> : <div style={{ color: c.muted, fontSize: 13, marginTop: 10 }}>Sin log todavía.</div>}
         </Card>
       </main>
-      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={() => {
-        const detail = changeSummary(supplier, draft, { tradeName: "nombre comercial", legalName: "razón social", rfc: "RFC", email: "correo", whatsapp: "WhatsApp", bank: "banco", clabe: "CLABE", bankStatus: "validación bancaria", fiscalStatus: "validación fiscal", status: "estatus" });
-        const auditItem = { date: todayIso(), channel: "Sistema", event: "Proveedor actualizado", detail };
-        onSave({ ...supplier, ...draft, communicationLog: [auditItem, ...(draft.communicationLog || supplier.communicationLog || [])], updatedAt: todayIso(), reviewedBy: draft.status === "Activo" ? "admin@tritondesarrollos.com" : draft.reviewedBy });
-      }}>Guardar proveedor</Button></footer>
+      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={() => onSave({ ...draft, updatedAt: todayIso(), reviewedBy: draft.status === "Activo" ? "admin@tritondesarrollos.com" : draft.reviewedBy })}>Guardar proveedor</Button></footer>
     </aside>
   </div>;
 }
 
 function PaymentEditModal({ row, data, onClose, onSave }) {
-  const [draft, setDraft] = useSyncedDraft(row);
+  const [draft, setDraft] = useState(row || {});
   if (!row) return null;
   const supplier = data.suppliers.find((s) => s.id === draft.supplierId) || data.suppliers[0];
   const activeContracts = (data.financeContracts || []).filter((ct) => !draft.supplierId || ct.supplierId === draft.supplierId);
@@ -272,7 +244,6 @@ function PaymentEditModal({ row, data, onClose, onSave }) {
     <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(680px, calc(100vw - 36px))", background: "rgba(255,255,255,0.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
       <header style={{ padding: 20, borderBottom: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 12 }}><div><Pill tone="primary">Editar solicitud</Pill><h2 style={{ margin: "10px 0 4px", fontSize: 22 }}>Datos del pago</h2><div style={{ color: c.muted, fontSize: 13 }}>Los cambios quedan en el expediente para revisión administrativa.</div></div><button onClick={onClose} style={{ border: 0, background: c.soft, borderRadius: 14, width: 40, height: 40, cursor: "pointer", fontWeight: 950 }}>×</button></header>
       <main style={{ padding: 20, overflow: "auto", display: "grid", gap: 12 }}>
-        <ValidationBanner title="Validación antes de enviar a autorización" checks={[{ label: "Proveedor activo", ok: supplierReady(data.suppliers.find((s) => s.id === draft.supplierId)) }, { label: "Presupuesto", ok: budgetCheck(data, draft).hasBudget }, { label: "Sin sobregiro o justificado", ok: !budgetCheck(data, draft).over || draft.overspendApprovedByAdmin }, { label: "Anexos", ok: attachmentCount(draft.attachments) > 0 }, { label: "Revisión admin", ok: !!draft.adminReviewed }]} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
           <Field label="Proyecto"><select style={inputStyle()} value={draft.projectId || ""} onChange={(e) => setDraft({ ...draft, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
           <Field label="Proveedor"><select style={inputStyle()} value={draft.supplierId || ""} onChange={(e) => { const s = data.suppliers.find((x) => x.id === e.target.value); setDraft({ ...draft, supplierId: e.target.value, supplier: s?.tradeName || draft.supplier, categoryId: s?.categoryId || draft.categoryId }); }}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName}</option>)}</select></Field>
@@ -288,7 +259,7 @@ function PaymentEditModal({ row, data, onClose, onSave }) {
         <Field label="Comentario administrativo / notas"><textarea style={inputStyle({ minHeight: 84 })} value={draft.adminComment || draft.notes || ""} onChange={(e) => setDraft({ ...draft, adminComment: e.target.value, notes: e.target.value })} /></Field>
         <AttachmentUploader label="Anexos de la solicitud" value={draft.attachments} folder="finanzas/solicitudes-pago" onChange={(attachments) => setDraft({ ...draft, attachments })} />
       </main>
-      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={() => { const auditItem = { date: todayIso(), channel: "Sistema", event: "Solicitud actualizada", detail: changeSummary(row, draft, { supplierId: "proveedor", projectId: "proyecto", categoryId: "partida", amount: "monto", iva: "IVA", retention: "retención", requiredDate: "fecha requerida", attachments: "anexos" }) }; onSave({ ...row, ...draft, auditLog: [auditItem, ...(draft.auditLog || row.auditLog || [])], updatedAt: todayIso() }); }}>Guardar cambios</Button></footer>
+      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={() => onSave({ ...draft, updatedAt: todayIso() })}>Guardar cambios</Button></footer>
     </aside>
   </div>;
 }
@@ -509,7 +480,7 @@ const moduleMeta = {
 
 function readData() {
   try {
-    const raw = localStorage.getItem("triton_os_v36") || localStorage.getItem("triton_os_v35") || localStorage.getItem("triton_os_v34") || localStorage.getItem("triton_os_v32");
+    const raw = localStorage.getItem("triton_os_v35") || localStorage.getItem("triton_os_v34") || localStorage.getItem("triton_os_v32");
     if (!raw) return initialData;
     const parsed = JSON.parse(raw);
     return { ...initialData, ...parsed };
@@ -563,7 +534,7 @@ export default function TritonOSModules() {
   const [showForm, setShowForm] = useState(null);
   const [form, setForm] = useState({});
 
-  useEffect(() => { localStorage.setItem("triton_os_v36", JSON.stringify(data)); }, [data]);
+  useEffect(() => { localStorage.setItem("triton_os_v35", JSON.stringify(data)); }, [data]);
   useEffect(() => {
     const openHandler = (event) => { setActive(event.detail?.module || "dashboard"); setOpen(true); };
     const closeHandler = () => setOpen(false);
@@ -595,29 +566,14 @@ export default function TritonOSModules() {
   }, [data]);
 
   function addRecord(collectionName, payload) {
-    const recordId = uid(collectionName);
-    const now = todayIso();
-    setData((prev) => ({
-      ...prev,
-      [collectionName]: [{ id: recordId, createdAt: now, updatedAt: now, ...payload }, ...(prev[collectionName] || [])],
-      auditTrail: collectionName === "auditTrail" ? prev.auditTrail : [{ id: uid("audit"), module: collectionName, itemId: recordId, action: "Crear registro", user: firebaseAuth.currentUser?.email || "sistema", date: now, comment: payload.concept || payload.name || payload.tradeName || "Registro creado" }, ...(prev.auditTrail || [])].slice(0, 200),
-    }));
+    setData((prev) => ({ ...prev, [collectionName]: [{ id: uid(collectionName), ...payload }, ...prev[collectionName]] }));
     setShowForm(null); setForm({});
   }
   function updateRecord(collectionName, id, patch) {
-    const now = todayIso();
-    setData((prev) => {
-      const before = (prev[collectionName] || []).find((item) => item.id === id) || {};
-      const changed = changeSummary(before, { ...before, ...patch });
-      return {
-        ...prev,
-        [collectionName]: (prev[collectionName] || []).map((item) => item.id === id ? { ...item, ...patch, updatedAt: patch.updatedAt || now } : item),
-        auditTrail: collectionName === "auditTrail" ? prev.auditTrail : [{ id: uid("audit"), module: collectionName, itemId: id, action: "Actualizar registro", user: firebaseAuth.currentUser?.email || "sistema", date: now, comment: changed }, ...(prev.auditTrail || [])].slice(0, 200),
-      };
-    });
+    setData((prev) => ({ ...prev, [collectionName]: prev[collectionName].map((item) => item.id === id ? { ...item, ...patch } : item) }));
   }
   function resetDemo() {
-    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v36"); localStorage.removeItem("triton_os_v35"); localStorage.removeItem("triton_os_v34"); setData(initialData); }
+    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v35"); localStorage.removeItem("triton_os_v34"); setData(initialData); }
   }
 
   if (!open) return null;
@@ -1032,7 +988,7 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
     </Card>
     <Card><SectionTitle title="Validación administrativa" helper="Da clic en el nombre para consultar histórico. Usa Editar para cambiar datos, agregar documentos o configurar avisos por correo/WhatsApp." /><MiniTable columns={[{ key: "tradeName", label: "Proveedor", render: (r) => <EntityLink onClick={() => setSelectedSupplier(r)}>{r.tradeName}</EntityLink> }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo" }, { key: "contact", label: "Contacto", render: (r) => <div><b>{r.contact || "—"}</b><div style={{ color: c.muted, fontSize: 12 }}>{r.email || "sin correo"}{r.whatsapp ? ` · WA ${r.whatsapp}` : ""}</div></div> }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal", render: (r) => <select value={r.fiscalStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { fiscalStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "bankStatus", label: "Banco", render: (r) => <select value={r.bankStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { bankStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "documents", label: "Docs", render: (r) => <Pill tone={attachmentCount(r.documents) ? "ok" : "warn"}>{attachmentCount(r.documents)}</Pill> }, { key: "ready", label: "Listo", render: (r) => <Pill tone={supplierReady(r) ? "ok" : "warn"}>{supplierReady(r) ? "Pagable" : "Bloquea pago"}</Pill> }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value, reviewedBy: "admin@tritondesarrollos.com" })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedSupplier(r)}>Ficha</Button><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingSupplier(r)}>Editar</Button></div> }]} rows={rows} /></Card>
     <SupplierContextModal supplier={selectedSupplier} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedSupplier(null)} onEdit={(s) => { setSelectedSupplier(null); setEditingSupplier(s); }} />
-    <SupplierEditModal supplier={editingSupplier} data={data} categoryMap={categoryMap} onClose={() => setEditingSupplier(null)} onSave={(patch) => { updateRecord("suppliers", editingSupplier.id, patch); setSelectedSupplier(patch); setEditingSupplier(null); }} />
+    <SupplierEditModal supplier={editingSupplier} data={data} categoryMap={categoryMap} onClose={() => setEditingSupplier(null)} onSave={(patch) => { updateRecord("suppliers", editingSupplier.id, patch); setEditingSupplier(null); }} />
   </div>;
 }
 
