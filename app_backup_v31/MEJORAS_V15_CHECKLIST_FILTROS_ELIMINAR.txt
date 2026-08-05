@@ -1,0 +1,13 @@
+MEJORAS V15 - CHECKLIST DE CALIDAD
+
+Cambios:
+- Se agregó filtro por partida en Checklist de calidad por obra.
+- Se mantiene buscador por clave, concepto, criterio y palabras catálogo.
+- Se agregó contador de puntos mostrados vs configurados.
+- Se agregó botón Eliminar por punto de calidad.
+- Eliminar borra el punto solo de la obra seleccionada en obras/{obraId}/qualitySpecs.
+- La biblioteca general qualityConcepts no se borra para conservar la base Triton reusable.
+
+Validación:
+- npm run build ejecutado correctamente.
+- Solo aparecen warnings normales de Tailwind/lightningcss.
