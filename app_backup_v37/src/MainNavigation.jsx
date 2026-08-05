@@ -29,11 +29,7 @@ const groups = [
     { id: "cobranza", label: "Rentas / contratos", helper: "Locales, terrenos, casas y depas", os: true },
   ]},
   { id: "reportes", label: "Reportes", helper: "Dirección", icon: "▤", module: "reportes_os", os: true },
-  { id: "config", label: "Configuración", helper: "Sistema", icon: "⚙", children: [
-    { id: "usuarios_os", label: "Usuarios", helper: "Permisos por módulo y acción", os: true },
-    { id: "config_os", label: "Catálogos y reglas", helper: "Categorías, partidas y parámetros", os: true },
-    { id: "proyectos", label: "Proyectos", helper: "Alta y edición de proyectos", os: true },
-  ]},
+  { id: "config", label: "Configuración", helper: "Sistema", icon: "⚙", module: "config_os", os: true },
 ];
 
 function useIsDesktop() {
@@ -80,7 +76,7 @@ export default function MainNavigation() {
   const [activeModule, setActiveModule] = useState("calidad");
   const [hovered, setHovered] = useState(null);
   const [pinned, setPinned] = useState(null);
-  const [mobileGroups, setMobileGroups] = useState({ operacion: true, finanzas_group: false, comercial: false, config: false });
+  const [mobileGroups, setMobileGroups] = useState({ operacion: true, finanzas_group: false, comercial: false });
   const sidebarWidth = isDesktop ? 86 : 0;
   const flyoutGroup = groups.find((g) => g.id === (pinned || hovered));
   const showFlyout = isDesktop && flyoutGroup?.children?.length;
