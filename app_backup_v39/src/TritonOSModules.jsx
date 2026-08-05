@@ -10,68 +10,10 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 const uid = (prefix = "id") => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
 const safeFileName = (name = "archivo") => String(name).replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
-const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
-const DOC_TYPES = ["Factura PDF", "XML", "Contrato", "Orden de compra", "Estimación autorizada", "Cotización", "Carátula bancaria", "Comprobante de pago", "Ticket", "Foto / evidencia", "Otro soporte"];
-const TAXPAYER_TYPES = ["Persona moral", "Persona física", "Dependencia / gobierno", "Extranjero", "No aplica"];
-function readTextFile(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => resolve("");
-    reader.readAsText(file);
-  });
-}
-function xmlAttr(text, attr) {
-  const m = String(text || "").match(new RegExp(`${attr}=[\"']([^\"']+)[\"']`, "i"));
-  return m ? m[1] : "";
-}
-function parseCfdiXml(text) {
-  if (!text || !String(text).includes("Comprobante")) return null;
-  const issuerBlock = String(text).match(/<cfdi:Emisor[^>]*>|<Emisor[^>]*>/i)?.[0] || "";
-  const receiverBlock = String(text).match(/<cfdi:Receptor[^>]*>|<Receptor[^>]*>/i)?.[0] || "";
-  const subtotal = Number(xmlAttr(text, "SubTotal") || 0);
-  const total = Number(xmlAttr(text, "Total") || 0);
-  const taxes = Math.max(0, total - subtotal);
-  return {
-    issuerRfc: xmlAttr(issuerBlock, "Rfc") || xmlAttr(issuerBlock, "RFC"),
-    issuerName: xmlAttr(issuerBlock, "Nombre"),
-    receiverRfc: xmlAttr(receiverBlock, "Rfc") || xmlAttr(receiverBlock, "RFC"),
-    subtotal: roundMoney(subtotal),
-    total: roundMoney(total),
-    iva: roundMoney(taxes),
-    uuid: xmlAttr(text, "UUID"),
-  };
-}
-function taxProfileForSupplier(supplier = {}) {
-  const taxpayerType = supplier.taxpayerType || supplier.personType || "Persona moral";
-  const ivaRate = Number(supplier.ivaRate ?? 0.16);
-  let isrRetentionRate = Number(supplier.isrRetentionRate ?? 0);
-  let ivaRetentionRate = Number(supplier.ivaRetentionRate ?? 0);
-  if (taxpayerType === "Persona física" && !supplier.taxProfileCustomized) {
-    isrRetentionRate = 0.10;
-    ivaRetentionRate = 0.106667;
-  }
-  if (["Dependencia / gobierno", "Extranjero", "No aplica"].includes(taxpayerType)) {
-    isrRetentionRate = Number(supplier.isrRetentionRate ?? 0);
-    ivaRetentionRate = Number(supplier.ivaRetentionRate ?? 0);
-  }
-  return { taxpayerType, ivaRate, isrRetentionRate, ivaRetentionRate, retentionRate: isrRetentionRate + ivaRetentionRate };
-}
-function calcTaxValues(value, supplier, mode = "base") {
-  const profile = taxProfileForSupplier(supplier);
-  const factor = Math.max(0.01, 1 + profile.ivaRate - profile.retentionRate);
-  const base = roundMoney(mode === "total" ? Number(value || 0) / factor : Number(value || 0));
-  const iva = roundMoney(base * profile.ivaRate);
-  const isrRetention = roundMoney(base * profile.isrRetentionRate);
-  const ivaRetention = roundMoney(base * profile.ivaRetentionRate);
-  const retention = roundMoney(isrRetention + ivaRetention);
-  const total = roundMoney(base + iva - retention);
-  return { amount: base, iva, retention, totalInput: total, isrRetention, ivaRetention, taxProfile: profile };
-}
 const normalizeAttachments = (value) => {
-  if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? { name: item, url: "", source: "manual", docType: "Otro soporte" } : { docType: item.docType || item.attachmentType || "Sin clasificar", ...item }).filter(Boolean);
+  if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? { name: item, url: "", source: "manual" } : item).filter(Boolean);
   if (!value) return [];
-  return String(value).split(",").map((x) => x.trim()).filter(Boolean).map((name) => ({ name, url: "", source: "manual", docType: "Otro soporte" }));
+  return String(value).split(",").map((x) => x.trim()).filter(Boolean).map((name) => ({ name, url: "", source: "manual" }));
 };
 const attachmentCount = (value) => normalizeAttachments(value).length;
 const attachmentNames = (value) => normalizeAttachments(value).map((a) => a.name || a.url || "Anexo").join(", ");
@@ -81,12 +23,6 @@ async function uploadFinanceAttachments(fileList, folder = "finanzas/anexos") {
   const uploaded = [];
   for (const file of files) {
     const path = `${folder}/${todayIso()}/${uid("file")}_${safeFileName(file.name)}`;
-    const isXml = /\.xml$/i.test(file.name || "") || String(file.type || "").includes("xml");
-    let cfdi = null;
-    if (isXml) {
-      const text = await readTextFile(file);
-      cfdi = parseCfdiXml(text);
-    }
     try {
       const fileRef = storageRef(firebaseStorage, path);
       await uploadBytes(fileRef, file, {
@@ -94,17 +30,16 @@ async function uploadFinanceAttachments(fileList, folder = "finanzas/anexos") {
         customMetadata: { uploadedBy: user?.email || "sin_usuario", originalName: file.name || "archivo" },
       });
       const url = await getDownloadURL(fileRef);
-      uploaded.push({ name: file.name, type: file.type || "archivo", docType: isXml ? "XML" : "Sin clasificar", size: file.size || 0, path, url, cfdi, source: "firebase-storage", uploadedBy: user?.email || "", uploadedAt: new Date().toISOString() });
+      uploaded.push({ name: file.name, type: file.type || "archivo", size: file.size || 0, path, url, source: "firebase-storage", uploadedBy: user?.email || "", uploadedAt: new Date().toISOString() });
     } catch (error) {
-      uploaded.push({ name: file.name, type: file.type || "archivo", docType: isXml ? "XML" : "Sin clasificar", size: file.size || 0, path: "", url: "", cfdi, source: "pendiente_storage", uploadError: error?.message || String(error), uploadedBy: user?.email || "", uploadedAt: new Date().toISOString() });
+      uploaded.push({ name: file.name, type: file.type || "archivo", size: file.size || 0, path: "", url: "", source: "pendiente_storage", uploadError: error?.message || String(error), uploadedBy: user?.email || "", uploadedAt: new Date().toISOString() });
     }
   }
   return uploaded;
 }
-function AttachmentUploader({ label = "Subir anexos", value, onChange, folder, helper, docTypes = DOC_TYPES, enableTypeSelect = true, onFilesUploaded }) {
+function AttachmentUploader({ label = "Subir anexos", value, onChange, folder, helper }) {
   const [busy, setBusy] = useState(false);
   const list = normalizeAttachments(value);
-  const updateItem = (idx, patch) => onChange(list.map((item, i) => i === idx ? { ...item, ...patch } : item));
   return <div style={{ display: "grid", gap: 8 }}>
     <Field label={label}>
       <input type="file" multiple accept=".pdf,.xml,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.doc,.docx,image/*,application/pdf,text/xml,application/xml" style={inputStyle({ padding: 10 })} disabled={busy} onChange={async (e) => {
@@ -112,28 +47,22 @@ function AttachmentUploader({ label = "Subir anexos", value, onChange, folder, h
         if (!files.length) return;
         setBusy(true);
         const newFiles = await uploadFinanceAttachments(files, folder);
-        const merged = [ ...list, ...newFiles ];
-        onChange(merged);
-        if (typeof onFilesUploaded === "function") onFilesUploaded(newFiles, merged);
+        onChange([ ...list, ...newFiles ]);
         e.target.value = "";
         setBusy(false);
       }} />
     </Field>
     <div style={{ fontSize: 12, color: c.muted }}>{busy ? "Subiendo anexos..." : (helper || "PDF, XML, imágenes, Excel o Word. Cada archivo queda ligado al registro.")}</div>
-    {list.length ? <div style={{ display: "grid", gap: 8 }}>{list.map((a, i) => <div key={`${a.name}-${i}`} style={{ display: "grid", gridTemplateColumns: enableTypeSelect ? "minmax(120px,190px) minmax(0,1fr) auto" : "minmax(0,1fr) auto", gap: 8, alignItems: "center", padding: 8, borderRadius: 16, border: `1px solid ${c.border}`, background: a.uploadError ? c.redSoft : "white" }}>
-      {enableTypeSelect ? <select style={inputStyle({ padding: "8px 9px", fontSize: 12 })} value={a.docType || "Sin clasificar"} onChange={(e) => updateItem(i, { docType: e.target.value })}><option>Sin clasificar</option>{docTypes.map((d) => <option key={d}>{d}</option>)}</select> : null}
-      <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
-        {a.url ? <a href={a.url} target="_blank" rel="noreferrer" style={{ color: c.primary, fontWeight: 900, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</a> : <span title={a.uploadError || "Anexo registrado"} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 850 }}>{a.name}</span>}
-        {a.cfdi ? <span style={{ color: c.muted, fontSize: 11 }}>XML: {a.cfdi.issuerName || a.cfdi.issuerRfc || "Emisor"} · subtotal {money(a.cfdi.subtotal)} · total {money(a.cfdi.total)}</span> : null}
-      </div>
-      <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} style={{ border: 0, background: c.soft, borderRadius: 12, cursor: "pointer", fontWeight: 950, width: 34, height: 34 }}>×</button>
-    </div>)}</div> : <div style={{ fontSize: 12, color: c.orange, fontWeight: 800 }}>Sin anexos cargados.</div>}
+    {list.length ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{list.map((a, i) => <span key={`${a.name}-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", borderRadius: 999, border: `1px solid ${c.border}`, background: a.uploadError ? c.redSoft : c.soft, fontSize: 12, maxWidth: 260 }}>
+      {a.url ? <a href={a.url} target="_blank" rel="noreferrer" style={{ color: c.primary, fontWeight: 800, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</a> : <span title={a.uploadError || "Anexo registrado"} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>}
+      <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} style={{ border: 0, background: "transparent", cursor: "pointer", fontWeight: 900 }}>×</button>
+    </span>)}</div> : <div style={{ fontSize: 12, color: c.orange, fontWeight: 800 }}>Sin anexos cargados.</div>}
   </div>;
 }
 function AttachmentViewer({ value }) {
   const list = normalizeAttachments(value);
   if (!list.length) return <Pill tone="warn">Sin anexos</Pill>;
-  return <div style={{ minWidth: 180, display: "grid", gap: 4 }}>{list.slice(0, 3).map((a, i) => <div key={i} style={{ display: "grid", gap: 1 }}>{a.url ? <a href={a.url} target="_blank" rel="noreferrer" style={{ color: c.primary, fontSize: 12, fontWeight: 850 }}>{a.name}</a> : <span style={{ color: a.uploadError ? c.red : c.text, fontSize: 12 }}>{a.name}</span>}<span style={{ color: c.muted, fontSize: 10 }}>{a.docType || "Sin clasificar"}</span></div>)}{list.length > 3 ? <span style={{ color: c.muted, fontSize: 12 }}>+{list.length - 3} más</span> : null}</div>;
+  return <div style={{ minWidth: 180, display: "grid", gap: 4 }}>{list.slice(0, 3).map((a, i) => a.url ? <a key={i} href={a.url} target="_blank" rel="noreferrer" style={{ color: c.primary, fontSize: 12, fontWeight: 800 }}>{a.name}</a> : <span key={i} style={{ color: a.uploadError ? c.red : c.text, fontSize: 12 }}>{a.name}</span>)}{list.length > 3 ? <span style={{ color: c.muted, fontSize: 12 }}>+{list.length - 3} más</span> : null}</div>;
 }
 
 function currentFinanceUser() {
@@ -330,7 +259,6 @@ function SupplierEditModal({ supplier, data, categoryMap, onClose, onSave }) {
             <Field label="Razón social"><input style={inputStyle()} value={draft.legalName || ""} onChange={(e) => setDraft({ ...draft, legalName: e.target.value })} /></Field>
             <Field label="RFC"><input style={inputStyle()} value={draft.rfc || ""} onChange={(e) => setDraft({ ...draft, rfc: e.target.value.toUpperCase() })} /></Field>
             <Field label="Tipo"><select style={inputStyle()} value={draft.type || "Proveedor"} onChange={(e) => setDraft({ ...draft, type: e.target.value })}><option>Constructora</option><option>Servicios profesionales</option><option>Materiales</option><option>Dependencia</option><option>Arrendador</option><option>Proveedor</option></select></Field>
-            <Field label="Persona fiscal"><select style={inputStyle()} value={draft.taxpayerType || "Persona moral"} onChange={(e) => { const profile = taxProfileForSupplier({ taxpayerType: e.target.value }); setDraft({ ...draft, taxpayerType: e.target.value, ivaRate: profile.ivaRate, isrRetentionRate: profile.isrRetentionRate, ivaRetentionRate: profile.ivaRetentionRate, taxProfileCustomized: false }); }}>{TAXPAYER_TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field>
             <Field label="Contacto"><input style={inputStyle()} value={draft.contact || ""} onChange={(e) => setDraft({ ...draft, contact: e.target.value })} /></Field>
             <Field label="Categoría default"><select style={inputStyle()} value={draft.categoryId || "construccion"} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field>
             <Field label="Requiere contrato"><select style={inputStyle()} value={draft.requiresContract ? "Sí" : "No"} onChange={(e) => setDraft({ ...draft, requiresContract: e.target.value === "Sí" })}><option>No</option><option>Sí</option></select></Field>
@@ -354,9 +282,6 @@ function SupplierEditModal({ supplier, data, categoryMap, onClose, onSave }) {
             <Field label="Beneficiario"><input style={inputStyle()} value={draft.accountHolder || draft.legalName || ""} onChange={(e) => setDraft({ ...draft, accountHolder: e.target.value })} /></Field>
             <Field label="Validación fiscal"><select style={inputStyle()} value={draft.fiscalStatus || "Pendiente"} onChange={(e) => setDraft({ ...draft, fiscalStatus: e.target.value })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select></Field>
             <Field label="Validación bancaria"><select style={inputStyle()} value={draft.bankStatus || "Pendiente"} onChange={(e) => setDraft({ ...draft, bankStatus: e.target.value })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select></Field>
-            <Field label="IVA %"><input type="number" step="0.0001" style={inputStyle()} value={draft.ivaRate ?? 0.16} onChange={(e) => setDraft({ ...draft, ivaRate: Number(e.target.value || 0), taxProfileCustomized: true })} /></Field>
-            <Field label="ISR retenido %"><input type="number" step="0.0001" style={inputStyle()} value={draft.isrRetentionRate ?? taxProfileForSupplier(draft).isrRetentionRate} onChange={(e) => setDraft({ ...draft, isrRetentionRate: Number(e.target.value || 0), taxProfileCustomized: true })} /></Field>
-            <Field label="IVA retenido %"><input type="number" step="0.0001" style={inputStyle()} value={draft.ivaRetentionRate ?? taxProfileForSupplier(draft).ivaRetentionRate} onChange={(e) => setDraft({ ...draft, ivaRetentionRate: Number(e.target.value || 0), taxProfileCustomized: true })} /></Field>
           </div>
         </Card>
         <Card style={{ boxShadow: "none" }}><SectionTitle title="Documentación del proveedor" helper="Agrega o reemplaza constancia fiscal, carátula bancaria, opinión de cumplimiento, contratos marco u otros soportes." /><AttachmentUploader label="Subir documentos del proveedor" value={draft.documents} folder="finanzas/proveedores" onChange={(documents) => setDraft({ ...draft, documents })} /></Card>
@@ -379,13 +304,6 @@ function PaymentEditModal({ row, data, onClose, onSave }) {
   if (!row) return null;
   const supplier = data.suppliers.find((s) => s.id === draft.supplierId) || data.suppliers[0];
   const activeContracts = (data.financeContracts || []).filter((ct) => !draft.supplierId || ct.supplierId === draft.supplierId);
-  function patchAmount(value, mode) {
-    setDraft({ ...draft, ...calcTaxValues(value, supplier, mode) });
-  }
-  function applyXml(newFiles) {
-    const xml = newFiles.find((a) => a.cfdi)?.cfdi;
-    if (xml) setDraft({ ...draft, amount: xml.subtotal || draft.amount, iva: xml.iva || draft.iva, totalInput: xml.total || draft.totalInput });
-  }
   return <div style={{ position: "fixed", inset: 0, zIndex: 2147483642, pointerEvents: "none" }}>
     <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.16)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
     <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(680px, calc(100vw - 36px))", background: "rgba(255,255,255,0.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
@@ -394,19 +312,18 @@ function PaymentEditModal({ row, data, onClose, onSave }) {
         <ValidationBanner title="Validación antes de enviar a autorización" checks={[{ label: "Proveedor activo", ok: supplierReady(data.suppliers.find((s) => s.id === draft.supplierId)) }, { label: "Presupuesto", ok: budgetCheck(data, draft).hasBudget }, { label: "Sin sobregiro o justificado", ok: !budgetCheck(data, draft).over || draft.overspendApprovedByAdmin }, { label: "Anexos", ok: attachmentCount(draft.attachments) > 0 }, { label: "Revisión admin", ok: !!draft.adminReviewed }]} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
           <Field label="Proyecto"><select style={inputStyle()} value={draft.projectId || ""} onChange={(e) => setDraft({ ...draft, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Proveedor"><SearchableSupplierSelect data={data} value={draft.supplierId || ""} onChange={(s) => setDraft({ ...draft, supplierId: s.id, supplier: s.tradeName, categoryId: s.categoryId || draft.categoryId, ...calcTaxValues(draft.amount || 0, s, "base") })} /></Field>
+          <Field label="Proveedor"><select style={inputStyle()} value={draft.supplierId || ""} onChange={(e) => { const s = data.suppliers.find((x) => x.id === e.target.value); setDraft({ ...draft, supplierId: e.target.value, supplier: s?.tradeName || draft.supplier, categoryId: s?.categoryId || draft.categoryId }); }}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName}</option>)}</select></Field>
           <Field label="Partida"><select style={inputStyle()} value={draft.categoryId || supplier?.categoryId || "construccion"} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field>
           <Field label="Contrato"><select style={inputStyle()} value={draft.contractId || ""} onChange={(e) => setDraft({ ...draft, contractId: e.target.value })}><option value="">Sin contrato</option>{activeContracts.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</select></Field>
           <Field label="Etapa"><select style={inputStyle()} value={draft.paymentStage || "Pago parcial"} onChange={(e) => setDraft({ ...draft, paymentStage: e.target.value })}><option>Anticipo</option><option>Pago parcial</option><option>Estimación</option><option>Saldo</option><option>Recurrente</option><option>Reembolso</option></select></Field>
-          <Field label="Monto antes IVA"><input type="number" style={inputStyle()} value={draft.amount || ""} onChange={(e) => patchAmount(e.target.value, "base")} /></Field>
-          <Field label="Monto total a pagar"><input type="number" style={inputStyle()} value={draft.totalInput || payableTotal(draft)} onChange={(e) => patchAmount(e.target.value, "total")} /></Field>
+          <Field label="Monto antes IVA"><input type="number" style={inputStyle()} value={draft.amount || ""} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value || 0) })} /></Field>
           <Field label="IVA"><input type="number" style={inputStyle()} value={draft.iva || ""} onChange={(e) => setDraft({ ...draft, iva: Number(e.target.value || 0) })} /></Field>
           <Field label="Retención"><input type="number" style={inputStyle()} value={draft.retention || ""} onChange={(e) => setDraft({ ...draft, retention: Number(e.target.value || 0) })} /></Field>
           <Field label="Fecha requerida"><input type="date" style={inputStyle()} value={draft.requiredDate || todayIso()} onChange={(e) => setDraft({ ...draft, requiredDate: e.target.value })} /></Field>
         </div>
         <Field label="Concepto"><input style={inputStyle()} value={draft.concept || ""} onChange={(e) => setDraft({ ...draft, concept: e.target.value })} /></Field>
         <Field label="Comentario administrativo / notas"><textarea style={inputStyle({ minHeight: 84 })} value={draft.adminComment || draft.notes || ""} onChange={(e) => setDraft({ ...draft, adminComment: e.target.value, notes: e.target.value })} /></Field>
-        <AttachmentUploader label="Anexos de la solicitud" value={draft.attachments} folder="finanzas/solicitudes-pago" onChange={(attachments) => setDraft({ ...draft, attachments })} onFilesUploaded={applyXml} />
+        <AttachmentUploader label="Anexos de la solicitud" value={draft.attachments} folder="finanzas/solicitudes-pago" onChange={(attachments) => setDraft({ ...draft, attachments })} />
       </main>
       <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={() => { const auditItem = { date: todayIso(), channel: "Sistema", event: "Solicitud actualizada", detail: changeSummary(row, draft, { supplierId: "proveedor", projectId: "proyecto", categoryId: "partida", amount: "monto", iva: "IVA", retention: "retención", requiredDate: "fecha requerida", attachments: "anexos" }) }; onSave({ ...row, ...draft, auditLog: [auditItem, ...(draft.auditLog || row.auditLog || [])], updatedAt: todayIso() }); }}>Guardar cambios</Button></footer>
     </aside>
@@ -579,8 +496,8 @@ const initialData = {
     { id: "t3", projectId: "residente", name: "Factibilidad de uso de suelo", agency: "Municipio", status: "No iniciado", priority: "Media", owner: "Dirección", nextAction: "Confirmar alineamiento del predio", dueDate: todayIso(), documents: "Escritura, predial, croquis" },
   ],
   suppliers: [
-    { id: "sup-arq", tradeName: "Despacho Arquitectónico", legalName: "Despacho Arquitectónico Demo S.A. de C.V.", rfc: "DAD260101XXX", type: "Servicios profesionales", taxpayerType: "Persona física", contact: "Coordinación", email: "facturacion@despacho.demo", phone: "9990000001", whatsapp: "5219990000001", status: "Activo", fiscalStatus: "Validado", bankStatus: "Validado", bank: "BBVA", clabe: "012180000000000000", accountHolder: "Despacho Arquitectónico Demo S.A. de C.V.", categoryId: "proyecto", requiresContract: true, notifyEmail: true, notifyWhatsapp: true, notifyOnRequested: true, notifyOnScheduled: true, notifyOnPaid: true, documents: [{ name: "Constancia fiscal", source: "manual" }, { name: "Carátula bancaria", source: "manual" }, { name: "Contrato marco", source: "manual" }], notes: "Proveedor demo validado para pruebas.", communicationLog: [{ date: todayIso(), channel: "Correo", event: "Alta de proveedor", detail: "Proveedor registrado y validado." }] },
-    { id: "sup-cons", tradeName: "Constructora Base", legalName: "Constructora Base S.A. de C.V.", rfc: "CBA260101XXX", type: "Constructora", taxpayerType: "Persona moral", contact: "Residente externo", email: "pagos@constructora.demo", phone: "9990000002", whatsapp: "5219990000002", status: "Pendiente revisión", fiscalStatus: "Pendiente", bankStatus: "Pendiente", bank: "", clabe: "", accountHolder: "Constructora Base S.A. de C.V.", categoryId: "construccion", requiresContract: true, notifyEmail: true, notifyWhatsapp: false, notifyOnRequested: true, notifyOnScheduled: true, notifyOnPaid: true, documents: [{ name: "Contrato pendiente", source: "manual" }], notes: "Pendiente validación fiscal y bancaria.", communicationLog: [] },
+    { id: "sup-arq", tradeName: "Despacho Arquitectónico", legalName: "Despacho Arquitectónico Demo S.A. de C.V.", rfc: "DAD260101XXX", type: "Servicios profesionales", contact: "Coordinación", email: "facturacion@despacho.demo", phone: "9990000001", whatsapp: "5219990000001", status: "Activo", fiscalStatus: "Validado", bankStatus: "Validado", bank: "BBVA", clabe: "012180000000000000", accountHolder: "Despacho Arquitectónico Demo S.A. de C.V.", categoryId: "proyecto", requiresContract: true, notifyEmail: true, notifyWhatsapp: true, notifyOnRequested: true, notifyOnScheduled: true, notifyOnPaid: true, documents: [{ name: "Constancia fiscal", source: "manual" }, { name: "Carátula bancaria", source: "manual" }, { name: "Contrato marco", source: "manual" }], notes: "Proveedor demo validado para pruebas.", communicationLog: [{ date: todayIso(), channel: "Correo", event: "Alta de proveedor", detail: "Proveedor registrado y validado." }] },
+    { id: "sup-cons", tradeName: "Constructora Base", legalName: "Constructora Base S.A. de C.V.", rfc: "CBA260101XXX", type: "Constructora", contact: "Residente externo", email: "pagos@constructora.demo", phone: "9990000002", whatsapp: "5219990000002", status: "Pendiente revisión", fiscalStatus: "Pendiente", bankStatus: "Pendiente", bank: "", clabe: "", accountHolder: "Constructora Base S.A. de C.V.", categoryId: "construccion", requiresContract: true, notifyEmail: true, notifyWhatsapp: false, notifyOnRequested: true, notifyOnScheduled: true, notifyOnPaid: true, documents: [{ name: "Contrato pendiente", source: "manual" }], notes: "Pendiente validación fiscal y bancaria.", communicationLog: [] },
     { id: "sup-mun", tradeName: "Municipio de Mérida", legalName: "Municipio de Mérida", rfc: "MMM000000XXX", type: "Dependencia", contact: "Ventanilla", email: "", phone: "", whatsapp: "", status: "Activo", fiscalStatus: "Validado", bankStatus: "No aplica", bank: "", clabe: "", accountHolder: "Municipio de Mérida", categoryId: "tramites", requiresContract: false, notifyEmail: false, notifyWhatsapp: false, notifyOnRequested: false, notifyOnScheduled: false, notifyOnPaid: false, documents: [{ name: "Recibo oficial", source: "manual" }], notes: "Dependencia / pago oficial.", communicationLog: [] },
   ],
   financeContracts: [
@@ -826,7 +743,7 @@ function Dashboard({ totals, data, projectMap, setActive }) {
 }
 
 function Projects({ data, addRecord, showForm, setShowForm, form, setForm }) {
-  return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><SectionTitle title="Proyectos" helper="Cada módulo debe cruzarse por proyecto para tener estado de resultados, trámites, pagos y cobranza." /><Button onClick={() => setShowForm(showForm === "project" ? null : "project")}>Nuevo proyecto</Button></div>{showForm === "project" ? <SimpleForm fields={["name", "type", "status", "budget", "incomeTarget"]} labels={{ name: "Nombre", type: "Tipo", status: "Estatus", budget: "Presupuesto", incomeTarget: "Ingresos proyectados" }} form={form} setForm={setForm} onSubmit={() => addRecord("projects", { ...form, budget: Number(form.budget || 0), incomeTarget: Number(form.incomeTarget || 0), owner: "TRITON" })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "incomeTarget", label: "Ingresos proyectados", render: (r) => money(r.incomeTarget) }]} rows={data.projects} /></Card></div>;
+  return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><SectionTitle title="Proyectos" helper="Cada módulo debe cruzarse por proyecto para tener estado de resultados, trámites, pagos y cobranza." /><Button onClick={() => setShowForm(showForm === "project" ? null : "project")}>Nuevo proyecto</Button></div>{showForm === "project" ? <SimpleForm fields={["name", "type", "status", "budget", "incomeTarget"]} labels={{ name: "Nombre", type: "Tipo", status: "Estatus", budget: "Presupuesto", incomeTarget: "Ingresos proyectados" }} form={form} setForm={setForm} onSubmit={() => addRecord("projects", { ...form, budget: Number(form.budget || 0), incomeTarget: Number(form.incomeTarget || 0), owner: "TRITON" })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo" }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "incomeTarget", label: "Ingresos proyectados", render: (r) => money(r.incomeTarget) }]} rows={data.projects} /></Card></div>;
 }
 
 function payableTotal(row) {
@@ -888,86 +805,6 @@ function supplierReady(supplier) {
 function SmallAction({ label, helper, onClick }) {
   return <button onClick={onClick} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>{label}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{helper}</div></button>;
 }
-function SearchableSupplierSelect({ data, value, onChange, placeholder = "Buscar proveedor por nombre, RFC o contacto" }) {
-  const current = data.suppliers.find((s) => s.id === value);
-  const [query, setQuery] = useState(current?.tradeName || "");
-  const [open, setOpen] = useState(false);
-  useEffect(() => { setQuery(current?.tradeName || ""); }, [value]);
-  const options = data.suppliers
-    .filter((s) => `${s.tradeName} ${s.legalName} ${s.rfc} ${s.contact}`.toLowerCase().includes(String(query || "").toLowerCase()))
-    .slice(0, 8);
-  return <div style={{ position: "relative" }}>
-    <input style={inputStyle()} placeholder={placeholder} value={query} onFocus={() => setOpen(true)} onChange={(e) => { setQuery(e.target.value); setOpen(true); }} />
-    {open ? <div style={{ position: "absolute", zIndex: 20, top: "calc(100% + 6px)", left: 0, right: 0, background: "white", border: `1px solid ${c.border}`, borderRadius: 16, boxShadow: c.shadow, overflow: "hidden", maxHeight: 260, overflowY: "auto" }}>
-      {options.length ? options.map((s) => <button key={s.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { onChange(s); setQuery(s.tradeName); setOpen(false); }} style={{ width: "100%", border: 0, background: value === s.id ? c.primarySoft : "white", textAlign: "left", padding: 12, cursor: "pointer", borderBottom: `1px solid ${c.border}` }}><b>{s.tradeName}</b><div style={{ color: c.muted, fontSize: 12 }}>{s.legalName || "Sin razón social"} · {s.rfc || "Sin RFC"} · {s.taxpayerType || "Persona moral"}</div></button>) : <div style={{ padding: 12, color: c.muted, fontSize: 12 }}>No se encontró proveedor. Puedes darlo de alta en Proveedores.</div>}
-    </div> : null}
-  </div>;
-}
-
-function TaxSummary({ supplier, values }) {
-  const profile = taxProfileForSupplier(supplier);
-  return <div style={{ display: "grid", gap: 6, padding: 12, borderRadius: 16, background: c.soft, border: `1px solid ${c.border}` }}>
-    <b>Tratamiento fiscal: {profile.taxpayerType}</b>
-    <span style={{ color: c.muted, fontSize: 12 }}>IVA {Math.round(profile.ivaRate * 10000) / 100}% · ISR retenido {Math.round(profile.isrRetentionRate * 10000) / 100}% · IVA retenido {Math.round(profile.ivaRetentionRate * 10000) / 100}%</span>
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Pill tone="primary">Base {money(values.amount)}</Pill><Pill tone="primary">IVA {money(values.iva)}</Pill><Pill tone={values.retention ? "warn" : "idle"}>Retención {money(values.retention)}</Pill><Pill tone="ok">Total {money(values.totalInput)}</Pill></div>
-  </div>;
-}
-
-function PayableReviewModal({ row, data, projectMap, categoryMap, onClose, onConfirm }) {
-  if (!row) return null;
-  const supplier = data.suppliers.find((s) => s.id === row.supplierId);
-  const budget = budgetCheck(data, row);
-  const ctc = contractCheck(data, row);
-  const checks = canSendToAuthorization(data, { ...row, adminReviewed: true });
-  const similar = data.payables
-    .filter((p) => p.supplierId === row.supplierId || p.contractId === row.contractId || (p.categoryId === row.categoryId && Math.abs(payableTotal(p) - payableTotal(row)) < Math.max(1000, payableTotal(row) * 0.08)))
-    .slice(0, 8);
-  return <div style={{ position: "fixed", inset: 0, zIndex: 2147483644, pointerEvents: "none" }}>
-    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.18)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
-    <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(760px, calc(100vw - 36px))", background: "rgba(255,255,255,.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-      <header style={{ padding: 20, borderBottom: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 12 }}><div><Pill tone="primary">Revisión antes de solicitar</Pill><h2 style={{ margin: "10px 0 4px", fontSize: 22 }}>{row.concept}</h2><div style={{ color: c.muted, fontSize: 13 }}>Antes de enviar, revisa proveedor, presupuesto, anexos y pagos similares para evitar duplicados.</div></div><button onClick={onClose} style={{ border: 0, background: c.soft, borderRadius: 14, width: 40, height: 40, cursor: "pointer", fontWeight: 950 }}>×</button></header>
-      <main style={{ padding: 20, overflow: "auto", display: "grid", gap: 14 }}>
-        <ValidationBanner title="Controles previos" checks={[{ label: "Proveedor pagable", ok: checks.supplierOk }, { label: "Presupuesto asignado", ok: checks.budget.hasBudget }, { label: "Sin sobregiro o será revisado por administración", ok: !checks.budget.over || row.overspendApprovedByAdmin }, { label: "Contrato no excedido", ok: checks.contractOk }, { label: "Anexos cargados", ok: checks.hasDocs }]} />
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Resumen" helper="Esta es la información que recibirá administración para revisión." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><div><b>Proyecto</b><div>{projectMap[row.projectId]?.name || row.projectId}</div></div><div><b>Proveedor</b><div>{supplier?.tradeName || row.supplier}</div></div><div><b>Partida</b><div>{categoryMap[row.categoryId]?.name || row.categoryId}</div></div><div><b>Solicitante</b><div>{row.requestedBy}</div></div><div><b>Total</b><div>{money(payableTotal(row))}</div></div><div><b>Fecha requerida</b><div>{row.requiredDate}</div></div></div></Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Presupuesto y contrato" /><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Pill tone={budget.hasBudget ? "ok" : "danger"}>{budget.hasBudget ? `Presupuesto ${money(budget.budget)}` : "Sin presupuesto"}</Pill><Pill tone={budget.over ? "danger" : "ok"}>{budget.over ? `Sobregiro ${money(budget.overspend)}` : `Disponible ${money(budget.available)}`}</Pill>{ctc.contract ? <Pill tone={ctc.over ? "danger" : "primary"}>Contrato saldo {money(ctc.remaining)}</Pill> : <Pill tone="idle">Sin contrato</Pill>}</div></Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Anexos clasificados" /><AttachmentViewer value={row.attachments} /></Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Pagos o solicitudes similares" helper="Información para detectar si ya se solicitó algo parecido o si falta ligar contrato/recurrente." />{similar.length ? <MiniTable columns={[{ key: "concept", label: "Concepto" }, { key: "supplier", label: "Proveedor", render: (r) => supplierDisplayName(r, data) }, { key: "amount", label: "Total", render: (r) => money(payableTotal(r)) }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }]} rows={similar} /> : <div style={{ color: c.muted }}>No se encontraron pagos similares.</div>}</Card>
-      </main>
-      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Regresar a editar</Button><Button onClick={() => onConfirm(row)}>Enviar solicitud</Button></footer>
-    </aside>
-  </div>;
-}
-
-function PettyReplenishmentModal({ cash, data, categoryMap, onClose, onSaveExpense, onSendReplenishment }) {
-  const [line, setLine] = useState({ date: todayIso(), categoryId: "caja_chica", taxpayerType: "Persona moral", amount: "", iva: 0, retention: 0, totalInput: 0, attachments: [] });
-  const [lines, setLines] = useState([]);
-  if (!cash) return null;
-  const supplierLike = { taxpayerType: line.taxpayerType, ivaRate: 0.16 };
-  function applyAmount(value, mode) { setLine((prev) => ({ ...prev, ...calcTaxValues(value, supplierLike, mode) })); }
-  function applyXml(newFiles) {
-    const xml = newFiles.find((a) => a.cfdi)?.cfdi;
-    if (xml) setLine((prev) => ({ ...prev, establishment: xml.issuerName || prev.establishment, amount: xml.subtotal || prev.amount, iva: xml.iva || prev.iva, retention: 0, totalInput: xml.total || prev.totalInput }));
-  }
-  function addLine() {
-    if (!line.concept && !line.establishment) { alert("Agrega concepto o establecimiento."); return; }
-    const item = { ...line, id: uid("cashLine"), amount: Number(line.amount || 0), iva: Number(line.iva || 0), retention: Number(line.retention || 0), totalInput: Number(line.totalInput || (Number(line.amount || 0) + Number(line.iva || 0) - Number(line.retention || 0))) };
-    setLines((prev) => [...prev, item]);
-    setLine({ date: todayIso(), categoryId: "caja_chica", taxpayerType: "Persona moral", amount: "", iva: 0, retention: 0, totalInput: 0, attachments: [] });
-  }
-  const total = lines.reduce((a, x) => a + Number(x.totalInput || 0), 0);
-  return <div style={{ position: "fixed", inset: 0, zIndex: 2147483644, pointerEvents: "none" }}>
-    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.18)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
-    <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(860px, calc(100vw - 36px))", background: "rgba(255,255,255,.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-      <header style={{ padding: 20, borderBottom: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 12 }}><div><Pill tone="primary">Reposición de caja chica</Pill><h2 style={{ margin: "10px 0 4px", fontSize: 22 }}>{cash.name}</h2><div style={{ color: c.muted, fontSize: 13 }}>Carga varios gastos rápido. Si adjuntas XML, intentamos jalar emisor, subtotal, IVA y total.</div></div><button onClick={onClose} style={{ border: 0, background: c.soft, borderRadius: 14, width: 40, height: 40, cursor: "pointer", fontWeight: 950 }}>×</button></header>
-      <main style={{ padding: 20, overflow: "auto", display: "grid", gap: 14 }}>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Nuevo gasto" helper="Establecimiento es la tienda/proveedor donde se compró. Puedes capturar base o total." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}><Field label="Fecha"><input type="date" style={inputStyle()} value={line.date || todayIso()} onChange={(e) => setLine({ ...line, date: e.target.value })} /></Field><Field label="Establecimiento / proveedor"><input style={inputStyle()} value={line.establishment || ""} onChange={(e) => setLine({ ...line, establishment: e.target.value })} /></Field><Field label="Concepto"><input style={inputStyle()} value={line.concept || ""} onChange={(e) => setLine({ ...line, concept: e.target.value })} /></Field><Field label="Categoría"><select style={inputStyle()} value={line.categoryId || "caja_chica"} onChange={(e) => setLine({ ...line, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field><Field label="Tipo fiscal"><select style={inputStyle()} value={line.taxpayerType || "Persona moral"} onChange={(e) => setLine({ ...line, taxpayerType: e.target.value })}>{TAXPAYER_TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field><Field label="Base antes IVA"><input type="number" style={inputStyle()} value={line.amount || ""} onChange={(e) => applyAmount(e.target.value, "base")} /></Field><Field label="Total pagado"><input type="number" style={inputStyle()} value={line.totalInput || ""} onChange={(e) => applyAmount(e.target.value, "total")} /></Field><Field label="IVA"><input type="number" style={inputStyle()} value={line.iva || ""} onChange={(e) => setLine({ ...line, iva: Number(e.target.value || 0) })} /></Field><Field label="Retención"><input type="number" style={inputStyle()} value={line.retention || ""} onChange={(e) => setLine({ ...line, retention: Number(e.target.value || 0) })} /></Field></div><div style={{ marginTop: 10 }}><AttachmentUploader label="Factura PDF / XML / ticket" value={line.attachments} folder="finanzas/caja-chica" onChange={(attachments) => setLine({ ...line, attachments })} onFilesUploaded={applyXml} /></div><div style={{ marginTop: 10 }}><Button onClick={addLine}>Agregar gasto al lote</Button></div></Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Gastos del lote" helper={`Total a reponer: ${money(total)}`} />{lines.length ? <MiniTable columns={[{ key: "establishment", label: "Establecimiento" }, { key: "concept", label: "Concepto" }, { key: "amount", label: "Base", render: (r) => money(r.amount) }, { key: "iva", label: "IVA", render: (r) => money(r.iva) }, { key: "retention", label: "Ret.", render: (r) => money(r.retention) }, { key: "totalInput", label: "Total", render: (r) => money(r.totalInput) }, { key: "attachments", label: "Anexos", render: (r) => <AttachmentViewer value={r.attachments} /> }, { key: "remove", label: "", sortable: false, render: (r) => <button onClick={() => setLines(lines.filter((x) => x.id !== r.id))} style={{ border: 0, background: c.redSoft, color: c.red, borderRadius: 10, padding: "6px 8px", cursor: "pointer", fontWeight: 900 }}>Quitar</button> }]} rows={lines} /> : <div style={{ color: c.muted }}>Agrega uno o varios gastos para pedir reposición.</div>}</Card>
-      </main>
-      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cancelar</Button><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button variant="secondary" disabled={!lines.length} onClick={() => { lines.forEach(onSaveExpense); onClose(); }}>Guardar gastos</Button><Button disabled={!lines.length} onClick={() => onSendReplenishment(lines)}>Enviar a pagos como reposición</Button></div></footer>
-    </aside>
-  </div>;
-}
-
 function Finance({ data, projectMap, categoryMap, projectFilter, setActive }) {
   const projectIds = projectFilter === "todos" ? data.projects.map((p) => p.id) : [projectFilter];
   const rows = [];
@@ -1048,112 +885,53 @@ function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord
   const [editingPayment, setEditingPayment] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [statusFilter, setStatusFilter] = useState("todos");
-  const [reviewDraft, setReviewDraft] = useState(null);
-  const currentUser = currentFinanceUser();
+  const statuses = ["Borrador", "Solicitado", "En revisión", "Observado", "Listo para autorización", "Autorizado", "Programado", "Pagado", "Conciliado", "Rechazado", "Cancelado"];
   const displayedRows = filterByStatus(rows, statusFilter);
   const canAdminOperate = canFinanceAction("adminReview");
+  const docTypes = ["Factura PDF", "XML", "Contrato", "Orden de compra", "Estimación autorizada", "Cotización", "Carátula bancaria", "Comprobante", "Otro"];
   const supplier = data.suppliers.find((s) => s.id === (form.supplierId || data.suppliers[0]?.id));
-  const activeContracts = (data.financeContracts || []).filter((ct) => !form.supplierId || ct.supplierId === form.supplierId);
   const previewRow = { projectId: form.projectId || "arenna", categoryId: form.categoryId || supplier?.categoryId || "construccion", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), contractId: form.contractId || "" };
   const previewBudget = budgetCheck(data, previewRow);
   const previewContract = contractCheck(data, previewRow);
-  const taxValues = calcTaxValues(form.amount || 0, supplier, "base");
-  function patchWithTax(value, mode) {
-    const next = calcTaxValues(value, supplier, mode);
-    setForm({ ...form, ...next });
-  }
-  function applyUploadedXml(newFiles) {
-    const xml = newFiles.find((a) => a.cfdi)?.cfdi;
-    if (xml) {
-      const next = { ...form, amount: xml.subtotal || form.amount, iva: xml.iva || form.iva, totalInput: xml.total || form.totalInput, retention: form.retention || 0 };
-      if (xml.issuerName && !form.concept) next.concept = `Pago a ${xml.issuerName}`;
-      setForm(next);
-    }
-  }
-  function buildPayablePayload() {
-    const selected = data.suppliers.find((s) => s.id === (form.supplierId || data.suppliers[0]?.id));
-    if (!selected) { alert("Selecciona un proveedor."); return null; }
+  const activeContracts = (data.financeContracts || []).filter((ct) => !form.supplierId || ct.supplierId === form.supplierId);
+  function addPayable() {
+    const supplier = data.suppliers.find((s) => s.id === (form.supplierId || data.suppliers[0]?.id));
+    if (!supplier) { alert("Selecciona un proveedor."); return; }
     const anexos = normalizeAttachments(form.attachments);
-    const payload = {
-      projectId: form.projectId || "arenna",
-      supplierId: selected.id,
-      supplier: selected.tradeName,
-      concept: form.concept || "Solicitud de pago",
-      categoryId: form.categoryId || selected.categoryId || "construccion",
-      contractId: form.contractId || "",
-      paymentStage: form.paymentStage || "Pago parcial",
-      amount: Number(form.amount || 0),
-      iva: Number(form.iva || 0),
-      retention: Number(form.retention || 0),
-      isrRetention: Number(form.isrRetention || 0),
-      ivaRetention: Number(form.ivaRetention || 0),
-      taxpayerType: selected.taxpayerType || "Persona moral",
-      requestedBy: currentUser.email || form.requestedBy || "Solicitante",
-      requestedByName: currentUser.name || "",
-      requiredDate: form.requiredDate || todayIso(),
-      status: "Solicitado",
-      priority: form.priority || "Media",
-      documentStatus: anexos.length ? "Soporte cargado" : "Pendiente anexos",
-      attachments: anexos,
-      adminReviewed: false,
-      overspendApprovedByAdmin: false,
-      contractOverrunApprovedByAdmin: false,
-      overspendReason: "",
-      adminComment: "",
-      notes: form.notes || "",
-      createdAt: todayIso(),
-    };
+    const payload = { projectId: form.projectId || "arenna", supplierId: supplier.id, supplier: supplier.tradeName, concept: form.concept || "Solicitud de pago", categoryId: form.categoryId || supplier.categoryId || "construccion", contractId: form.contractId || "", paymentStage: form.paymentStage || "Pago parcial", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), requestedBy: form.requestedBy || "Solicitante", requiredDate: form.requiredDate || todayIso(), status: "Solicitado", priority: form.priority || "Media", documentStatus: anexos.length ? "Soporte cargado" : "Pendiente anexos", attachments: anexos, attachmentTypes: form.attachmentTypes || docTypes.slice(0, 2).join(", "), adminReviewed: false, overspendApprovedByAdmin: false, contractOverrunApprovedByAdmin: false, overspendReason: "", adminComment: "", notes: form.notes || "" };
     const b = budgetCheck(data, payload);
     if (!b.hasBudget) payload.status = "Observado";
-    return payload;
-  }
-  function preparePayableReview() {
-    const payload = buildPayablePayload();
-    if (payload) setReviewDraft(payload);
-  }
-  function confirmPayable(payload) {
     addRecord("payables", payload);
-    setReviewDraft(null);
-    setShowForm(null);
-    setForm({});
   }
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Solicitudes de pago" helper="Captura → revisión previa → administración valida presupuesto/documentos → autorización → programación → pago." />
-      <ProgressLine items={[{ label: "Solicitud", done: true }, { label: "Revisión previa", active: true }, { label: "Revisión admin" }, { label: "Autorización" }, { label: "Programación" }, { label: "Pago" }, { label: "Conciliación" }]} />
+    <Card><SectionTitle title="Solicitudes de pago" helper="Flujo operativo: solicitante captura → administración valida presupuesto/documentos → se envía a autorización con expediente completo." />
+      <ProgressLine items={[{ label: "Solicitud", done: true }, { label: "Revisión admin", active: true }, { label: "Autorización" }, { label: "Programación" }, { label: "Pago" }, { label: "Conciliación" }]} />
     </Card>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Nueva solicitud" helper="Busca proveedor por nombre/RFC. Puedes capturar base o total; IVA y retenciones se calculan según persona física/moral del proveedor." /><Button onClick={() => setShowForm(showForm === "payable" ? null : "payable")}>Nueva solicitud</Button></div>
+    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Nueva solicitud" helper="No avanza si no hay proveedor válido, presupuesto, anexos o justificación de sobregiro." /><Button onClick={() => setShowForm(showForm === "payable" ? null : "payable")}>Nueva solicitud</Button></div>
       {showForm === "payable" ? <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
           <Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Proveedor"><SearchableSupplierSelect data={data} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(s) => { const tax = form.amount ? calcTaxValues(form.amount, s, "base") : {}; setForm({ ...form, supplierId: s.id, categoryId: s.categoryId || form.categoryId, taxpayerType: s.taxpayerType || "Persona moral", ...tax }); }} /></Field>
+          <Field label="Proveedor"><select style={inputStyle()} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(e) => { const s = data.suppliers.find((x) => x.id === e.target.value); setForm({ ...form, supplierId: e.target.value, categoryId: s?.categoryId || form.categoryId }); }}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName} · {s.status}</option>)}</select></Field>
           <Field label="Categoría / partida"><select style={inputStyle()} value={form.categoryId || supplier?.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field>
           <Field label="Contrato ligado"><select style={inputStyle()} value={form.contractId || ""} onChange={(e) => setForm({ ...form, contractId: e.target.value })}><option value="">Sin contrato</option>{activeContracts.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</select></Field>
-          <Field label="Etapa de pago"><select style={inputStyle()} value={form.paymentStage || "Pago parcial"} onChange={(e) => setForm({ ...form, paymentStage: e.target.value })}><option>Anticipo</option><option>Pago parcial</option><option>Estimación</option><option>Saldo</option><option>Recurrente</option><option>Reembolso</option><option>Reposición caja chica</option></select></Field>
+          <Field label="Etapa de pago"><select style={inputStyle()} value={form.paymentStage || "Pago parcial"} onChange={(e) => setForm({ ...form, paymentStage: e.target.value })}><option>Anticipo</option><option>Pago parcial</option><option>Estimación</option><option>Saldo</option><option>Recurrente</option><option>Reembolso</option></select></Field>
+          <Field label="Monto antes IVA"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+          <Field label="IVA"><input type="number" style={inputStyle()} value={form.iva || ""} onChange={(e) => setForm({ ...form, iva: e.target.value })} /></Field>
+          <Field label="Retención"><input type="number" style={inputStyle()} value={form.retention || ""} onChange={(e) => setForm({ ...form, retention: e.target.value })} /></Field>
           <Field label="Fecha requerida"><input type="date" style={inputStyle()} value={form.requiredDate || todayIso()} onChange={(e) => setForm({ ...form, requiredDate: e.target.value })} /></Field>
           <Field label="Prioridad"><select style={inputStyle()} value={form.priority || "Media"} onChange={(e) => setForm({ ...form, priority: e.target.value })}><option>Baja</option><option>Media</option><option>Alta</option><option>Urgente</option></select></Field>
         </div>
         <Field label="Concepto"><input style={inputStyle()} value={form.concept || ""} onChange={(e) => setForm({ ...form, concept: e.target.value })} /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(280px,.55fr)", gap: 12 }}>
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-              <Field label="Monto antes IVA"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => patchWithTax(e.target.value, "base")} /></Field>
-              <Field label="Monto total a pagar"><input type="number" style={inputStyle()} value={form.totalInput || ""} onChange={(e) => patchWithTax(e.target.value, "total")} /></Field>
-              <Field label="IVA"><input type="number" style={inputStyle()} value={form.iva || ""} onChange={(e) => setForm({ ...form, iva: e.target.value })} /></Field>
-              <Field label="Retenciones"><input type="number" style={inputStyle()} value={form.retention || ""} onChange={(e) => setForm({ ...form, retention: e.target.value })} /></Field>
-            </div>
-            <TaxSummary supplier={supplier} values={{ ...taxValues, ...form }} />
-            <AttachmentUploader label="Subir factura / contrato / soporte" value={form.attachments} folder="finanzas/solicitudes-pago" onChange={(attachments) => setForm({ ...form, attachments })} onFilesUploaded={applyUploadedXml} helper="Sube varios archivos; después clasifica cada anexo para que viaje con la solicitud y sea consultable." />
-          </div>
+          <div style={{ display: "grid", gap: 10 }}><Field label="Tipos de anexo"><select multiple style={inputStyle({ minHeight: 105 })} value={String(form.attachmentTypes || "").split(", ").filter(Boolean)} onChange={(e) => setForm({ ...form, attachmentTypes: Array.from(e.target.selectedOptions).map((x) => x.value).join(", ") })}>{docTypes.map((d) => <option key={d} value={d}>{d}</option>)}</select></Field><AttachmentUploader label="Subir factura / contrato / soporte" value={form.attachments} folder="finanzas/solicitudes-pago" onChange={(attachments) => setForm({ ...form, attachments })} helper="Sube PDF, XML, contrato, cotización, carátula bancaria o evidencia. No escribas nombres manualmente." /></div>
           <Card style={{ boxShadow: "none", padding: 12 }}><SectionTitle title="Validación previa" helper={`Total solicitud: ${money(payableTotal(previewRow))}`} /><ValidationList checks={[{ label: "Proveedor pagable", ok: supplierReady(supplier), fix: "Proveedor" }, { label: "Tiene presupuesto", ok: previewBudget.hasBudget, fix: "Sin presupuesto" }, { label: "Disponible / sobregiro justificado", ok: !previewBudget.over, fix: `Sobregiro ${money(Math.max(0, previewBudget.overspend))}` }, { label: "Contrato no excedido", ok: !previewContract.contract || !previewContract.over, fix: "Excede contrato" }, { label: "Anexos cargados", ok: attachmentCount(form.attachments) > 0, fix: "Anexos" }]} /></Card>
         </div>
-        <Button onClick={preparePayableReview}>Revisar y enviar solicitud</Button>
+        <Button onClick={addPayable}>Guardar solicitud</Button>
       </div> : null}
     </Card>
-    <Card><SectionTitle title="Solicitudes" helper="Administración debe revisar, justificar sobregiro y dejar expediente completo antes de enviar a autorización." />
+    <Card><SectionTitle title="Solicitudes" helper="Administración debe marcar revisión, justificar sobregiro y dejar expediente completo antes de enviarlo a dirección." />
       <StatusFilter value={statusFilter} onChange={setStatusFilter} options={rows.map((r) => r.status)} total={rows.length} shown={displayedRows.length} />
-      <MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "requestedBy", label: "Solicitó", render: (r) => <div><b>{r.requestedByName || r.requestedBy || "—"}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.requestedBy || "sin usuario"}</div></div> }, { key: "supplier", label: "Proveedor", render: (r) => { const s = data.suppliers.find((x) => x.id === r.supplierId); return <EntityLink onClick={() => setSelectedSupplier(s)}>{supplierDisplayName(r, data)}</EntityLink>; } }, { key: "concept", label: "Concepto", render: (r) => <EntityLink onClick={() => setSelectedPayment(r)}>{r.concept}</EntityLink> }, { key: "paymentStage", label: "Etapa" }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", sortValue: (r) => payableTotal(r), render: (r) => money(payableTotal(r)) }, { key: "budget", label: "Presupuesto", render: (r) => { const b = budgetCheck(data, r); return <Pill tone={!b.hasBudget || (b.over && !r.overspendApprovedByAdmin) ? "danger" : "ok"}>{!b.hasBudget ? "Sin presupuesto" : b.over ? `Sobregiro ${money(b.overspend)}` : `Disp. ${money(b.available)}`}</Pill>; } }, { key: "docs", label: "Anexos", render: (r) => <AttachmentViewer value={r.attachments} /> }, { key: "status", label: "Estado", render: (r) => <div style={{ minWidth: 170 }}><Pill tone={statusTone(r.status)}>{r.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 5 }}>Automático por flujo</div></div> }, { key: "context", label: "Expediente", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedPayment(r)}>Revisar</Button>{canFinanceAction("edit") ? <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingPayment(r)}>Editar</Button> : null}</ActionCell> }, { key: "adminActions", label: "Revisión admin", sortable: false, render: (r) => { const check = canSendToAuthorization(data, r); if (!canAdminOperate) return <Pill tone="idle">Solo consulta</Pill>; return <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const b = budgetCheck(data, r); updateRecord("payables", r.id, { adminReviewed: true, status: b.over && !r.overspendApprovedByAdmin ? "Observado" : "En revisión", adminReviewedAt: todayIso(), adminReviewedBy: currentUser.email }); }}>Revisar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const reason = window.prompt("Motivo administrativo del sobregiro / excepción", r.overspendReason || ""); if (reason !== null) updateRecord("payables", r.id, { overspendApprovedByAdmin: true, overspendReason: reason, adminComment: reason }); }}>Justificar sobregiro</Button><Button variant="success" style={{ padding: "7px 9px", fontSize: 12 }} disabled={!check.ok} onClick={() => updateRecord("payables", r.id, { status: "Listo para autorización", readyForApprovalAt: todayIso() })}>Enviar a Autorización</Button></ActionCell>; } }]} rows={displayedRows} />
-    </Card>
-    <PayableReviewModal row={reviewDraft} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setReviewDraft(null)} onConfirm={confirmPayable} />
+      <MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplier", label: "Proveedor", render: (r) => { const s = data.suppliers.find((x) => x.id === r.supplierId); return <EntityLink onClick={() => setSelectedSupplier(s)}>{supplierDisplayName(r, data)}</EntityLink>; } }, { key: "concept", label: "Concepto", render: (r) => <EntityLink onClick={() => setSelectedPayment(r)}>{r.concept}</EntityLink> }, { key: "paymentStage", label: "Etapa" }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", render: (r) => money(payableTotal(r)) }, { key: "budget", label: "Presupuesto", render: (r) => { const b = budgetCheck(data, r); return <Pill tone={!b.hasBudget || (b.over && !r.overspendApprovedByAdmin) ? "danger" : "ok"}>{!b.hasBudget ? "Sin presupuesto" : b.over ? `Sobregiro ${money(b.overspend)}` : `Disp. ${money(b.available)}`}</Pill>; } }, { key: "docs", label: "Anexos", render: (r) => <Pill tone={attachmentCount(r.attachments) ? "ok" : "warn"}>{attachmentCount(r.attachments)}</Pill> }, { key: "status", label: "Estado", render: (r) => <div style={{ minWidth: 170 }}><Pill tone={statusTone(r.status)}>{r.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 5 }}>Automático por flujo</div></div> }, { key: "context", label: "Expediente", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedPayment(r)}>Revisar</Button>{canFinanceAction("edit") ? <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingPayment(r)}>Editar</Button> : null}</ActionCell> }, { key: "adminActions", label: "Revisión admin", sortable: false, render: (r) => { const check = canSendToAuthorization(data, r); if (!canAdminOperate) return <Pill tone="idle">Solo consulta</Pill>; return <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const b = budgetCheck(data, r); updateRecord("payables", r.id, { adminReviewed: true, status: b.over && !r.overspendApprovedByAdmin ? "Observado" : "En revisión", adminReviewedAt: todayIso() }); }}>Revisar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const reason = window.prompt("Motivo administrativo del sobregiro / excepción", r.overspendReason || ""); if (reason !== null) updateRecord("payables", r.id, { overspendApprovedByAdmin: true, overspendReason: reason, adminComment: reason }); }}>Justificar sobregiro</Button><Button variant="success" style={{ padding: "7px 9px", fontSize: 12 }} disabled={!check.ok} onClick={() => updateRecord("payables", r.id, { status: "Listo para autorización", readyForApprovalAt: todayIso() })}>Enviar a Autorización</Button></ActionCell>; } }]} rows={displayedRows} /></Card>
     <PaymentContextModal row={selectedPayment} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedPayment(null)} />
     <PaymentEditModal row={editingPayment} data={data} onClose={() => setEditingPayment(null)} onSave={(patch) => { updateRecord("payables", editingPayment.id, patch); setEditingPayment(null); }} />
     <SupplierContextModal supplier={selectedSupplier} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedSupplier(null)} />
@@ -1265,7 +1043,6 @@ function BankReconciliation({ data, projectMap, updateRecord }) {
 function PettyCash({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
   const [cashStatusFilter, setCashStatusFilter] = useState("todos");
   const [expenseStatusFilter, setExpenseStatusFilter] = useState("todos");
-  const [replenishCash, setReplenishCash] = useState(null);
   const openByResponsible = (responsible) => data.pettyCash.some((cc) => cc.responsible?.toLowerCase() === String(responsible || "").toLowerCase() && !["Cerrada", "Cancelada"].includes(cc.status));
   const baseCashRows = data.pettyCash.map((cc) => {
     const expenses = data.pettyExpenses.filter((e) => e.cashId === cc.id);
@@ -1283,21 +1060,7 @@ function PettyCash({ data, projectMap, categoryMap, addRecord, updateRecord, sho
   function addExpense() {
     const cash = data.pettyCash.find((cc) => cc.id === (form.cashId || data.pettyCash[0]?.id));
     if (!cash) { alert("Primero crea una caja chica."); return; }
-    addRecord("pettyExpenses", { cashId: cash.id, projectId: cash.projectId, date: form.date || todayIso(), concept: form.concept || "Gasto menor", categoryId: form.categoryId || "caja_chica", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), totalInput: Number(form.totalInput || form.amount || 0), establishment: form.establishment || form.supplier || "", supplier: form.supplier || form.establishment || "", taxpayerType: form.taxpayerType || "Persona moral", status: form.hasReceipt === "No" ? "Pendiente comprobante" : "Por revisar", hasReceipt: form.hasReceipt !== "No", invoiceRequired: form.invoiceRequired === "Sí", attachments: normalizeAttachments(form.attachments), comment: form.comment || "" });
-  }
-  function saveReplenishmentExpense(line) {
-    addRecord("pettyExpenses", { cashId: replenishCash.id, projectId: replenishCash.projectId, date: line.date || todayIso(), concept: line.concept || "Gasto de caja chica", categoryId: line.categoryId || "caja_chica", amount: Number(line.amount || 0), iva: Number(line.iva || 0), retention: Number(line.retention || 0), totalInput: Number(line.totalInput || 0), establishment: line.establishment || "", supplier: line.establishment || "", taxpayerType: line.taxpayerType || "Persona moral", status: "Por revisar", hasReceipt: attachmentCount(line.attachments) > 0, invoiceRequired: false, attachments: normalizeAttachments(line.attachments), comment: "Cargado desde reposición de caja chica" });
-  }
-  function sendReplenishment(lines) {
-    if (!replenishCash) return;
-    lines.forEach(saveReplenishmentExpense);
-    const totalBase = lines.reduce((a, x) => a + Number(x.amount || 0), 0);
-    const totalIva = lines.reduce((a, x) => a + Number(x.iva || 0), 0);
-    const totalRetention = lines.reduce((a, x) => a + Number(x.retention || 0), 0);
-    const attachments = lines.flatMap((x) => normalizeAttachments(x.attachments).map((a) => ({ ...a, relatedConcept: x.concept, relatedEstablishment: x.establishment })));
-    addRecord("payables", { projectId: replenishCash.projectId, supplierId: "", supplier: `Reposición caja chica - ${replenishCash.responsible}`, concept: `Reposición de caja chica · ${replenishCash.name}`, categoryId: "caja_chica", contractId: "", paymentStage: "Reposición caja chica", amount: roundMoney(totalBase), iva: roundMoney(totalIva), retention: roundMoney(totalRetention), requestedBy: currentFinanceUser().email || replenishCash.responsible, requestedByName: currentFinanceUser().name || replenishCash.responsible, requiredDate: todayIso(), status: "Solicitado", priority: "Media", documentStatus: attachments.length ? "Soporte cargado" : "Pendiente anexos", attachments, adminReviewed: false, notes: `Reposición ligada a caja ${replenishCash.name}`, pettyCashId: replenishCash.id, pettyCashResponsible: replenishCash.responsible, createdAt: todayIso() });
-    updateRecord("pettyCash", replenishCash.id, { status: "Reposición solicitada", lastReplenishmentAt: todayIso() });
-    setReplenishCash(null);
+    addRecord("pettyExpenses", { cashId: cash.id, projectId: cash.projectId, date: form.date || todayIso(), concept: form.concept || "Gasto menor", categoryId: form.categoryId || "caja_chica", amount: Number(form.amount || 0), supplier: form.supplier || "", status: form.hasReceipt === "No" ? "Pendiente comprobante" : "Por revisar", hasReceipt: form.hasReceipt !== "No", invoiceRequired: form.invoiceRequired === "Sí", attachments: normalizeAttachments(form.attachments), comment: form.comment || "" });
   }
   return <div style={{ display: "grid", gap: 16 }}>
     <Card><SectionTitle title="Caja chica operativa" helper="Mini flujo de cuentas por pagar: apertura → comprobantes → revisión → liquidación → cierre financiero." />
@@ -1306,12 +1069,11 @@ function PettyCash({ data, projectMap, categoryMap, addRecord, updateRecord, sho
     <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Cajas abiertas" helper="No se permite abrir otra caja al mismo responsable si tiene una sin liquidar." /><Button onClick={() => setShowForm(showForm === "cash" ? null : "cash")}>Crear caja</Button></div>
       {showForm === "cash" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="Responsable"><input style={inputStyle()} value={form.responsible || ""} onChange={(e) => setForm({ ...form, responsible: e.target.value })} /></Field><Field label="Monto asignado"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field><Field label="Cuenta / origen"><input style={inputStyle()} value={form.originAccount || ""} onChange={(e) => setForm({ ...form, originAccount: e.target.value })} /></Field></div><Field label="Nombre / motivo"><input style={inputStyle()} value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field><Button onClick={createCash}>Guardar caja chica</Button></div> : null}
     </Card>
-    <Card><StatusFilter value={cashStatusFilter} onChange={setCashStatusFilter} options={baseCashRows.map((r) => r.status)} total={baseCashRows.length} shown={cashRows.length} /><MiniTable columns={[{ key: "name", label: "Caja" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "responsible", label: "Responsable" }, { key: "amount", label: "Asignado", render: (r) => money(r.amount) }, { key: "spent", label: "Comprobado", render: (r) => money(r.spent) }, { key: "balance", label: "Saldo", render: (r) => <Pill tone={r.balance >= 0 ? "ok" : "danger"}>{money(r.balance)}</Pill> }, { key: "pending", label: "Pendientes", render: (r) => <Pill tone={r.pending || r.observed ? "warn" : "ok"}>{r.pending} / obs {r.observed}</Pill> }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setReplenishCash(r)}>Reponer caja</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyCash", r.id, { status: "En revisión" })}>Solicitar liquidación</Button><Button variant="success" style={{ padding: "7px 9px", fontSize: 12 }} disabled={r.pending > 0 || r.observed > 0} onClick={() => updateRecord("pettyCash", r.id, { status: "Cerrada", closedAt: todayIso() })}>Cerrar</Button></div> }]} rows={cashRows} /></Card>
+    <Card><StatusFilter value={cashStatusFilter} onChange={setCashStatusFilter} options={baseCashRows.map((r) => r.status)} total={baseCashRows.length} shown={cashRows.length} /><MiniTable columns={[{ key: "name", label: "Caja" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "responsible", label: "Responsable" }, { key: "amount", label: "Asignado", render: (r) => money(r.amount) }, { key: "spent", label: "Comprobado", render: (r) => money(r.spent) }, { key: "balance", label: "Saldo", render: (r) => <Pill tone={r.balance >= 0 ? "ok" : "danger"}>{money(r.balance)}</Pill> }, { key: "pending", label: "Pendientes", render: (r) => <Pill tone={r.pending || r.observed ? "warn" : "ok"}>{r.pending} / obs {r.observed}</Pill> }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyCash", r.id, { status: "En revisión" })}>Solicitar liquidación</Button><Button variant="success" style={{ padding: "7px 9px", fontSize: 12 }} disabled={r.pending > 0 || r.observed > 0} onClick={() => updateRecord("pettyCash", r.id, { status: "Cerrada", closedAt: todayIso() })}>Cerrar</Button></div> }]} rows={cashRows} /></Card>
     <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Comprobantes / gastos" helper="Cada gasto se revisa individualmente. Observados o sin comprobante bloquean el cierre de caja." /><Button onClick={() => setShowForm(showForm === "cashExpense" ? null : "cashExpense")}>Agregar gasto</Button></div>
-      {showForm === "cashExpense" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Caja"><select style={inputStyle()} value={form.cashId || data.pettyCash[0]?.id || ""} onChange={(e) => setForm({ ...form, cashId: e.target.value })}>{data.pettyCash.map((cc) => <option key={cc.id} value={cc.id}>{cc.name} · {cc.responsible}</option>)}</select></Field><Field label="Fecha"><input type="date" style={inputStyle()} value={form.date || todayIso()} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field><Field label="Categoría"><select style={inputStyle()} value={form.categoryId || "caja_chica"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field><Field label="Establecimiento / proveedor"><input style={inputStyle()} value={form.establishment || ""} onChange={(e) => setForm({ ...form, establishment: e.target.value })} /></Field><Field label="Persona fiscal"><select style={inputStyle()} value={form.taxpayerType || "Persona moral"} onChange={(e) => setForm({ ...form, taxpayerType: e.target.value })}>{TAXPAYER_TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field><Field label="Monto antes IVA"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => { const v = calcTaxValues(e.target.value, { taxpayerType: form.taxpayerType || "Persona moral" }, "base"); setForm({ ...form, ...v }); }} /></Field><Field label="Total pagado"><input type="number" style={inputStyle()} value={form.totalInput || ""} onChange={(e) => { const v = calcTaxValues(e.target.value, { taxpayerType: form.taxpayerType || "Persona moral" }, "total"); setForm({ ...form, ...v }); }} /></Field><Field label="IVA"><input type="number" style={inputStyle()} value={form.iva || ""} onChange={(e) => setForm({ ...form, iva: e.target.value })} /></Field><Field label="Retención"><input type="number" style={inputStyle()} value={form.retention || ""} onChange={(e) => setForm({ ...form, retention: e.target.value })} /></Field><Field label="Comprobante"><select style={inputStyle()} value={form.hasReceipt || "Sí"} onChange={(e) => setForm({ ...form, hasReceipt: e.target.value })}><option>Sí</option><option>No</option></select></Field><Field label="Factura/XML requerido"><select style={inputStyle()} value={form.invoiceRequired || "No"} onChange={(e) => setForm({ ...form, invoiceRequired: e.target.value })}><option>No</option><option>Sí</option></select></Field></div><Field label="Concepto"><input style={inputStyle()} value={form.concept || ""} onChange={(e) => setForm({ ...form, concept: e.target.value })} /></Field><AttachmentUploader label="Subir ticket / factura / XML" value={form.attachments} folder="finanzas/caja-chica" onChange={(attachments) => setForm({ ...form, attachments })} helper="Carga ticket, factura PDF, XML o foto del comprobante." /><Button onClick={addExpense}>Guardar gasto</Button></div> : null}
+      {showForm === "cashExpense" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Caja"><select style={inputStyle()} value={form.cashId || data.pettyCash[0]?.id || ""} onChange={(e) => setForm({ ...form, cashId: e.target.value })}>{data.pettyCash.map((cc) => <option key={cc.id} value={cc.id}>{cc.name} · {cc.responsible}</option>)}</select></Field><Field label="Fecha"><input type="date" style={inputStyle()} value={form.date || todayIso()} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field><Field label="Categoría"><select style={inputStyle()} value={form.categoryId || "caja_chica"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field><Field label="Monto"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field><Field label="Comprobante"><select style={inputStyle()} value={form.hasReceipt || "Sí"} onChange={(e) => setForm({ ...form, hasReceipt: e.target.value })}><option>Sí</option><option>No</option></select></Field><Field label="Factura/XML requerido"><select style={inputStyle()} value={form.invoiceRequired || "No"} onChange={(e) => setForm({ ...form, invoiceRequired: e.target.value })}><option>No</option><option>Sí</option></select></Field></div><Field label="Concepto"><input style={inputStyle()} value={form.concept || ""} onChange={(e) => setForm({ ...form, concept: e.target.value })} /></Field><AttachmentUploader label="Subir ticket / factura / XML" value={form.attachments} folder="finanzas/caja-chica" onChange={(attachments) => setForm({ ...form, attachments })} helper="Carga ticket, factura PDF, XML o foto del comprobante." /><Button onClick={addExpense}>Guardar gasto</Button></div> : null}
     </Card>
-    <Card><StatusFilter value={expenseStatusFilter} onChange={setExpenseStatusFilter} options={(data.pettyExpenses || []).map((r) => r.status)} total={(data.pettyExpenses || []).length} shown={expenseRows.length} /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "establishment", label: "Establecimiento", render: (r) => r.establishment || r.supplier || "—" }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", render: (r) => money(r.totalInput || r.amount) }, { key: "attachments", label: "Anexos", render: (r) => <AttachmentViewer value={r.attachments} /> }, { key: "status", label: "Estado", render: (r) => <div><Pill tone={statusTone(r.status)}>{r.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 5 }}>Automático por revisión</div></div> }, { key: "expenseActions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyExpenses", r.id, { status: "Aceptado", reviewedAt: todayIso(), reviewedBy: currentFinanceUser().email })}>Aceptar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyExpenses", r.id, { status: "Observado", reviewComment: window.prompt("Observación", r.reviewComment || "") || "Observado" })}>Observar</Button><Button variant="danger" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyExpenses", r.id, { status: "Rechazado", rejectedAt: todayIso() })}>Rechazar</Button></ActionCell> }]} rows={expenseRows} /></Card>
-    <PettyReplenishmentModal cash={replenishCash} data={data} categoryMap={categoryMap} onClose={() => setReplenishCash(null)} onSaveExpense={saveReplenishmentExpense} onSendReplenishment={sendReplenishment} />
+    <Card><StatusFilter value={expenseStatusFilter} onChange={setExpenseStatusFilter} options={(data.pettyExpenses || []).map((r) => r.status)} total={(data.pettyExpenses || []).length} shown={expenseRows.length} /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "attachments", label: "Anexos", render: (r) => <AttachmentViewer value={r.attachments} /> }, { key: "status", label: "Estado", render: (r) => <div><Pill tone={statusTone(r.status)}>{r.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 5 }}>Automático por revisión</div></div> }, { key: "expenseActions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyExpenses", r.id, { status: "Aceptado", reviewedAt: todayIso(), reviewedBy: currentFinanceUser().email })}>Aceptar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyExpenses", r.id, { status: "Observado", reviewComment: window.prompt("Observación", r.reviewComment || "") || "Observado" })}>Observar</Button><Button variant="danger" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyExpenses", r.id, { status: "Rechazado", rejectedAt: todayIso() })}>Rechazar</Button></ActionCell> }]} rows={expenseRows} /></Card>
   </div>;
 }
 
@@ -1331,11 +1093,6 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
       legalName: form.legalName || form.tradeName || "Razón social",
       rfc: form.rfc || "",
       type: form.type || "Proveedor",
-      taxpayerType: form.taxpayerType || "Persona moral",
-      ivaRate: Number(form.ivaRate || 0.16),
-      isrRetentionRate: Number(form.isrRetentionRate || 0),
-      ivaRetentionRate: Number(form.ivaRetentionRate || 0),
-      taxProfileCustomized: true,
       contact: form.contact || "",
       email: form.email || "",
       phone: form.phone || "",
@@ -1373,7 +1130,6 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
           <Field label="Razón social"><input style={inputStyle()} value={form.legalName || ""} onChange={(e) => setForm({ ...form, legalName: e.target.value })} /></Field>
           <Field label="RFC"><input style={inputStyle()} value={form.rfc || ""} onChange={(e) => setForm({ ...form, rfc: e.target.value.toUpperCase() })} /></Field>
           <Field label="Tipo"><select style={inputStyle()} value={form.type || "Proveedor"} onChange={(e) => setForm({ ...form, type: e.target.value })}><option>Constructora</option><option>Servicios profesionales</option><option>Materiales</option><option>Dependencia</option><option>Arrendador</option><option>Proveedor</option></select></Field>
-          <Field label="Persona fiscal"><select style={inputStyle()} value={form.taxpayerType || "Persona moral"} onChange={(e) => { const profile = taxProfileForSupplier({ taxpayerType: e.target.value }); setForm({ ...form, taxpayerType: e.target.value, ivaRate: profile.ivaRate, isrRetentionRate: profile.isrRetentionRate, ivaRetentionRate: profile.ivaRetentionRate }); }}>{TAXPAYER_TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field>
           <Field label="Contacto"><input style={inputStyle()} value={form.contact || ""} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></Field>
           <Field label="Correo de pagos"><input type="email" style={inputStyle()} value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
           <Field label="WhatsApp"><input style={inputStyle()} placeholder="521999..." value={form.whatsapp || ""} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></Field>
@@ -1388,7 +1144,7 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
         <Button onClick={createSupplier}>Guardar proveedor</Button>
       </div> : null}
     </Card>
-    <Card><SectionTitle title="Validación administrativa" helper="Da clic en el nombre para consultar histórico. Usa Editar para cambiar datos, agregar documentos o configurar avisos por correo/WhatsApp." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={allRows.map((r) => r.status)} total={allRows.length} shown={rows.length} /><MiniTable columns={[{ key: "tradeName", label: "Proveedor", render: (r) => <EntityLink onClick={() => setSelectedSupplier(r)}>{r.tradeName}</EntityLink> }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "contact", label: "Contacto", render: (r) => <div><b>{r.contact || "—"}</b><div style={{ color: c.muted, fontSize: 12 }}>{r.email || "sin correo"}{r.whatsapp ? ` · WA ${r.whatsapp}` : ""}</div></div> }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal", render: (r) => <select value={r.fiscalStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { fiscalStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "bankStatus", label: "Banco", render: (r) => <select value={r.bankStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { bankStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "documents", label: "Docs", render: (r) => <Pill tone={attachmentCount(r.documents) ? "ok" : "warn"}>{attachmentCount(r.documents)}</Pill> }, { key: "ready", label: "Listo", render: (r) => <Pill tone={supplierReady(r) ? "ok" : "warn"}>{supplierReady(r) ? "Pagable" : "Bloquea pago"}</Pill> }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value, reviewedBy: "admin@tritondesarrollos.com" })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedSupplier(r)}>Ficha</Button><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingSupplier(r)}>Editar</Button></div> }]} rows={rows} /></Card>
+    <Card><SectionTitle title="Validación administrativa" helper="Da clic en el nombre para consultar histórico. Usa Editar para cambiar datos, agregar documentos o configurar avisos por correo/WhatsApp." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={allRows.map((r) => r.status)} total={allRows.length} shown={rows.length} /><MiniTable columns={[{ key: "tradeName", label: "Proveedor", render: (r) => <EntityLink onClick={() => setSelectedSupplier(r)}>{r.tradeName}</EntityLink> }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo" }, { key: "contact", label: "Contacto", render: (r) => <div><b>{r.contact || "—"}</b><div style={{ color: c.muted, fontSize: 12 }}>{r.email || "sin correo"}{r.whatsapp ? ` · WA ${r.whatsapp}` : ""}</div></div> }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal", render: (r) => <select value={r.fiscalStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { fiscalStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "bankStatus", label: "Banco", render: (r) => <select value={r.bankStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { bankStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "documents", label: "Docs", render: (r) => <Pill tone={attachmentCount(r.documents) ? "ok" : "warn"}>{attachmentCount(r.documents)}</Pill> }, { key: "ready", label: "Listo", render: (r) => <Pill tone={supplierReady(r) ? "ok" : "warn"}>{supplierReady(r) ? "Pagable" : "Bloquea pago"}</Pill> }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value, reviewedBy: "admin@tritondesarrollos.com" })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedSupplier(r)}>Ficha</Button><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingSupplier(r)}>Editar</Button></div> }]} rows={rows} /></Card>
     <SupplierContextModal supplier={selectedSupplier} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedSupplier(null)} onEdit={(s) => { setSelectedSupplier(null); setEditingSupplier(s); }} />
     <SupplierEditModal supplier={editingSupplier} data={data} categoryMap={categoryMap} onClose={() => setEditingSupplier(null)} onSave={(patch) => { updateRecord("suppliers", editingSupplier.id, patch); setSelectedSupplier(patch); setEditingSupplier(null); }} />
   </div>;
@@ -1424,7 +1180,7 @@ function Permits({ data, projectMap, rows, addRecord, updateRecord, showForm, se
 }
 
 function Reports({ totals, data, projectMap, categoryMap }) {
-  return <div style={{ display: "grid", gap: 16 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><Pill tone="primary">Rentas esperadas</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentExpected)}</div></Card><Card><Pill tone="ok">Rentas cobradas</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentPaid)}</div></Card><Card><Pill tone="danger">Cartera vencida</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentOverdue)}</div></Card></div><Card><SectionTitle title="Reporte directivo" helper="Consolidado para revisión semanal: pagos, rentas, caja chica y trámites." /><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "payables", label: "Cuentas por pagar", render: (r) => money(data.payables.filter((p) => p.projectId === r.id).reduce((a, p) => a + Number(p.amount || 0) + Number(p.iva || 0), 0)) }, { key: "permits", label: "Trámites abiertos", render: (r) => data.permits.filter((p) => p.projectId === r.id && !["Aprobado", "Cerrado"].includes(p.status)).length }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }]} rows={data.projects} /></Card></div>;
+  return <div style={{ display: "grid", gap: 16 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><Pill tone="primary">Rentas esperadas</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentExpected)}</div></Card><Card><Pill tone="ok">Rentas cobradas</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentPaid)}</div></Card><Card><Pill tone="danger">Cartera vencida</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentOverdue)}</div></Card></div><Card><SectionTitle title="Reporte directivo" helper="Consolidado para revisión semanal: pagos, rentas, caja chica y trámites." /><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo" }, { key: "payables", label: "Cuentas por pagar", render: (r) => money(data.payables.filter((p) => p.projectId === r.id).reduce((a, p) => a + Number(p.amount || 0) + Number(p.iva || 0), 0)) }, { key: "permits", label: "Trámites abiertos", render: (r) => data.permits.filter((p) => p.projectId === r.id && !["Aprobado", "Cerrado"].includes(p.status)).length }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }]} rows={data.projects} /></Card></div>;
 }
 
 
