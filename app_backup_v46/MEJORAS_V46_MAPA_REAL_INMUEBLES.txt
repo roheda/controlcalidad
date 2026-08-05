@@ -1,0 +1,11 @@
+V46 - Arrendamientos / Inmuebles
+
+- Se elimina la tarjeta anterior de "Mapa de inmuebles" que solo mostraba tarjetas/listado.
+- Se reemplaza por selector de vista:
+  - Vista tabla
+  - Vista mapa real
+- La vista mapa real usa Leaflet + OpenStreetMap mediante CDN, sin dependencia npm adicional.
+- Cada inmueble con latitud/longitud o coordenadas aparece como pin.
+- Al dar clic en un pin se puede abrir el expediente del inmueble.
+- Se quita cualquier acción técnica de sincronización/subida a Firestore del panel de Inmuebles.
+- Los inmuebles sin coordenadas se contabilizan como "sin ubicación" para completar posteriormente.

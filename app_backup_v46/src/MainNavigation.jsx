@@ -116,25 +116,10 @@ export default function MainNavigation() {
   `, []);
 
   function goTo(moduleId, isOs = true) {
-    setActiveModule(moduleId);
-    setMobileOpen(false);
-    setPinned(null);
-
-    if (moduleId === "calidad") {
-      closeAllModuleScreens();
-      return;
-    }
-
-    if (isOs !== false) {
-      window.dispatchEvent(new Event("triton-close-estimaciones"));
-      window.dispatchEvent(new Event("triton-close-obras-config"));
-      window.dispatchEvent(new Event("triton-close-feedback-module"));
-      window.dispatchEvent(new CustomEvent("triton-open-os-module", { detail: { module: moduleId } }));
-      return;
-    }
-
-    closeAllModuleScreens();
+    setActiveModule(moduleId); setMobileOpen(false); setPinned(null); closeAllModuleScreens();
+    if (moduleId === "calidad") return;
     window.setTimeout(() => {
+      if (isOs !== false) { window.dispatchEvent(new CustomEvent("triton-open-os-module", { detail: { module: moduleId } })); return; }
       if (moduleId === "estimaciones") { window.dispatchEvent(new Event("triton-open-estimaciones")); return; }
       if (moduleId === "obras") { window.dispatchEvent(new Event("triton-open-obras-config")); return; }
       openFeedbackModule(moduleId);

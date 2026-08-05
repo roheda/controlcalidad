@@ -927,15 +927,6 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   const [checklistCommentUploading, setChecklistCommentUploading] = useState({});
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || null;
   const obraId = selectedObraId || selectedObra?.id || "";
-  const tritonOsOpenedRef = useRef(false);
-
-  useEffect(() => {
-    if (!authUser || loadingAuth || tritonOsOpenedRef.current) return;
-    tritonOsOpenedRef.current = true;
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("triton-open-os-module", { detail: { module: "reportes_os" } }));
-    }, 120);
-  }, [authUser, loadingAuth]);
 
   useEffect(() => {
     const onResize = () => {
@@ -1810,8 +1801,8 @@ async function deleteGeneralEvidence(file) {
     return (
       <div style={{ minHeight: "100vh", background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ ...cardStyle(), width: "100%", maxWidth: 460, padding: 30, textAlign: "center" }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: c.text, marginBottom: 8 }}>TRITON OS</div>
-          <div style={{ color: c.muted, marginBottom: 18 }}>No hay obra activa para el módulo de calidad. El sistema operativo sigue disponible desde el menú principal.</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: c.text, marginBottom: 8 }}>Sin obra activa</div>
+          <div style={{ color: c.muted, marginBottom: 18 }}>Da de alta una obra desde el módulo Obras para activar los checklist de calidad.</div>
         </div>
       </div>
     );
@@ -1830,9 +1821,9 @@ async function deleteGeneralEvidence(file) {
         }}
       >
         <div style={{ ...cardStyle(), width: "100%", maxWidth: 420, padding: 30, textAlign: "center" }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: c.text, marginBottom: 8 }}>TRITON OS</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: c.text, marginBottom: 8 }}>Cargando obra...</div>
           <div style={{ color: c.muted, marginBottom: 18 }}>
-            {qualityInitializing ? "Preparando información operativa del sistema..." : "Cargando información necesaria. El módulo de calidad seguirá disponible desde Operación."}
+            {qualityInitializing ? "Activando unidades y checklist de calidad de la obra..." : "Cargando unidades y checklist de calidad de la obra activa."}
           </div>
         </div>
       </div>

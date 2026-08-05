@@ -1,6 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import React, { useEffect, useMemo, useState } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -188,19 +186,14 @@ function PaymentContextModal({ row, data, projectMap, categoryMap, onClose, onAu
     .filter((p) => p.id !== row.id && (p.supplierId === row.supplierId || p.categoryId === row.categoryId || p.contractId === row.contractId))
     .slice(0, 6);
   const paymentsMade = data.payments.filter((pay) => pay.payableId === row.id || relatedPayments.some((p) => p.id === pay.payableId));
-  const requesterName = row.requestedByName || row.requestedBy || row.createdByName || "No capturado";
-  const requesterEmail = row.requestedByEmail || row.createdByEmail || row.createdBy || "";
-  const requesterText = `${requesterName}${requesterEmail && requesterEmail !== requesterName ? ` · ${requesterEmail}` : ""}`;
-  const baseLog = [
-    { label: "Solicitado por", value: requesterText, date: row.requestedAt || row.requiredDate || row.createdAt || "—" },
-    row.adminReviewed ? { label: "Revisión administrativa", value: row.adminReviewedBy || row.adminComment || row.overspendReason || "Expediente revisado", date: row.adminReviewedAt || "—" } : { label: "Revisión administrativa", value: "Pendiente", date: "—" },
-    row.readyForApprovalAt ? { label: "Enviado a autorización", value: row.readyForApprovalBy || "Listo para autorización", date: row.readyForApprovalAt } : null,
+  const log = [
+    { label: "Solicitud creada", value: row.requestedBy || "Solicitante", date: row.requiredDate || row.createdAt || "—" },
+    row.adminReviewed ? { label: "Revisión administrativa", value: row.adminComment || row.overspendReason || "Expediente revisado", date: row.adminReviewedAt || "—" } : { label: "Revisión administrativa", value: "Pendiente", date: "—" },
+    row.readyForApprovalAt ? { label: "Enviado a autorización", value: "Listo para autorización", date: row.readyForApprovalAt } : null,
     row.authorizedAt ? { label: "Autorizado", value: row.authorizedBy || "Dirección", date: row.authorizedAt } : null,
-    row.scheduledDate ? { label: "Programado", value: row.scheduledBy || row.paymentBank || "Banco por definir", date: row.scheduledDate } : null,
-    row.paidAt ? { label: "Pagado", value: row.paidBy || row.paymentReference || "Referencia pendiente", date: row.paidAt } : null,
+    row.scheduledDate ? { label: "Programado", value: row.paymentBank || "Banco por definir", date: row.scheduledDate } : null,
+    row.paidAt ? { label: "Pagado", value: row.paymentReference || "Referencia pendiente", date: row.paidAt } : null,
   ].filter(Boolean);
-  const auditLog = (row.auditLog || []).map((item) => ({ label: item.event || item.action || "Movimiento", value: item.user || item.detail || "Sistema", date: item.date || item.createdAt || "—" }));
-  const log = [...baseLog, ...auditLog];
   return <div style={{ position: "fixed", inset: 0, zIndex: 2147483640, pointerEvents: "none" }}>
     <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.18)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
     <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(760px, calc(100vw - 36px))", background: "rgba(255,255,255,0.98)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
@@ -218,7 +211,6 @@ function PaymentContextModal({ row, data, projectMap, categoryMap, onClose, onAu
         <Card style={{ boxShadow: "none" }}><SectionTitle title="Documentos y anexos" helper="Factura, XML, contrato, cotización, carátula bancaria, comprobantes y soporte." /><AttachmentViewer value={row.attachments} /></Card>
         <Card style={{ boxShadow: "none" }}><SectionTitle title="Contexto administrativo" helper="La autorización final debe recibir el expediente completo, no datos sueltos." />
           <div style={{ display: "grid", gap: 8, fontSize: 13 }}>
-            <div><b>Solicitó:</b> {requesterText}</div>
             <div><b>Partida:</b> {categoryMap[row.categoryId]?.name || row.categoryId}</div>
             <div><b>Etapa:</b> {row.paymentStage || "Pago"}</div>
             <div><b>Comentario administrativo:</b> {row.adminComment || row.overspendReason || row.notes || "Sin comentario"}</div>
@@ -1406,68 +1398,6 @@ function PaidPayments({ data, projectMap, categoryMap }) {
   const rows = filterByStatus(data.payments.map((p) => ({ ...p, status: p.reconciled ? "Conciliado" : "Pendiente" })), statusFilter);
   return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Pagos realizados" helper="Comprobantes de transferencia, referencia bancaria y relación con solicitud. Da clic en la solicitud para ver expediente completo." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={["Conciliado", "Pendiente"]} total={data.payments.length} shown={rows.length} /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "payableId", label: "Solicitud", render: (r) => { const payable = data.payables.find((p) => p.id === r.payableId); return payable ? <EntityLink onClick={() => setSelectedPayment(payable)}>{payable.concept}</EntityLink> : r.payableId; } }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "bank", label: "Banco" }, { key: "reference", label: "Referencia" }, { key: "reconciled", label: "Conciliado", render: (r) => <Pill tone={r.reconciled ? "ok" : "warn"}>{r.reconciled ? "Sí" : "Pendiente"}</Pill> }]} rows={rows} /></Card><PaymentContextModal row={selectedPayment} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedPayment(null)} /></div>;
 }
-
-function ClientSalesDrawer({ client, data, projectMap, onClose }) {
-  if (!client) return null;
-  const incomes = (data.incomes || []).filter((r) => r.clientId === client.id || r.contractRef === client.contractRef || (client.unit && r.unit === client.unit));
-  const total = incomes.reduce((a, r) => a + Number(r.amount || 0), 0);
-  const reconciled = incomes.filter((r) => r.reconciled || r.status === "Conciliado").reduce((a, r) => a + Number(r.bankAmount ?? r.amount ?? 0), 0);
-  const pending = incomes.filter((r) => !(r.reconciled || r.status === "Conciliado"));
-  return <div style={{ position: "fixed", inset: 0, zIndex: 2147483641, pointerEvents: "none" }}>
-    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.14)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
-    <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(760px, calc(100vw - 36px))", background: "rgba(255,255,255,0.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-      <header style={{ padding: 20, borderBottom: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-        <div><Pill tone="primary">Cliente / comprador</Pill><h2 style={{ margin: "10px 0 4px", fontSize: 23, letterSpacing: -.4 }}>{client.name}</h2><div style={{ color: c.muted, fontSize: 13 }}>{projectMap[client.projectId]?.name || client.projectId || "Sin proyecto"} · {client.unit || "Sin unidad"} · {client.contractRef || "Sin contrato"}</div></div>
-        <button onClick={onClose} style={{ border: 0, background: c.soft, borderRadius: 14, width: 40, height: 40, cursor: "pointer", fontWeight: 950 }}>×</button>
-      </header>
-      <main style={{ padding: 20, overflow: "auto", display: "grid", gap: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
-          <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone="primary">Total registrado</Pill><b style={{ display: "block", marginTop: 8 }}>{money(total)}</b><small style={{ color: c.muted }}>{incomes.length} movimiento(s)</small></Card>
-          <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone="ok">Conciliado</Pill><b style={{ display: "block", marginTop: 8 }}>{money(reconciled)}</b><small style={{ color: c.muted }}>Base contra banco</small></Card>
-          <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone={pending.length ? "warn" : "ok"}>Pendiente</Pill><b style={{ display: "block", marginTop: 8 }}>{pending.length}</b><small style={{ color: c.muted }}>Por revisar/conciliar</small></Card>
-          <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone="idle">Contacto</Pill><b style={{ display: "block", marginTop: 8 }}>{client.email || "Sin correo"}</b><small style={{ color: c.muted }}>{client.phone || "Sin teléfono"}</small></Card>
-        </div>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Estado de cuenta del cliente" helper="Pagos, referencias, unidades y estatus de conciliación." />
-          <MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "type", label: "Tipo" }, { key: "concept", label: "Concepto" }, { key: "unit", label: "Unidad" }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "reference", label: "Referencia" }, { key: "bankDate", label: "Fecha banco" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.reconciled || r.status === "Conciliado" ? "ok" : "warn"}>{r.reconciled || r.status === "Conciliado" ? "Conciliado" : (r.status || "Pendiente")}</Pill> }]} rows={incomes} />
-        </Card>
-      </main>
-      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "flex-end" }}><Button variant="secondary" onClick={onClose}>Cerrar</Button></footer>
-    </aside>
-  </div>;
-}
-
-function UnitSalesDrawer({ unit, data, projectMap, clientMap, onClose }) {
-  if (!unit) return null;
-  const incomes = (data.incomes || []).filter((r) => String(r.unit || "").toLowerCase() === String(unit || "").toLowerCase());
-  const clients = (data.clients || []).filter((c) => String(c.unit || "").toLowerCase() === String(unit || "").toLowerCase() || incomes.some((r) => r.clientId === c.id));
-  const projectId = incomes[0]?.projectId || clients[0]?.projectId || "";
-  const total = incomes.reduce((a, r) => a + Number(r.amount || 0), 0);
-  const reconciled = incomes.filter((r) => r.reconciled || r.status === "Conciliado").reduce((a, r) => a + Number(r.bankAmount ?? r.amount ?? 0), 0);
-  return <div style={{ position: "fixed", inset: 0, zIndex: 2147483641, pointerEvents: "none" }}>
-    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.14)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
-    <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(760px, calc(100vw - 36px))", background: "rgba(255,255,255,0.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-      <header style={{ padding: 20, borderBottom: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-        <div><Pill tone="primary">Unidad</Pill><h2 style={{ margin: "10px 0 4px", fontSize: 23, letterSpacing: -.4 }}>{unit}</h2><div style={{ color: c.muted, fontSize: 13 }}>{projectMap[projectId]?.name || projectId || "Sin proyecto"} · {clients.length} cliente(s) ligado(s)</div></div>
-        <button onClick={onClose} style={{ border: 0, background: c.soft, borderRadius: 14, width: 40, height: 40, cursor: "pointer", fontWeight: 950 }}>×</button>
-      </header>
-      <main style={{ padding: 20, overflow: "auto", display: "grid", gap: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
-          <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone="primary">Total registrado</Pill><b style={{ display: "block", marginTop: 8 }}>{money(total)}</b><small style={{ color: c.muted }}>{incomes.length} movimiento(s)</small></Card>
-          <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone="ok">Conciliado</Pill><b style={{ display: "block", marginTop: 8 }}>{money(reconciled)}</b><small style={{ color: c.muted }}>Ingresos validados contra banco</small></Card>
-          <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone="idle">Contrato</Pill><b style={{ display: "block", marginTop: 8 }}>{incomes[0]?.contractRef || clients[0]?.contractRef || "Sin contrato"}</b><small style={{ color: c.muted }}>Referencia comercial</small></Card>
-        </div>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Clientes ligados" helper="Compradores o pagadores vinculados a esta unidad." />
-          <MiniTable columns={[{ key: "name", label: "Cliente" }, { key: "type", label: "Tipo" }, { key: "contractRef", label: "Contrato" }, { key: "email", label: "Correo" }, { key: "phone", label: "Teléfono" }, { key: "status", label: "Estado", render: (r) => <Pill tone="primary">{r.status}</Pill> }]} rows={clients} />
-        </Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Pagos de la unidad" helper="Movimientos de ingreso relacionados a la unidad seleccionada." />
-          <MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "clientId", label: "Cliente", render: (r) => clientMap[r.clientId]?.name || r.clientId || "—" }, { key: "type", label: "Tipo" }, { key: "concept", label: "Concepto" }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "reference", label: "Referencia" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.reconciled || r.status === "Conciliado" ? "ok" : "warn"}>{r.reconciled || r.status === "Conciliado" ? "Conciliado" : (r.status || "Pendiente")}</Pill> }]} rows={incomes} />
-        </Card>
-      </main>
-      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "flex-end" }}><Button variant="secondary" onClick={onClose}>Cerrar</Button></footer>
-    </aside>
-  </div>;
-}
-
 function BankReconciliation({ data, projectMap, categoryMap, updateRecord }) {
   const [mode, setMode] = useState("egresos");
   const [statusFilter, setStatusFilter] = useState("todos");
@@ -1476,30 +1406,15 @@ function BankReconciliation({ data, projectMap, categoryMap, updateRecord }) {
   const [batchBankDate, setBatchBankDate] = useState(todayIso());
   const [batchBank, setBatchBank] = useState("");
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [selectedSupplier, setSelectedSupplier] = useState(null);
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [selectedUnit, setSelectedUnit] = useState(null);
   const clientMap = useMemo(() => Object.fromEntries((data.clients || []).map((c) => [c.id, c])), [data.clients]);
-  const payableMap = useMemo(() => Object.fromEntries((data.payables || []).map((p) => [p.id, p])), [data.payables]);
-  const supplierMap = useMemo(() => Object.fromEntries((data.suppliers || []).map((s) => [s.id, s])), [data.suppliers]);
 
-  const requestUser = (payable) => payable?.requestedByName || payable?.requestedByEmail || payable?.requestedBy || payable?.createdBy || "No capturado";
-  const expenseRows = (data.payments || []).map((p) => {
-    const payable = payableMap[p.payableId] || {};
-    const supplier = supplierMap[payable.supplierId] || {};
-    return {
-      ...p,
-      payable,
-      supplier,
-      supplierId: payable.supplierId || p.supplierId,
-      supplierName: supplier.tradeName || payable.supplier || p.supplier || "Proveedor",
-      requestedByText: requestUser(payable),
-      movementType: "Egreso",
-      status: p.reconciled ? "Conciliado" : "Pendiente",
-      bankDate: p.bankDate || p.date || todayIso(),
-      bankAmount: p.bankAmount ?? p.amount,
-    };
-  });
+  const expenseRows = (data.payments || []).map((p) => ({
+    ...p,
+    movementType: "Egreso",
+    status: p.reconciled ? "Conciliado" : "Pendiente",
+    bankDate: p.bankDate || p.date || todayIso(),
+    bankAmount: p.bankAmount ?? p.amount,
+  }));
   const incomeRows = (data.incomes || []).map((r) => ({
     ...r,
     movementType: "Ingreso venta",
@@ -1566,9 +1481,7 @@ function BankReconciliation({ data, projectMap, categoryMap, updateRecord }) {
     { key: "select", label: "", sortable: false, render: (r) => <input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggleOne(r.id)} /> },
     { key: "date", label: "Fecha sistema" },
     { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || "—" },
-    { key: "supplierName", label: "Proveedor", render: (r) => r.supplierId ? <EntityLink onClick={() => setSelectedSupplier(supplierMap[r.supplierId])}>{r.supplierName}</EntityLink> : r.supplierName },
-    { key: "payableId", label: "Pago / solicitud", render: (r) => r.payable?.id ? <EntityLink onClick={() => setSelectedPayment(r.payable)}>{r.payable.concept}</EntityLink> : r.payableId || "—" },
-    { key: "requestedByText", label: "Solicitó", render: (r) => <div><b>{r.requestedByText}</b><div style={{ color: c.muted, fontSize: 11 }}>registro obligatorio del expediente</div></div> },
+    { key: "payableId", label: "Pago / solicitud", render: (r) => { const payable = (data.payables || []).find((p) => p.id === r.payableId); return payable ? <EntityLink onClick={() => setSelectedPayment(payable)}>{payable.concept}</EntityLink> : r.payableId || "—"; } },
     { key: "amount", label: "Monto sistema", render: (r) => money(r.amount) },
     { key: "bankAmount", label: "Monto banco", render: (r) => <input type="number" style={inputStyle({ minWidth: 130, padding: "8px 9px" })} defaultValue={r.bankAmount ?? r.amount} onBlur={(e) => updateRecord("payments", r.id, { bankAmount: Number(e.target.value || 0), difference: Number(e.target.value || 0) - Number(r.amount || 0) })} /> },
     { key: "bank", label: "Banco", render: (r) => <input style={inputStyle({ minWidth: 140, padding: "8px 9px" })} defaultValue={r.bank || ""} onBlur={(e) => updateRecord("payments", r.id, { bank: e.target.value })} /> },
@@ -1581,9 +1494,9 @@ function BankReconciliation({ data, projectMap, categoryMap, updateRecord }) {
     { key: "select", label: "", sortable: false, render: (r) => <input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggleOne(r.id)} /> },
     { key: "date", label: "Fecha sistema" },
     { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || "—" },
-    { key: "clientId", label: "Cliente", render: (r) => clientMap[r.clientId] ? <EntityLink onClick={() => setSelectedClient(clientMap[r.clientId])}>{clientMap[r.clientId].name}</EntityLink> : "—" },
+    { key: "clientId", label: "Cliente", render: (r) => clientMap[r.clientId]?.name || "—" },
     { key: "concept", label: "Ingreso / venta" },
-    { key: "unit", label: "Unidad", render: (r) => r.unit ? <EntityLink onClick={() => setSelectedUnit(r.unit)}>{r.unit}</EntityLink> : "—" },
+    { key: "unit", label: "Unidad" },
     { key: "amount", label: "Monto sistema", render: (r) => money(r.amount) },
     { key: "bankAmount", label: "Monto banco", render: (r) => <input type="number" style={inputStyle({ minWidth: 130, padding: "8px 9px" })} defaultValue={r.bankAmount ?? r.amount} onBlur={(e) => updateRecord("incomes", r.id, { bankAmount: Number(e.target.value || 0), difference: Number(e.target.value || 0) - Number(r.amount || 0) })} /> },
     { key: "bank", label: "Banco", render: (r) => <input style={inputStyle({ minWidth: 140, padding: "8px 9px" })} defaultValue={r.bank || ""} onBlur={(e) => updateRecord("incomes", r.id, { bank: e.target.value })} /> },
@@ -1612,13 +1525,10 @@ function BankReconciliation({ data, projectMap, categoryMap, updateRecord }) {
       </div>
     </Card>
     <Card>
-      <SectionTitle title={mode === "egresos" ? "Egresos a conciliar" : "Ingresos de ventas a conciliar"} helper={mode === "egresos" ? "Pagos realizados por tesorería. Ahora muestran proveedor, solicitud y quién solicitó el pago." : "Ingresos de desarrollos inmobiliarios de venta. Da clic en cliente o unidad para consultar pagos y estado de cuenta."} />
+      <SectionTitle title={mode === "egresos" ? "Egresos a conciliar" : "Ingresos de ventas a conciliar"} helper={mode === "egresos" ? "Pagos realizados por tesorería. La referencia, fecha banco y monto banco quedan registrados aquí." : "Ingresos de desarrollos inmobiliarios de venta. No incluye rentas de arrendamientos."} />
       <MiniTable columns={mode === "egresos" ? expenseColumns : incomeColumns} rows={rows} />
     </Card>
     <PaymentContextModal row={selectedPayment} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedPayment(null)} />
-    <SupplierContextModal supplier={selectedSupplier} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedSupplier(null)} />
-    <ClientSalesDrawer client={selectedClient} data={data} projectMap={projectMap} onClose={() => setSelectedClient(null)} />
-    <UnitSalesDrawer unit={selectedUnit} data={data} projectMap={projectMap} clientMap={clientMap} onClose={() => setSelectedUnit(null)} />
   </div>;
 }
 
@@ -1889,115 +1799,77 @@ function parseAssetCoordinates(asset = {}) {
 
 function AssetMapView({ assets = [], onSelect }) {
   const mapId = React.useMemo(() => `triton-assets-map-${Math.random().toString(36).slice(2)}`, []);
-  const mapContainerRef = useRef(null);
-  const mapRef = useRef(null);
-  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
   const mappedAssets = useMemo(() => assets.map((asset) => ({ asset, coords: parseAssetCoordinates(asset) })).filter((x) => x.coords), [assets]);
   const missingAssets = assets.length - mappedAssets.length;
-  const selectedMapped = mappedAssets.find((x) => x.asset.id === selectedAsset?.id) || mappedAssets[0] || null;
 
   useEffect(() => {
-    if (!mappedAssets.length) {
-      setSelectedAsset(null);
+    if (window.L) { setReady(true); return; }
+    const existingCss = document.querySelector('link[data-triton-leaflet="true"]');
+    if (!existingCss) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      link.integrity = "sha256-p4NxAoJBhIINfQ2ATb8l7AO6QUM3OaJdHEq9vh+biU=";
+      link.crossOrigin = "";
+      link.dataset.tritonLeaflet = "true";
+      document.head.appendChild(link);
+    }
+    const existingScript = document.querySelector('script[data-triton-leaflet="true"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => setReady(true), { once: true });
+      existingScript.addEventListener("error", () => setError("No se pudo cargar el mapa. Revisa conexión a internet o abre Google Maps desde el expediente."), { once: true });
       return;
     }
-    if (!selectedAsset || !mappedAssets.some((x) => x.asset.id === selectedAsset.id)) {
-      setSelectedAsset(mappedAssets[0].asset);
-    }
-  }, [mappedAssets, selectedAsset]);
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+    script.crossOrigin = "";
+    script.dataset.tritonLeaflet = "true";
+    script.onload = () => setReady(true);
+    script.onerror = () => setError("No se pudo cargar el mapa. Revisa conexión a internet o abre Google Maps desde el expediente.");
+    document.body.appendChild(script);
+  }, []);
 
   useEffect(() => {
-    if (!mapContainerRef.current || !mappedAssets.length) return undefined;
-    const el = mapContainerRef.current;
+    if (!ready || !window.L || !mappedAssets.length) return undefined;
+    const el = document.getElementById(mapId);
+    if (!el) return undefined;
     el.innerHTML = "";
-
+    const L = window.L;
     const first = mappedAssets[0].coords;
-    const map = L.map(el, {
-      scrollWheelZoom: false,
-      zoomControl: true,
-      attributionControl: true,
-    }).setView([first.lat, first.lng], mappedAssets.length === 1 ? 15 : 12);
-    mapRef.current = map;
-
+    const map = L.map(el, { scrollWheelZoom: false }).setView([first.lat, first.lng], 12);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: "© OpenStreetMap",
+      attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
-
     const bounds = [];
-    const goldIcon = L.divIcon({
-      className: "triton-map-pin-wrap",
-      html: `<div class="triton-map-pin"><span></span></div>`,
-      iconSize: [34, 42],
-      iconAnchor: [17, 38],
-      popupAnchor: [0, -36],
-    });
-
     mappedAssets.forEach(({ asset, coords }) => {
       bounds.push([coords.lat, coords.lng]);
-      const marker = L.marker([coords.lat, coords.lng], { icon: goldIcon }).addTo(map);
-      marker.bindPopup(`<div style="min-width:210px;font-family:Montserrat,Arial,sans-serif;"><strong style="font-size:14px;color:#242322;">${asset.name || "Inmueble"}</strong><br/><span style="color:#6B6862;">${asset.type || ""}</span><br/><span style="color:#6B6862;">${asset.address || asset.location || "Ubicación pendiente"}</span><br/><button type="button" data-asset-id="${asset.id}" style="margin-top:10px;border:0;border-radius:12px;padding:8px 10px;background:#B08A2E;color:white;font-weight:900;cursor:pointer;">Ver expediente</button></div>`);
-      marker.on("click", () => setSelectedAsset(asset));
+      const marker = L.marker([coords.lat, coords.lng]).addTo(map);
+      marker.bindPopup(`<strong>${asset.name || "Inmueble"}</strong><br/>${asset.type || ""}<br/>${asset.address || asset.location || ""}<br/><button type="button" data-asset-id="${asset.id}" style="margin-top:8px;border:0;border-radius:10px;padding:7px 9px;background:#B08A2E;color:white;font-weight:800;cursor:pointer;">Ver expediente</button>`);
       marker.on("popupopen", () => {
         setTimeout(() => {
           const btn = document.querySelector(`[data-asset-id="${asset.id}"]`);
           if (btn) btn.onclick = () => onSelect(asset);
         }, 0);
       });
+      marker.on("click", () => onSelect(asset));
     });
-
-    if (bounds.length > 1) map.fitBounds(bounds, { padding: [34, 34], maxZoom: 15 });
-    setTimeout(() => map.invalidateSize(), 180);
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
-  }, [mapId, mappedAssets, onSelect]);
-
-  function focusAsset(asset) {
-    const coords = parseAssetCoordinates(asset);
-    setSelectedAsset(asset);
-    if (coords && mapRef.current) mapRef.current.setView([coords.lat, coords.lng], 16, { animate: true });
-  }
+    if (bounds.length > 1) map.fitBounds(bounds, { padding: [28, 28] });
+    setTimeout(() => map.invalidateSize(), 150);
+    return () => map.remove();
+  }, [ready, mapId, mappedAssets, onSelect]);
 
   return <Card style={{ boxShadow: "none" }}>
-    <style>{`
-      .triton-real-map .leaflet-container { font-family: Montserrat, Arial, sans-serif; background: #EFE9DD; }
-      .triton-real-map .leaflet-control-attribution { font-size: 10px; }
-      .triton-map-pin-wrap { background: transparent; border: 0; }
-      .triton-map-pin { width: 30px; height: 30px; border-radius: 999px 999px 999px 4px; transform: rotate(-45deg); background: #B08A2E; border: 3px solid #fff; box-shadow: 0 10px 24px rgba(0,0,0,.24); display: grid; place-items: center; }
-      .triton-map-pin span { width: 9px; height: 9px; border-radius: 50%; background: #fff; display: block; }
-      .triton-real-map .leaflet-popup-content-wrapper { border-radius: 18px; box-shadow: 0 16px 40px rgba(0,0,0,.18); }
-      .triton-real-map .leaflet-popup-content { margin: 14px; }
-    `}</style>
-    <SectionTitle title="Vista mapa real" helper="Mapa real con OpenStreetMap/Leaflet. Selecciona un pin o un inmueble de la lista para ver su resumen y abrir el expediente." />
-    {!mappedAssets.length ? <div style={{ padding: 16, border: `1px dashed ${c.border}`, borderRadius: 18, color: c.muted }}>No hay inmuebles con coordenadas para mostrar en mapa. Agrega latitud/longitud o coordenadas en el expediente del inmueble.</div> : <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(280px,360px)", gap: 14, alignItems: "stretch" }}>
-      <div className="triton-real-map" style={{ minHeight: 560, borderRadius: 26, overflow: "hidden", border: `1px solid ${c.border}`, background: c.soft, position: "relative" }}>
-        <div ref={mapContainerRef} id={mapId} style={{ height: "100%", minHeight: 560, width: "100%" }} />
-      </div>
-      <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-        <Card style={{ boxShadow: "none", padding: 14, borderRadius: 20 }}>
-          <Pill tone="primary">Inmueble seleccionado</Pill>
-          <h3 style={{ margin: "10px 0 4px", fontSize: 20, color: c.text }}>{selectedMapped?.asset?.name || "Selecciona un inmueble"}</h3>
-          <div style={{ color: c.muted, fontSize: 13, lineHeight: 1.45 }}>{selectedMapped?.asset?.type || ""} · {selectedMapped?.asset?.address || selectedMapped?.asset?.location || "Ubicación pendiente"}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
-            <Info label="Renta / valor" value={selectedMapped?.asset?.rentalPrice ? money(selectedMapped.asset.rentalPrice) : "Por definir"} />
-            <Info label="m²" value={selectedMapped?.asset?.area ? numberFmt(selectedMapped.asset.area) : "Pendiente"} />
-            <Info label="Propietario" value={selectedMapped?.asset?.ownerName || "Pendiente"} />
-            <Info label="Cuenta depósito" value={selectedMapped?.asset?.depositAccountAlias || "Pendiente"} />
-          </div>
-          {selectedMapped?.asset ? <Button style={{ width: "100%", marginTop: 12 }} onClick={() => onSelect(selectedMapped.asset)}>Abrir expediente</Button> : null}
-        </Card>
-        <Card style={{ boxShadow: "none", padding: 14, borderRadius: 20, maxHeight: 290, overflow: "auto" }}>
-          <SectionTitle title="Predios ubicados" helper="Da clic para centrar el mapa." />
-          <div style={{ display: "grid", gap: 8 }}>{mappedAssets.map(({ asset }) => <button key={asset.id} type="button" onClick={() => focusAsset(asset)} style={{ textAlign: "left", border: selectedAsset?.id === asset.id ? `2px solid ${c.primary}` : `1px solid ${c.border}`, background: selectedAsset?.id === asset.id ? c.primarySoft : "white", borderRadius: 16, padding: 10, cursor: "pointer" }}><b style={{ color: c.text }}>{asset.name}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>{asset.type || "Inmueble"} · {asset.location || asset.address || "Sin ubicación"}</div></button>)}</div>
-        </Card>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Pill tone="primary">{mappedAssets.length} con ubicación</Pill>
-          {missingAssets ? <Pill tone="warn">{missingAssets} sin coordenadas</Pill> : <Pill tone="ok">Todos ubicados</Pill>}
-        </div>
-      </div>
-    </div>}
+    <SectionTitle title="Vista mapa real" helper="Mapa real con OpenStreetMap/Leaflet. Da clic en un pin para abrir el expediente del predio." />
+    {error ? <div style={{ padding: 14, borderRadius: 16, background: c.redSoft, color: c.red, fontWeight: 900 }}>{error}</div> : null}
+    {!mappedAssets.length ? <div style={{ padding: 16, border: `1px dashed ${c.border}`, borderRadius: 18, color: c.muted }}>No hay inmuebles con coordenadas para mostrar en mapa. Agrega latitud/longitud o coordenadas en el expediente del inmueble.</div> : <div id={mapId} style={{ height: 520, width: "100%", borderRadius: 22, overflow: "hidden", border: `1px solid ${c.border}`, background: c.soft }} />}
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+      <Pill tone="primary">{mappedAssets.length} con ubicación</Pill>
+      {missingAssets ? <Pill tone="warn">{missingAssets} sin coordenadas</Pill> : <Pill tone="ok">Todos ubicados</Pill>}
+    </div>
   </Card>;
 }
 function RentalContractForm({ data, tenantMap, assetMap, form, setForm, onSave, editing }) {
@@ -2376,9 +2248,8 @@ function Reports({ totals, data, projectMap, categoryMap, active = "reportes_os"
   const payablesTotal = data.payables.reduce((a, p) => a + payableTotal(p), 0);
   const paidTotal = data.payments.reduce((a, p) => a + Number(p.amount || 0), 0);
   if (active === "reporte_ia") return <div style={{ display: "grid", gap: 16 }}><Card><Pill tone="primary">IA / análisis cruzado</Pill><h3 style={{ margin: "12px 0 4px" }}>Lectura financiera vs operación</h3><p style={{ color: c.muted }}>Aquí se concentrarán análisis automáticos de flujo, calidad, avance de obra, pagos y trámites. Por ahora muestra alertas de ejemplo para pruebas operativas.</p></Card><Card><SectionTitle title="Hallazgos sugeridos" helper="Pistas que el sistema puede generar automáticamente." /><div style={{ display: "grid", gap: 10 }}><div style={{ padding: 12, borderRadius: 16, background: c.orangeSoft }}><b>Presupuesto vs avance:</b> revisar partidas con alto comprometido y baja liberación de calidad.</div><div style={{ padding: 12, borderRadius: 16, background: c.soft }}><b>Flujo:</b> programar pagos autorizados por lote para evitar dispersión de tesorería.</div><div style={{ padding: 12, borderRadius: 16, background: c.greenSoft }}><b>Ingresos:</b> conciliar ingresos contra contratos y unidades para evitar omisiones.</div></div></Card></div>;
-  const titleMap = { reporte_obra: "Reportes de obra", reporte_finanzas: "Reportes financieros", reporte_egresos: "Reportes de egresos", reporte_ingresos: "Reportes de ingresos", reportes_os: "TRITON OS" };
-  const helperMap = { reportes_os: "Sistema operativo de desarrollos inmobiliarios: obra, finanzas, ingresos, egresos, trámites y análisis ejecutivo.", reporte_obra: "Calidad, estimaciones, evidencias y avance de obra.", reporte_finanzas: "Estado financiero, presupuesto, comprometido, pagado y disponible.", reporte_egresos: "Pagos, proveedores, caja chica y conciliaciones.", reporte_ingresos: "Ventas, clientes, unidades y conciliación de ingresos." };
-  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title={titleMap[active] || "Reportes"} helper={helperMap[active] || "Submenú directivo por módulo. Cada reporte debe poder exportarse, consultarse y cruzarse con IA."} /></Card><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><Pill tone="warn">Egresos solicitados</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(payablesTotal)}</div></Card><Card><Pill tone="ok">Pagado</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(paidTotal)}</div></Card><Card><Pill tone="primary">Ingresos</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(incomeTotal)}</div></Card><Card><Pill tone="danger">Cartera rentas</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentOverdue)}</div></Card></div><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo" }, { key: "payables", label: "Egresos", render: (r) => money(data.payables.filter((p) => p.projectId === r.id).reduce((a, p) => a + payableTotal(p), 0)) }, { key: "incomes", label: "Ingresos", render: (r) => money((data.incomes || []).filter((i) => i.projectId === r.id).reduce((a, i) => a + Number(i.amount || 0), 0)) }, { key: "permits", label: "Trámites abiertos", render: (r) => data.permits.filter((p) => p.projectId === r.id && !["Aprobado", "Cerrado"].includes(p.status)).length }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }]} rows={data.projects} /></Card></div>;
+  const titleMap = { reporte_obra: "Reportes de obra", reporte_finanzas: "Reportes financieros", reporte_egresos: "Reportes de egresos", reporte_ingresos: "Reportes de ingresos", reportes_os: "Resumen ejecutivo" };
+  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title={titleMap[active] || "Reportes"} helper="Submenú directivo por módulo. Cada reporte debe poder exportarse, consultarse y cruzarse con IA." /></Card><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14 }}><Card><Pill tone="warn">Egresos solicitados</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(payablesTotal)}</div></Card><Card><Pill tone="ok">Pagado</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(paidTotal)}</div></Card><Card><Pill tone="primary">Ingresos</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(incomeTotal)}</div></Card><Card><Pill tone="danger">Cartera rentas</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totals.rentOverdue)}</div></Card></div><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo" }, { key: "payables", label: "Egresos", render: (r) => money(data.payables.filter((p) => p.projectId === r.id).reduce((a, p) => a + payableTotal(p), 0)) }, { key: "incomes", label: "Ingresos", render: (r) => money((data.incomes || []).filter((i) => i.projectId === r.id).reduce((a, i) => a + Number(i.amount || 0), 0)) }, { key: "permits", label: "Trámites abiertos", render: (r) => data.permits.filter((p) => p.projectId === r.id && !["Aprobado", "Cerrado"].includes(p.status)).length }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }]} rows={data.projects} /></Card></div>;
 }
 
 

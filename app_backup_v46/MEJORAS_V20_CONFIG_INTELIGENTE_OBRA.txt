@@ -1,0 +1,22 @@
+V20 - Configuración inteligente de obra
+
+Cambios principales:
+- Alta de obra por partes: tipo de obra, habitaciones, baños y características.
+- Generación sugerida de zonas por obra.
+- Generación sugerida de elementos por obra, sin depender de modelos.
+- Edición manual de zonas y elementos antes de guardar.
+- Filtros de elementos por tipo y buscador.
+- Matriz predefinida de relación automática elemento ↔ checklist.
+- Incluye relaciones para: puertas, ventanas, canceles, mármol/pisos, eléctrico, hidráulico, impermeabilización, piscina, cocina y carpintería.
+- Botón para guardar configuración inteligente en Firestore.
+- Botón para generar relaciones checklist ↔ elementos en obras/{obraId}/qualityScopes.
+
+Colecciones nuevas por obra:
+- smartSetup/profile
+- smartZones
+- smartElements
+- qualityRelationRules
+- qualityScopes
+
+Nota:
+La matriz queda editable antes de hacerla obligatoria para estimaciones/calidad. Esto permite revisar y ajustar la relación técnica antes de bloquear procesos.

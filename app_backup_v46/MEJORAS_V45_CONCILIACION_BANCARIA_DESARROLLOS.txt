@@ -1,0 +1,21 @@
+V45 - Conciliación bancaria para desarrollos de venta
+
+Cambios:
+- La conciliación bancaria de Finanzas se separa en dos apartados internos:
+  1. Egresos / pagos
+  2. Ingresos / ventas
+- Arrendamientos queda fuera de esta conciliación general; sus rentas se concilian dentro del módulo Arrendamientos.
+- Se agregan campos editables directamente en tabla:
+  - Referencia bancaria escrita
+  - Fecha banco
+  - Banco
+  - Monto banco
+- Se elimina el uso de ventanas prompt para conciliar.
+- Se puede seleccionar uno o varios movimientos y aplicar referencia, fecha banco y banco por lote desde el panel superior.
+- La conciliación cambia el estado de forma automática por acción de usuario:
+  - Pagos: reconciled true / false
+  - Ingresos: status Conciliado o Pendiente conciliación
+- En ingresos se muestra cliente, unidad, contrato y concepto de ingreso para enfoque de desarrollos inmobiliarios de venta.
+
+Regla de operación:
+La conciliación bancaria de Finanzas corresponde a desarrollos inmobiliarios de venta: egresos de proyecto e ingresos por ventas. Las rentas y cobranza de arrendamientos se manejan y concilian en el módulo Arrendamientos.
