@@ -1,74 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 
 const money = (value) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(value || 0));
 const numberFmt = (value) => new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(Number(value || 0));
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const uid = (prefix = "id") => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBzk_jZfpv4j7PxroeTISwx11LffEB3TWQ",
-  authDomain: "control-de-calidad-triton.firebaseapp.com",
-  projectId: "control-de-calidad-triton",
-  storageBucket: "control-de-calidad-triton.firebasestorage.app",
-  messagingSenderId: "41329486719",
-  appId: "1:41329486719:web:1bf7ff827d3b60227f084a",
-};
-
-const firebaseApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-const firestore = getFirestore(firebaseApp);
-
-const launchUsers = [
-  {
-    id: "rodrigo@tritondesarrollos.com",
-    uid: "rodrigo@tritondesarrollos.com",
-    email: "rodrigo@tritondesarrollos.com",
-    name: "Rodrigo Herrera",
-    role: "master",
-    permissions: "Acceso total",
-    mentionHandle: "rodrigo",
-    active: true,
-    modules: { dashboard: true, operacion: true, finanzas: true, cobranza: true, reportes: true, configuracion: true },
-  },
-  {
-    id: "admin@tritondesarrollos.com",
-    uid: "admin@tritondesarrollos.com",
-    email: "admin@tritondesarrollos.com",
-    name: "Administración Triton",
-    role: "finanzas_pagos",
-    permissions: "Finanzas, proveedores, pagos, caja chica y reportes",
-    mentionHandle: "admin",
-    active: true,
-    modules: { dashboard: true, operacion: false, finanzas: true, cobranza: false, reportes: true, configuracion: false },
-  },
-  {
-    id: "supervision@tritondesarrollos.com",
-    uid: "supervision@tritondesarrollos.com",
-    email: "supervision@tritondesarrollos.com",
-    name: "Supervisión Triton",
-    role: "supervisora",
-    permissions: "Obra, calidad, estimaciones, trámites y equipo construcción",
-    mentionHandle: "supervision",
-    active: true,
-    modules: { dashboard: true, operacion: true, finanzas: false, cobranza: false, reportes: true, configuracion: false },
-  },
-];
-
-const legacyDemoUserIds = [
-  "constructora@triton.local",
-  "residente@triton.local",
-  "supervision@triton.local",
-  "admin@triton.local",
-  "master-rodrigo",
-  "finanzas-admin",
-  "supervision-calidad",
-  "demo-constructora",
-  "demo-residente",
-  "demo-supervision",
-  "demo-admin",
-];
 
 const c = {
   text: "#1d1d1f",
@@ -499,52 +434,7 @@ function Reports({ totals, data, projectMap, categoryMap }) {
 }
 
 function Config({ data, setData, resetDemo }) {
-  const [seeding, setSeeding] = useState(false);
-  const [seedMessage, setSeedMessage] = useState("");
-
-  async function initializeLaunchUsers() {
-    if (!window.confirm("Esto creará los usuarios base de lanzamiento y eliminará usuarios demo conocidos de Firestore. Las cuentas de acceso en Firebase Authentication deben existir con contraseña. ¿Continuar?")) return;
-    setSeeding(true);
-    setSeedMessage("");
-    try {
-      await Promise.all(legacyDemoUserIds.map((id) => deleteDoc(doc(firestore, "users", id)).catch(() => null)));
-      await Promise.all(launchUsers.map((user) => setDoc(doc(firestore, "users", user.id), {
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        permissions: user.permissions,
-        mentionHandle: user.mentionHandle,
-        active: true,
-        isSystemUser: true,
-        modules: user.modules,
-        createdBySetup: true,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })));
-      setData((prev) => ({ ...prev, users: launchUsers }));
-      setSeedMessage("Usuarios base creados en Firestore. Ahora crea o confirma las cuentas en Firebase Authentication con esos correos.");
-    } catch (error) {
-      console.error(error);
-      setSeedMessage(`No se pudieron inicializar los usuarios: ${error.message || error}`);
-    } finally {
-      setSeeding(false);
-    }
-  }
-
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Catálogos base" helper="Se cargaron categorías derivadas de tus hojas de gastos/presupuestos y tipos de rentas: locales, terrenos, casas, departamentos y oficinas." /><MiniTable columns={[{ key: "name", label: "Categoría" }, { key: "group", label: "Grupo" }, { key: "budgetable", label: "Presupuestable", render: (r) => r.budgetable ? "Sí" : "No" }]} rows={data.categories} /></Card>
-    <Card>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-        <SectionTitle title="Usuarios base del sistema" helper="Usuarios de lanzamiento. Constructoras se gestionan en Operación → Equipo construcción, no en configuración general." />
-        <Button onClick={initializeLaunchUsers} disabled={seeding}>{seeding ? "Creando usuarios..." : "Inicializar usuarios base"}</Button>
-      </div>
-      {seedMessage ? <div style={{ margin: "10px 0", padding: 12, borderRadius: 14, background: seedMessage.startsWith("No se") ? c.redSoft : c.greenSoft, color: seedMessage.startsWith("No se") ? c.red : "#166534", fontWeight: 800 }}>{seedMessage}</div> : null}
-      <div style={{ marginBottom: 12, padding: 12, borderRadius: 16, background: c.primarySoft, color: c.text, fontSize: 13, lineHeight: 1.45 }}>
-        Este botón crea los perfiles y permisos en Firestore. Por seguridad, las contraseñas se crean en Firebase Authentication. Usa correos reales: rodrigo@tritondesarrollos.com, admin@tritondesarrollos.com y supervision@tritondesarrollos.com.
-      </div>
-      <MiniTable columns={[{ key: "name", label: "Nombre" }, { key: "role", label: "Rol" }, { key: "email", label: "Correo" }, { key: "permissions", label: "Permisos" }]} rows={data.users} />
-    </Card>
-    <Card><SectionTitle title="Mantenimiento" helper="Solo para pruebas locales o cuando quieras restaurar la información demo de TRITON OS." /><Button variant="danger" onClick={resetDemo}>Restablecer datos demo</Button></Card>
-  </div>;
+  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Catálogos base" helper="Se cargaron categorías derivadas de tus hojas de gastos/presupuestos y tipos de rentas: locales, terrenos, casas, departamentos y oficinas." /><MiniTable columns={[{ key: "name", label: "Categoría" }, { key: "group", label: "Grupo" }, { key: "budgetable", label: "Presupuestable", render: (r) => r.budgetable ? "Sí" : "No" }]} rows={data.categories} /></Card><Card><SectionTitle title="Usuarios base del sistema" helper="Usuarios de lanzamiento. Constructoras se gestionan en Operación → Equipo construcción, no en configuración general." /><MiniTable columns={[{ key: "name", label: "Nombre" }, { key: "role", label: "Rol" }, { key: "email", label: "Correo" }, { key: "permissions", label: "Permisos" }]} rows={data.users} /></Card><Card><SectionTitle title="Mantenimiento" /><Button variant="danger" onClick={resetDemo}>Restablecer datos demo</Button></Card></div>;
 }
 
 function SimpleForm({ fields, labels, form, setForm, onSubmit }) {
