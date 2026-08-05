@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 
 const money = (value) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(value || 0));
 const numberFmt = (value) => new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -20,7 +19,6 @@ const firebaseConfig = {
 
 const firebaseApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const firestore = getFirestore(firebaseApp);
-const firebaseAuth = getAuth(firebaseApp);
 
 const launchUsers = [
   {
@@ -510,8 +508,7 @@ function Config({ data, setData, resetDemo }) {
     setSeedMessage("");
     try {
       await Promise.all(legacyDemoUserIds.map((id) => deleteDoc(doc(firestore, "users", id)).catch(() => null)));
-
-      const buildUserPayload = (user) => ({
+      await Promise.all(launchUsers.map((user) => setDoc(doc(firestore, "users", user.id), {
         email: user.email,
         name: user.name,
         role: user.role,
@@ -522,19 +519,9 @@ function Config({ data, setData, resetDemo }) {
         modules: user.modules,
         createdBySetup: true,
         updatedAt: serverTimestamp(),
-      });
-
-      await Promise.all(launchUsers.map((user) => setDoc(doc(firestore, "users", user.email.toLowerCase()), buildUserPayload(user), { merge: true })));
-
-      const currentEmail = firebaseAuth.currentUser?.email?.toLowerCase();
-      const currentUid = firebaseAuth.currentUser?.uid;
-      const currentLaunchUser = launchUsers.find((user) => user.email.toLowerCase() === currentEmail);
-      if (currentUid && currentLaunchUser) {
-        await setDoc(doc(firestore, "users", currentUid), buildUserPayload(currentLaunchUser), { merge: true });
-      }
-
+      }, { merge: true })));
       setData((prev) => ({ ...prev, users: launchUsers }));
-      setSeedMessage("Usuarios base listos en Firestore por correo. La app ya puede leer esos permisos al iniciar sesión. Si estás dentro con Rodrigo, también se creó/espejó su documento por UID automáticamente.");
+      setSeedMessage("Usuarios base creados en Firestore. Ahora crea o confirma las cuentas en Firebase Authentication con esos correos.");
     } catch (error) {
       console.error(error);
       setSeedMessage(`No se pudieron inicializar los usuarios: ${error.message || error}`);

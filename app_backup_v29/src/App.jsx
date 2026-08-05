@@ -948,26 +948,13 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
         return;
       }
 
-      const emailKey = String(user.email || "").toLowerCase();
-      let resolvedProfile = null;
-
-      try {
-        const uidSnap = await getDoc(doc(db, "users", user.uid));
-        if (uidSnap.exists()) {
-          resolvedProfile = { id: user.uid, uid: user.uid, ...uidSnap.data() };
-        }
-
-        if (!resolvedProfile && emailKey) {
-          const emailSnap = await getDoc(doc(db, "users", emailKey));
-          if (emailSnap.exists()) {
-            resolvedProfile = { id: emailKey, uid: user.uid, ...emailSnap.data() };
-          }
-        }
-      } catch (error) {
-        console.warn("No se pudo leer perfil de usuario en Firestore", error);
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) {
+        setProfile(snap.data());
+      } else {
+        const emailKey = String(user.email || "").toLowerCase();
+        setProfile(systemProfileByEmail[emailKey] || { role: "constructora", name: user.email });
       }
-
-      setProfile(resolvedProfile || systemProfileByEmail[emailKey] || { role: "constructora", name: user.email });
       setLoadingAuth(false);
     });
 
