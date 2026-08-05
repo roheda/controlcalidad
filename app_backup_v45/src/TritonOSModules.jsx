@@ -1789,89 +1789,6 @@ function SideDrawer({ title, subtitle, eyebrow, onClose, children, footer, width
 }
 function MetricCard({ label, value, tone = "idle" }) { return <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone={tone}>{label}</Pill><b style={{ display: "block", marginTop: 8, fontSize: 20 }}>{value}</b></Card>; }
 function Info({ label, value }) { return <div style={{ padding: 12, border: `1px solid ${c.border}`, borderRadius: 16, background: "white" }}><b style={{ display: "block", fontSize: 12, color: c.muted }}>{label}</b><span style={{ display: "block", marginTop: 4, fontWeight: 850 }}>{value}</span></div>; }
-
-function parseAssetCoordinates(asset = {}) {
-  const lat = Number(asset.latitude ?? String(asset.coordinates || "").split(",")[0]);
-  const lng = Number(asset.longitude ?? String(asset.coordinates || "").split(",")[1]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
-}
-
-function AssetMapView({ assets = [], onSelect }) {
-  const mapId = React.useMemo(() => `triton-assets-map-${Math.random().toString(36).slice(2)}`, []);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState("");
-  const mappedAssets = useMemo(() => assets.map((asset) => ({ asset, coords: parseAssetCoordinates(asset) })).filter((x) => x.coords), [assets]);
-  const missingAssets = assets.length - mappedAssets.length;
-
-  useEffect(() => {
-    if (window.L) { setReady(true); return; }
-    const existingCss = document.querySelector('link[data-triton-leaflet="true"]');
-    if (!existingCss) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      link.integrity = "sha256-p4NxAoJBhIINfQ2ATb8l7AO6QUM3OaJdHEq9vh+biU=";
-      link.crossOrigin = "";
-      link.dataset.tritonLeaflet = "true";
-      document.head.appendChild(link);
-    }
-    const existingScript = document.querySelector('script[data-triton-leaflet="true"]');
-    if (existingScript) {
-      existingScript.addEventListener("load", () => setReady(true), { once: true });
-      existingScript.addEventListener("error", () => setError("No se pudo cargar el mapa. Revisa conexión a internet o abre Google Maps desde el expediente."), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-    script.crossOrigin = "";
-    script.dataset.tritonLeaflet = "true";
-    script.onload = () => setReady(true);
-    script.onerror = () => setError("No se pudo cargar el mapa. Revisa conexión a internet o abre Google Maps desde el expediente.");
-    document.body.appendChild(script);
-  }, []);
-
-  useEffect(() => {
-    if (!ready || !window.L || !mappedAssets.length) return undefined;
-    const el = document.getElementById(mapId);
-    if (!el) return undefined;
-    el.innerHTML = "";
-    const L = window.L;
-    const first = mappedAssets[0].coords;
-    const map = L.map(el, { scrollWheelZoom: false }).setView([first.lat, first.lng], 12);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map);
-    const bounds = [];
-    mappedAssets.forEach(({ asset, coords }) => {
-      bounds.push([coords.lat, coords.lng]);
-      const marker = L.marker([coords.lat, coords.lng]).addTo(map);
-      marker.bindPopup(`<strong>${asset.name || "Inmueble"}</strong><br/>${asset.type || ""}<br/>${asset.address || asset.location || ""}<br/><button type="button" data-asset-id="${asset.id}" style="margin-top:8px;border:0;border-radius:10px;padding:7px 9px;background:#B08A2E;color:white;font-weight:800;cursor:pointer;">Ver expediente</button>`);
-      marker.on("popupopen", () => {
-        setTimeout(() => {
-          const btn = document.querySelector(`[data-asset-id="${asset.id}"]`);
-          if (btn) btn.onclick = () => onSelect(asset);
-        }, 0);
-      });
-      marker.on("click", () => onSelect(asset));
-    });
-    if (bounds.length > 1) map.fitBounds(bounds, { padding: [28, 28] });
-    setTimeout(() => map.invalidateSize(), 150);
-    return () => map.remove();
-  }, [ready, mapId, mappedAssets, onSelect]);
-
-  return <Card style={{ boxShadow: "none" }}>
-    <SectionTitle title="Vista mapa real" helper="Mapa real con OpenStreetMap/Leaflet. Da clic en un pin para abrir el expediente del predio." />
-    {error ? <div style={{ padding: 14, borderRadius: 16, background: c.redSoft, color: c.red, fontWeight: 900 }}>{error}</div> : null}
-    {!mappedAssets.length ? <div style={{ padding: 16, border: `1px dashed ${c.border}`, borderRadius: 18, color: c.muted }}>No hay inmuebles con coordenadas para mostrar en mapa. Agrega latitud/longitud o coordenadas en el expediente del inmueble.</div> : <div id={mapId} style={{ height: 520, width: "100%", borderRadius: 22, overflow: "hidden", border: `1px solid ${c.border}`, background: c.soft }} />}
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-      <Pill tone="primary">{mappedAssets.length} con ubicación</Pill>
-      {missingAssets ? <Pill tone="warn">{missingAssets} sin coordenadas</Pill> : <Pill tone="ok">Todos ubicados</Pill>}
-    </div>
-  </Card>;
-}
 function RentalContractForm({ data, tenantMap, assetMap, form, setForm, onSave, editing }) {
   const [tenantMode, setTenantMode] = useState(form.newTenantName ? "nuevo" : "existente");
   const selectedTenant = tenantMap[form.tenantId];
@@ -1938,12 +1855,22 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
   const [tenantDetail, setTenantDetail] = useState(null);
   const [assetDetail, setAssetDetail] = useState(null);
   const [contractDetail, setContractDetail] = useState(null);
-  const [assetView, setAssetView] = useState("tabla");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [search, setSearch] = useState("");
   const [increaseFilter, setIncreaseFilter] = useState("todos");
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const charges = filterByStatus((data.rentCharges || []), statusFilter).filter((r) => [tenantName(r, data), assetMap[contractMap[r.contractId]?.assetId]?.name, r.period, r.bankReference].join(" ").toLowerCase().includes(search.toLowerCase()));
+  async function syncAssetsToFirestore() {
+    const now = serverTimestamp();
+    try {
+      for (const owner of data.propertyOwners || []) await setDoc(doc(firestore, "propertyOwners", owner.id), { ...owner, updatedAt: now }, { merge: true });
+      for (const account of data.depositAccounts || []) await setDoc(doc(firestore, "depositAccounts", account.id), { ...account, updatedAt: now }, { merge: true });
+      for (const asset of data.assets || []) await setDoc(doc(firestore, "rentalAssets", asset.id), { ...asset, updatedAt: now }, { merge: true });
+      alert(`Inmuebles sincronizados: ${(data.assets || []).length}. Propietarios: ${(data.propertyOwners || []).length}. Cuentas: ${(data.depositAccounts || []).length}.`);
+    } catch (error) {
+      alert(`No se pudieron sincronizar inmuebles a Firestore: ${error.message || error}`);
+    }
+  }
   function saveContract() {
     let tenantId = form.tenantId || data.tenants[0]?.id;
     if (form.newTenantName) {
@@ -1993,9 +1920,8 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
     return <div style={{ display: "grid", gap: 16 }}>
       <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Inmuebles / predios" helper="Alta y expediente de locales, terrenos, casas, departamentos y oficinas. El proyecto es opcional; propietario y cuenta de depósito se controlan por inmueble/contrato." /><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => { setForm({}); setShowForm(showForm === "asset" ? null : "asset"); }}>Nuevo inmueble</Button></div></div>{showForm === "asset" ? <AssetForm data={data} form={form} setForm={setForm} onSave={saveAsset} editing={!!form.id} /> : null}</Card>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><MetricCard label="Inmuebles" value={(data.assets || []).length} tone="primary" /><MetricCard label="Importados" value={importedCount} tone="ok" /><MetricCard label="Por revisar" value={reviewCount} tone={reviewCount ? "warn" : "ok"} /></div>
-      <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "end" }}><div><SectionTitle title="Consulta de inmuebles" helper="Usa vista tabla para control operativo o vista mapa real para ubicar predios y abrir su expediente." /></div><div style={{ display: "flex", gap: 8, background: c.soft, padding: 5, borderRadius: 16 }}><Button variant={assetView === "tabla" ? "primary" : "secondary"} style={{ padding: "9px 12px" }} onClick={() => setAssetView("tabla")}>Vista tabla</Button><Button variant={assetView === "mapa" ? "primary" : "secondary"} style={{ padding: "9px 12px" }} onClick={() => setAssetView("mapa")}>Vista mapa real</Button></div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginTop: 4 }}><Field label="Buscar inmueble"><input style={inputStyle({ maxWidth: 420 })} placeholder="Nombre, tipo, dirección, propietario, cuenta" value={search} onChange={(e) => setSearch(e.target.value)} /></Field><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.assets || []).map((a) => a.status)} total={(data.assets || []).length} shown={filterByStatus(rows, statusFilter).length} /></div></Card>
-      {assetView === "mapa" ? <AssetMapView assets={filterByStatus(rows, statusFilter)} onSelect={setAssetDetail} /> : <Card><MiniTable columns={[{ key: "name", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(r)}>{r.name}</EntityLink> }, { key: "type", label: "Tipo" }, { key: "ownerName", label: "Propietario", render: (r) => r.ownerName || (data.propertyOwners || []).find((o) => o.id === r.ownerId)?.name || "Pendiente" }, { key: "depositAccountAlias", label: "Cuenta depósito", render: (r) => r.depositAccountAlias || "Pendiente" }, { key: "location", label: "Ubicación" }, { key: "area", label: "m²" }, { key: "rentalPrice", label: "Precio/renta", render: (r) => Number(r.rentalPrice || 0) ? money(r.rentalPrice) : "Por definir" }, { key: "cadastralId", label: "Cédula" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Ocupado" ? "ok" : r.status === "Revisión pendiente" ? "warn" : "primary"}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setAssetDetail(r)}>Abrir</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("asset"); }}>Editar</Button></ActionCell> }]} rows={filterByStatus(rows, statusFilter)} /></Card>}
-      {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}
+      <Card><SectionTitle title="Mapa de inmuebles" helper="Vista ejecutiva de ubicación. Los predios con coordenadas quedan listos para conexión a mapa real." /> <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>{rows.slice(0, 18).map((a) => <button key={a.id} onClick={() => setAssetDetail(a)} style={{ border: `1px solid ${c.border}`, borderRadius: 18, background: "white", padding: 12, textAlign: "left", cursor: "pointer" }}><b>{a.name}</b><div style={{ color: c.muted, fontSize: 12 }}>{a.type} · {a.location}</div><div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}><Pill tone={a.status === "Ocupado" ? "ok" : a.status === "Revisión pendiente" ? "warn" : "primary"}>{a.status}</Pill>{a.mapsUrl ? <Pill>Abrir mapa</Pill> : null}</div></button>)}</div>{rows.length > 18 ? <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>Mostrando 18 de {rows.length}. Usa búsqueda para filtrar.</div> : null}</Card>
+      <Card><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}><Field label="Buscar inmueble"><input style={inputStyle({ maxWidth: 420 })} placeholder="Nombre, tipo, dirección, propietario, cuenta" value={search} onChange={(e) => setSearch(e.target.value)} /></Field><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.assets || []).map((a) => a.status)} total={(data.assets || []).length} shown={filterByStatus(rows, statusFilter).length} /></div><MiniTable columns={[{ key: "name", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(r)}>{r.name}</EntityLink> }, { key: "type", label: "Tipo" }, { key: "ownerName", label: "Propietario", render: (r) => r.ownerName || (data.propertyOwners || []).find((o) => o.id === r.ownerId)?.name || "Pendiente" }, { key: "depositAccountAlias", label: "Cuenta depósito", render: (r) => r.depositAccountAlias || "Pendiente" }, { key: "location", label: "Ubicación" }, { key: "area", label: "m²" }, { key: "rentalPrice", label: "Precio/renta", render: (r) => Number(r.rentalPrice || 0) ? money(r.rentalPrice) : "Por definir" }, { key: "cadastralId", label: "Cédula" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Ocupado" ? "ok" : r.status === "Revisión pendiente" ? "warn" : "primary"}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setAssetDetail(r)}>Abrir</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("asset"); }}>Editar</Button></ActionCell> }]} rows={filterByStatus(rows, statusFilter)} /></Card>{assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}
     </div>;
   }
   if (mode === "arr_contratos") {
