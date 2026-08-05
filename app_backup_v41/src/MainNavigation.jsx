@@ -42,7 +42,6 @@ const groups = [
     { id: "tramites_expediente", label: "Expediente documental", helper: "Archivos y exportación PDF" },
   ]},
   { id: "arrendamientos", label: "Arrendamientos", helper: "Rentas y contratos", icon: "↙", children: [
-    { id: "arr_inmuebles", label: "Inmuebles", helper: "Predios, ubicación, m² y cédulas" },
     { id: "arr_contratos", label: "Contratos", helper: "Vigencia, INPC y cédulas" },
     { id: "cobranza", label: "Cobranza", helper: "Rentas mensuales" },
     { id: "arr_conciliacion", label: "Conciliación bancaria", helper: "Pagos de renta" },

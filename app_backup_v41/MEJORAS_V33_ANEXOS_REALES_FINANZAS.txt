@@ -1,0 +1,14 @@
+V33 - Anexos reales en Finanzas
+
+- Reemplaza campos de texto de anexos por input real de archivos.
+- Sube archivos a Firebase Storage cuando las reglas lo permiten.
+- Guarda metadatos del anexo: nombre, tipo, tamaño, ruta, URL, usuario y fecha.
+- Si Storage bloquea el archivo, deja el anexo marcado como pendiente_storage para no perder la captura durante pruebas.
+- Aplica en:
+  - Solicitudes de pago
+  - Contratos financieros
+  - Caja chica / gastos
+- Muestra ligas de descarga/vista de anexos en tablas y autorización.
+- Mantiene compatibilidad con anexos antiguos guardados como texto.
+
+IMPORTANTE: para que suba a Storage en vivo, revisar reglas de Firebase Storage para usuarios autenticados.
