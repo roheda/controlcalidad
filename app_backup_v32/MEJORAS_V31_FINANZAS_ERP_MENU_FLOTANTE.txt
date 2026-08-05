@@ -1,0 +1,13 @@
+V31 - Finanzas ERP + menú flotante
+
+Cambios principales:
+- Menú principal reducido con submenús flotantes tipo Firebase en escritorio.
+- Submenús internos de Finanzas: Resumen, Proveedores, Presupuestos, Contratos, Pagos recurrentes, Solicitudes de pago, Autorizaciones, Pagos programados, Pagos realizados, Conciliación bancaria y Caja chica.
+- Presupuesto obligatorio por proyecto/categoría antes de enviar una solicitud a autorización.
+- Sobregiro permitido únicamente con justificación administrativa.
+- Solicitudes ligadas a contratos para controlar anticipo, pagos parciales y saldo.
+- Contratos muestran monto autorizado, solicitado ligado, pagado y saldo.
+- Pagos recurrentes con autorización base y generación de solicitudes recurrentes.
+- Rodrigo queda como última revisión: solo recibe solicitudes completas en Autorizaciones.
+- Tesorería separa Programado, Pagado y Conciliado.
+- Menú móvil se mantiene como accordion para uso sencillo.
