@@ -1,0 +1,32 @@
+V47 - Conciliación, mapa real y arranque TRITON OS
+
+Cambios incluidos:
+
+1. Arranque del sistema
+- Al iniciar sesión se abre automáticamente TRITON OS en Reportes / Resumen ejecutivo.
+- Ya no debe aparecer como primera vista Control de calidad.
+- La pantalla de espera ya no dice "Cargando obra"; ahora usa lenguaje de TRITON OS.
+- Al cambiar entre módulos de TRITON OS ya no se cierra la ventana para volver a abrirla, evitando parpadeo con el módulo de calidad de fondo.
+
+2. Conciliación bancaria - ingresos / ventas
+- En ingresos, el cliente ahora es clickeable desde conciliación.
+- Al abrir cliente se muestra estado de cuenta, pagos, referencias, unidad y conciliación.
+- La unidad también es clickeable desde conciliación.
+- Al abrir unidad se muestran pagos relacionados, cliente(s), contrato y conciliación.
+
+3. Conciliación bancaria - egresos
+- En egresos aparece el nombre del proveedor.
+- El proveedor es clickeable para abrir ficha/contexto.
+- La solicitud de pago muestra quién solicitó el pago.
+- El expediente de pago siempre muestra "Solicitó" y el historial base de solicitud, revisión, autorización, programación y pago.
+
+4. Mapa real de inmuebles
+- Se reemplaza la carga por CDN por implementación con Leaflet instalado como dependencia npm.
+- Se agrega diseño de mapa real con OpenStreetMap, pines dorados Triton y panel lateral de información.
+- Al seleccionar un pin se ve ficha rápida del predio.
+- Desde el mapa se puede abrir el expediente del inmueble.
+- La vista mantiene: Vista tabla / Vista mapa real.
+
+Nota técnica:
+- Se agrega dependencia leaflet en package.json.
+- Al subir esta versión, correr npm.cmd install antes de npm.cmd run build para instalar Leaflet.

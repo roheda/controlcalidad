@@ -719,7 +719,6 @@ const initialData = {
 const moduleMeta = {
   dashboard: { title: "Reportes", subtitle: "Reportes ejecutivos, obra, finanzas, ingresos, egresos e IA", icon: "▤" },
   proyectos: { title: "Proyectos", subtitle: "Base para cruzar obra, pagos, rentas y trámites", icon: "⌂" },
-  operacion_os: { title: "Operación", subtitle: "Obra, calidad, estimaciones, equipo de construcción y consulta técnica", icon: "✓" },
   finanzas: { title: "Finanzas", subtitle: "Resumen ERP: presupuesto, proveedores, contratos, pagos y conciliación", icon: "$" },
   proveedores: { title: "Proveedores", subtitle: "Alta, documentos, validación fiscal y cuentas bancarias", icon: "◧" },
   presupuestos: { title: "Presupuestos", subtitle: "Partidas autorizadas por proyecto y control de sobregiros", icon: "▥" },
@@ -833,7 +832,7 @@ export default function TritonOSModules() {
 
   useEffect(() => { localStorage.setItem("triton_os_v44", JSON.stringify(data)); }, [data]);
   useEffect(() => {
-    const openHandler = (event) => { setActive(event.detail?.module || "reportes_os"); setOpen(true); };
+    const openHandler = (event) => { setActive(event.detail?.module || "dashboard"); setOpen(true); };
     const closeHandler = () => setOpen(false);
     window.addEventListener("triton-open-os-module", openHandler);
     window.addEventListener("triton-close-os-module", closeHandler);
@@ -849,7 +848,7 @@ export default function TritonOSModules() {
   const filteredPayables = data.payables.filter((p) => projectFilter === "todos" || p.projectId === projectFilter);
   const filteredPermits = data.permits.filter((p) => projectFilter === "todos" || p.projectId === projectFilter);
   const projectOptions = [{ id: "todos", name: "Todos los proyectos" }, ...data.projects];
-  const modulesWithProjectFilter = new Set(["dashboard", "operacion_os", "finanzas", "presupuestos", "contratos_financieros", "pagos_recurrentes", "cxp", "autorizaciones", "pagos_programados", "pagos_realizados", "conciliacion", "caja_chica", "cobranza", "tramites", "equipo_obra", "reportes_os"]);
+  const modulesWithProjectFilter = new Set(["dashboard", "finanzas", "presupuestos", "contratos_financieros", "pagos_recurrentes", "cxp", "autorizaciones", "pagos_programados", "pagos_realizados", "conciliacion", "caja_chica", "cobranza", "tramites", "equipo_obra", "reportes_os"]);
   const showProjectFilter = modulesWithProjectFilter.has(active);
 
   const totals = useMemo(() => {
@@ -907,7 +906,6 @@ export default function TritonOSModules() {
       <main style={{ overflow: "auto", padding: 22 }}>
         {active === "dashboard" && <Reports totals={totals} data={data} projectMap={projectMap} categoryMap={categoryMap} active="general" />}
         {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "operacion_os" && <OperationHub data={data} projectMap={projectMap} categoryMap={categoryMap} setActive={setActive} />}
         {active === "finanzas" && <Finance data={data} projectMap={projectMap} categoryMap={categoryMap} projectFilter={projectFilter} setActive={setActive} />}
         {active === "proveedores" && <Suppliers data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "presupuestos" && <Budgets data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
@@ -953,54 +951,6 @@ function Dashboard({ totals, data, projectMap, setActive }) {
         <div style={{ display: "grid", gap: 10 }}>{data.projects.map((p) => { const egresos = data.payables.filter((x) => x.projectId === p.id).reduce((a, x) => a + Number(x.amount || 0) + Number(x.iva || 0), 0); return <div key={p.id} style={{ border: `1px solid ${c.border}`, borderRadius: 16, padding: 13 }}><div style={{ display: "flex", justifyContent: "space-between" }}><b>{p.name}</b><Pill>{p.status}</Pill></div><div style={{ color: c.muted, fontSize: 12, marginTop: 6 }}>{p.type}</div><div style={{ marginTop: 10, height: 8, background: c.soft, borderRadius: 999, overflow: "hidden" }}><div style={{ width: `${Math.min(100, p.budget ? (egresos / p.budget) * 100 : 0)}%`, height: "100%", background: c.primary }} /></div><div style={{ fontSize: 12, color: c.muted, marginTop: 5 }}>Egresos registrados: {money(egresos)}</div></div>; })}</div>
       </Card>
     </div>
-  </div>;
-}
-
-
-function openLegacyOperationModule(moduleId) {
-  window.dispatchEvent(new Event("triton-close-os-module"));
-  window.setTimeout(() => {
-    if (moduleId === "calidad") return;
-    if (moduleId === "estimaciones") { window.dispatchEvent(new Event("triton-open-estimaciones")); return; }
-    if (moduleId === "obras") { window.dispatchEvent(new Event("triton-open-obras-config")); return; }
-    if (moduleId === "consulta_tecnica") {
-      window.dispatchEvent(new Event("triton-open-feedback-module"));
-      const buttons = Array.from(document.querySelectorAll("button"));
-      const target = buttons.find((button) => button.textContent?.trim().includes("Consulta técnica"));
-      if (target) target.click();
-    }
-  }, 90);
-}
-
-function OperationHub({ data, projectMap, categoryMap, setActive }) {
-  const qualityRelated = (data.payables || []).filter((p) => String(p.concept || "").toLowerCase().includes("estimación") || p.categoryId === "construccion");
-  const openPayables = qualityRelated.filter((p) => !["Pagado", "Conciliado", "Cancelado", "Rechazado"].includes(p.status));
-  const constructionContracts = (data.financeContracts || []).filter((ct) => String(ct.paymentPlan || ct.name || "").toLowerCase().includes("obra") || ct.categoryId === "construccion");
-  const openPermits = (data.permits || []).filter((t) => !["Aprobado", "Cerrado", "Finalizado"].includes(t.status));
-  const team = data.constructionTeam || [];
-  const actionCards = [
-    { label: "Checklist / Calidad", helper: "Liberaciones, evidencias, bitácora de partida y cumplimiento técnico.", action: () => openLegacyOperationModule("calidad") },
-    { label: "Configurar obra", helper: "Unidades, bloques, elementos, relación de checklist y documentos técnicos.", action: () => openLegacyOperationModule("obras") },
-    { label: "Estimaciones", helper: "Captura, revisión, retenciones, anticipos, avances y soporte para pagos.", action: () => openLegacyOperationModule("estimaciones") },
-    { label: "Equipo construcción", helper: "Alta/baja de constructoras, responsables por obra y accesos operativos.", action: () => setActive("equipo_obra") },
-    { label: "Consulta técnica", helper: "Dudas técnicas, criterios, documentos y soporte para supervisión.", action: () => openLegacyOperationModule("consulta_tecnica") },
-  ];
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Operación conectada" helper="Centro operativo de obra. Desde aquí se entra a los módulos trabajados previamente y se cruza la información con finanzas, trámites y reportes." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>{actionCards.map((item) => <button key={item.label} type="button" onClick={item.action} style={{ textAlign: "left", border: `1px solid ${c.border}`, borderRadius: 20, padding: 16, background: "white", cursor: "pointer" }}><b style={{ display: "block", color: c.text, fontSize: 16 }}>{item.label}</b><span style={{ display: "block", color: c.muted, fontSize: 12, marginTop: 6, lineHeight: 1.45 }}>{item.helper}</span><span style={{ display: "inline-block", marginTop: 12, color: c.primaryDark, fontWeight: 950 }}>Abrir ›</span></button>)}</div>
-    </Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-      <MetricCard label="Estimaciones/pagos obra abiertos" value={openPayables.length} tone={openPayables.length ? "warn" : "ok"} />
-      <MetricCard label="Contratos obra" value={constructionContracts.length} tone="primary" />
-      <MetricCard label="Trámites activos" value={openPermits.length} tone={openPermits.length ? "warn" : "ok"} />
-      <MetricCard label="Equipo construcción" value={team.length} tone="idle" />
-    </div>
-    <Card><SectionTitle title="Pendientes operativos ligados a pagos" helper="Estos registros ayudan a revisar que una estimación o gasto de obra no se pague sin soporte operativo." />
-      <MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || r.projectId }, { key: "concept", label: "Concepto" }, { key: "supplier", label: "Proveedor", render: (r) => supplierDisplayName(r, data) }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name || r.categoryId }, { key: "requestedBy", label: "Solicitó" }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "amount", label: "Total", render: (r) => money(payableTotal(r)) }]} rows={openPayables.slice(0, 12)} empty="No hay pagos/estimaciones de obra pendientes." />
-    </Card>
-    <Card><SectionTitle title="Trámites que pueden afectar operación" helper="Vista rápida para ligar avance de obra con permisos, gestoría y riesgos de cierre." />
-      <MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || r.projectId }, { key: "name", label: "Trámite" }, { key: "stage", label: "Etapa" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "nextAction", label: "Siguiente acción" }, { key: "owner", label: "Responsable" }]} rows={openPermits.slice(0, 12)} empty="No hay trámites activos." />
-    </Card>
   </div>;
 }
 
@@ -1965,10 +1915,6 @@ function assetGroupName(asset = {}) {
   if (asset.type === "Terreno") return "Terrenos independientes";
   return "Inmuebles independientes";
 }
-function isPlazaGroupName(groupName = "") {
-  const text = String(groupName || "").toLowerCase();
-  return text.includes("plaza") || text.includes("locales aura") || text.includes("centro comercial");
-}
 function metersBetween(a, b) {
   const R = 6371000;
   const lat1 = a.lat * Math.PI / 180;
@@ -2107,6 +2053,15 @@ function AssetMapView({ assets = [], onSelect }) {
 
 function AssetGroupedTable({ rows = [], data, onOpen, onEdit }) {
   const [collapsed, setCollapsed] = useState({});
+  const groups = useMemo(() => {
+    const map = new Map();
+    rows.forEach((asset) => {
+      const group = assetGroupName(asset);
+      if (!map.has(group)) map.set(group, []);
+      map.get(group).push(asset);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [rows]);
   const columns = [
     { key: "name", label: "Inmueble", render: (r) => <EntityLink onClick={() => onOpen(r)}>{r.name}</EntityLink> },
     { key: "type", label: "Tipo" },
@@ -2119,39 +2074,18 @@ function AssetGroupedTable({ rows = [], data, onOpen, onEdit }) {
     { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Ocupado" ? "ok" : r.status === "Revisión pendiente" ? "warn" : "primary"}>{r.status}</Pill> },
     { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => onOpen(r)}>Abrir</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => onEdit(r)}>Editar</Button></ActionCell> },
   ];
-  const { plazaGroups, normalRows } = useMemo(() => {
-    const groupMap = new Map();
-    const regular = [];
-    rows.forEach((asset) => {
-      const group = assetGroupName(asset);
-      if (isPlazaGroupName(group)) {
-        if (!groupMap.has(group)) groupMap.set(group, []);
-        groupMap.get(group).push(asset);
-      } else {
-        regular.push(asset);
-      }
-    });
-    return { plazaGroups: Array.from(groupMap.entries()).sort((a, b) => a[0].localeCompare(b[0])), normalRows: regular.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))) };
-  }, [rows]);
-  return <div style={{ display: "grid", gap: 12 }}>
-    {plazaGroups.map(([groupName, groupRows]) => {
-      const isCollapsed = collapsed[groupName];
-      const occupied = groupRows.filter((a) => a.status === "Ocupado").length;
-      return <Card key={groupName} style={{ padding: 0, overflow: "hidden" }}>
-        <button type="button" onClick={() => setCollapsed((prev) => ({ ...prev, [groupName]: !prev[groupName] }))} style={{ width: "100%", border: 0, background: c.soft, padding: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
-          <div><b style={{ fontSize: 16, color: c.text }}>{groupName}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>{groupRows.length} local(es) / inmueble(s) · {occupied} ocupado(s)</div></div>
-          <span style={{ fontWeight: 950, color: c.primaryDark }}>{isCollapsed ? "Mostrar" : "Minimizar"}</span>
-        </button>
-        {!isCollapsed ? <div style={{ padding: 12 }}><MiniTable columns={columns} rows={groupRows} /></div> : null}
-      </Card>;
-    })}
-    <Card style={{ boxShadow: "none" }}>
-      <SectionTitle title="Inmuebles independientes" helper="Terrenos, casas, departamentos, oficinas u otros predios que no pertenecen a una plaza. Estos no se agrupan ni se minimizan." />
-      <MiniTable columns={columns} rows={normalRows} empty="No hay inmuebles independientes con los filtros actuales." />
-    </Card>
-  </div>;
+  return <div style={{ display: "grid", gap: 12 }}>{groups.map(([groupName, groupRows]) => {
+    const isCollapsed = collapsed[groupName];
+    const occupied = groupRows.filter((a) => a.status === "Ocupado").length;
+    return <Card key={groupName} style={{ padding: 0, overflow: "hidden" }}>
+      <button type="button" onClick={() => setCollapsed((prev) => ({ ...prev, [groupName]: !prev[groupName] }))} style={{ width: "100%", border: 0, background: c.soft, padding: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
+        <div><b style={{ fontSize: 16, color: c.text }}>{groupName}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>{groupRows.length} inmueble(s) · {occupied} ocupado(s)</div></div>
+        <span style={{ fontWeight: 950, color: c.primaryDark }}>{isCollapsed ? "Mostrar" : "Minimizar"}</span>
+      </button>
+      {!isCollapsed ? <div style={{ padding: 12 }}><MiniTable columns={columns} rows={groupRows} /></div> : null}
+    </Card>;
+  })}</div>;
 }
-
 
 function RentalContractForm({ data, tenantMap, assetMap, form, setForm, onSave, editing }) {
   const [tenantMode, setTenantMode] = useState(form.newTenantName ? "nuevo" : "existente");

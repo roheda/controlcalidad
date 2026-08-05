@@ -13,12 +13,11 @@ const groups = [
     { id: "reporte_ia", label: "IA / análisis cruzado", helper: "Finanzas vs obra y recomendaciones" },
   ]},
   { id: "operacion", label: "Operación", helper: "Obra, calidad y estimaciones", icon: "✓", children: [
-    { id: "operacion_os", label: "Resumen operación", helper: "Vista conectada de obra, calidad y finanzas", os: true },
-    { id: "calidad", label: "Checklist / Calidad", helper: "Liberaciones, evidencias y bitácora", os: false },
-    { id: "obras", label: "Configurar obra", helper: "Unidades, elementos y checklist", os: false },
-    { id: "estimaciones", label: "Estimaciones", helper: "Avances y aprobaciones", os: false },
+    { id: "calidad", label: "Checklist / Calidad", helper: "Liberaciones, evidencias y bitácora" },
+    { id: "obras", label: "Configurar obra", helper: "Unidades, elementos y checklist" },
+    { id: "estimaciones", label: "Estimaciones", helper: "Avances y aprobaciones" },
     { id: "equipo_obra", label: "Equipo construcción", helper: "Altas/bajas por obra", os: true },
-    { id: "consulta_tecnica", label: "Consulta técnica", helper: "Dudas y soporte", os: false },
+    { id: "consulta_tecnica", label: "Consulta técnica", helper: "Dudas y soporte" },
   ]},
   { id: "finanzas_group", label: "Finanzas", helper: "ERP financiero", icon: "$", children: [
     { id: "finanzas", label: "Resumen", helper: "Presupuesto, comprometido, pagado" },

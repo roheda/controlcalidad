@@ -1925,7 +1925,7 @@ const reviewBlockMessage =
                 lineHeight: 1.1,
               }}
             >
-              TRITON OS
+              Control de calidad
             </div>
             <div
               style={{
@@ -1935,7 +1935,7 @@ const reviewBlockMessage =
                 lineHeight: 1.35,
               }}
             >
-              Operación integral · Calidad, estimaciones, finanzas, trámites y arrendamientos
+              Sistema de evidencia, revisión de partidas y checklist por punto de control
             </div>
             </div>
           </div>
