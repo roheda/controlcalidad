@@ -47,7 +47,6 @@ const groups = [
     { id: "cobranza", label: "Cobranza", helper: "Rentas mensuales" },
     { id: "arr_conciliacion", label: "Conciliación bancaria", helper: "Pagos de renta" },
     { id: "arr_facturacion", label: "Facturación", helper: "Facturas automáticas" },
-    { id: "arr_predial", label: "Pago de predial", helper: "Vencimientos y comprobantes" },
     { id: "arr_reportes", label: "Reportes", helper: "Cartera y ocupación" },
   ]},
   { id: "config", label: "Configuración", helper: "Sistema", icon: "⚙", children: [

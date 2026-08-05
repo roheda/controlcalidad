@@ -643,14 +643,9 @@ const initialData = {
     { id: "r3", assetId: "casa-1", tenantId: "t3", rentBase: 54102.58, maintenancePct: 0, startDate: "2025-06-25", endDate: "2026-06-25", paymentDay: 23, inpcMonth: "jun-25", lastIncreaseDate: "2025-06-25", bank: "VEPORMAS", reference: "FT260541NY8Q", status: "Activo", autoInvoice: false },
   ],
   rentCharges: [
-    { id: "rc1", contractId: "r1", period: "2026-02", chargeType: "Renta", rent: 18121.75, maintenance: 0, status: "Vencido", paidAmount: 0, dueDate: "2026-02-10", bankReference: "FT260587JRVZ", invoiceStatus: "Pendiente" },
-    { id: "rc1-mantto", contractId: "r1", period: "2026-02", chargeType: "Mantenimiento", rent: 0, maintenance: 1449.74, status: "Vencido", paidAmount: 0, dueDate: "2026-02-10", bankReference: "FT260587JRVZ-M", invoiceStatus: "Pendiente" },
-    { id: "rc2", contractId: "r2", period: "2026-02", chargeType: "Renta", rent: 86599.43, maintenance: 0, status: "Vencido", paidAmount: 0, dueDate: "2026-02-15", bankReference: "", invoiceStatus: "Pendiente" },
-    { id: "rc3", contractId: "r3", period: "2026-02", chargeType: "Renta", rent: 54102.58, maintenance: 0, status: "Conciliado", paidAmount: 54102.58, dueDate: "2026-02-23", bankReference: "FT260541NY8Q", invoiceStatus: "Emitida", reconciled: true, reconciledAt: todayIso() },
-  ],
-  propertyTaxes: [
-    { id: "pred-local-13-2026", assetId: "local-13", year: "2026", dueDate: "2026-03-31", amount: 0, status: "Pendiente", paidAt: "", bankReference: "", attachments: [], notes: "Registrar predial y anexar comprobante." },
-    { id: "pred-terreno-1-2026", assetId: "terreno-1", year: "2026", dueDate: "2026-03-31", amount: 0, status: "Pendiente", paidAt: "", bankReference: "", attachments: [], notes: "Predio independiente: revisar vigencia." },
+    { id: "rc1", contractId: "r1", period: "2026-02", rent: 18121.75, maintenance: 1449.74, status: "Vencido", paidAmount: 0, dueDate: "2026-02-10", bankReference: "FT260587JRVZ", invoiceStatus: "Pendiente" },
+    { id: "rc2", contractId: "r2", period: "2026-02", rent: 86599.43, maintenance: 0, status: "Vencido", paidAmount: 0, dueDate: "2026-02-15", bankReference: "", invoiceStatus: "Pendiente" },
+    { id: "rc3", contractId: "r3", period: "2026-02", rent: 54102.58, maintenance: 0, status: "Conciliado", paidAmount: 54102.58, dueDate: "2026-02-23", bankReference: "FT260541NY8Q", invoiceStatus: "Emitida", reconciled: true, reconciledAt: todayIso() },
   ],
   permits: [
     { id: "t1", projectId: "arenna", name: "Licencia de construcción", agency: "Municipio", status: "En revisión", priority: "Alta", owner: "Gestoría", nextAction: "Dar seguimiento a observaciones", dueDate: todayIso(), documents: "Planos, pago de derechos, memoria" },
@@ -737,8 +732,7 @@ const moduleMeta = {
   arr_contratos: { title: "Arrendamientos / Contratos", subtitle: "Vigencias, incremento anual, cédulas y documentación", icon: "□" },
   arr_conciliacion: { title: "Arrendamientos / Conciliación", subtitle: "Cruce de pagos de renta contra banco", icon: "≋" },
   arr_facturacion: { title: "Arrendamientos / Facturación", subtitle: "Facturas mensuales, emisión manual, lotes y API", icon: "▣" },
-  arr_predial: { title: "Arrendamientos / Pago de predial", subtitle: "Vencimientos, pagos, comprobantes y riesgo por predio", icon: "▥" },
-  arr_reportes: { title: "Arrendamientos / Reportes", subtitle: "Cartera vencida, ocupación, rentas e impuestos", icon: "▤" },
+  arr_reportes: { title: "Arrendamientos / Reportes", subtitle: "Cartera vencida, ocupación y rentas", icon: "▤" },
   tramites: { title: "Trámites", subtitle: "Permisos, dependencias, responsables y siguientes acciones", icon: "◷" },
   tramites_timeline: { title: "Trámites / Línea del tiempo", subtitle: "Avance por proyecto, etapa y estatus", icon: "◷" },
   tramites_expediente: { title: "Trámites / Expediente documental", subtitle: "Archivos, soportes y exportación PDF", icon: "▤" },
@@ -919,7 +913,7 @@ export default function TritonOSModules() {
         {active === "ingresos" && <Incomes data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "clientes" && <Clients data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "caja_chica" && <PettyCash data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {["arr_inmuebles","cobranza","arr_contratos","arr_conciliacion","arr_facturacion","arr_predial","arr_reportes"].includes(active) && <Rentals data={data} projectMap={projectMap} tenantMap={tenantMap} assetMap={assetMap} contractMap={contractMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} mode={active} />}
+        {["arr_inmuebles","cobranza","arr_contratos","arr_conciliacion","arr_facturacion","arr_reportes"].includes(active) && <Rentals data={data} projectMap={projectMap} tenantMap={tenantMap} assetMap={assetMap} contractMap={contractMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} mode={active} />}
         {active === "tramites" && <Permits data={data} projectMap={projectMap} rows={filteredPermits} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {["tramites_timeline","tramites_expediente"].includes(active) && <PermitsTimeline data={data} projectMap={projectMap} rows={data.permits} mode={active} updateRecord={updateRecord} />}
         {active === "equipo_obra" && <ConstructionTeam data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
@@ -1778,7 +1772,7 @@ function ConstructionTeam({ data, projectMap, addRecord, updateRecord, showForm,
 }
 
 function tenantName(charge, data) { const contract = data.contracts.find((c) => c.id === charge.contractId); return data.tenants.find((t) => t.id === contract?.tenantId)?.name || "Arrendatario"; }
-function rentChargeTotal(charge = {}) { return Number(charge.rent || 0) + Number(charge.maintenance || 0) + Number(charge.otherCharges || 0) + Number(charge.vat || charge.iva || 0); }
+function rentChargeTotal(charge = {}) { return Number(charge.rent || 0) + Number(charge.maintenance || 0) + Number(charge.otherCharges || 0); }
 function daysBetweenDates(from, to) {
   const a = new Date(`${from}T00:00:00`);
   const b = new Date(`${to}T00:00:00`);
@@ -1830,39 +1824,29 @@ function TenantDrawer({ tenant, data, assetMap, onClose, onEdit }) {
     </Card>
   </SideDrawer>;
 }
-function AssetDrawer({ asset, data, tenantMap, onClose, onEdit, onOpenContract, onOpenTenant }) {
+function AssetDrawer({ asset, data, tenantMap, onClose, onEdit }) {
   if (!asset) return null;
   const contracts = (data.contracts || []).filter((ct) => ct.assetId === asset.id);
-  const history = assetHistoryEntries(asset, data, tenantMap);
-  const predials = (data.propertyTaxes || []).filter((p) => p.assetId === asset.id);
-  return <SideDrawer title={asset.name} eyebrow="Inmueble / predio" subtitle={`${asset.type || "Tipo"} · ${assetGroupName(asset)}`} onClose={onClose} width={820} footer={<><Button variant="secondary" onClick={onClose}>Cerrar</Button><Button onClick={() => onEdit(asset)}>Editar inmueble</Button></>}>
+  return <SideDrawer title={asset.name} eyebrow="Inmueble / predio" subtitle={`${asset.type || "Tipo"} · ${asset.location || "Ubicación pendiente"}`} onClose={onClose} width={760} footer={<><Button variant="secondary" onClick={onClose}>Cerrar</Button><Button onClick={() => onEdit(asset)}>Editar inmueble</Button></>}>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
       <MetricCard label="Renta objetivo" value={money(asset.rentalPrice)} tone="primary" />
-      <MetricCard label="m²" value={numberFmt(asset.area)} tone="idle" />
+      <MetricCard label="M²" value={numberFmt(asset.area)} tone="idle" />
       <MetricCard label="Precio/m²" value={money(asset.pricePerM2)} tone="idle" />
       <MetricCard label="Estatus" value={asset.status || "Sin estatus"} tone={asset.status === "Ocupado" ? "ok" : "warn"} />
     </div>
     <Card style={{ boxShadow: "none" }}><SectionTitle title="Ficha del inmueble" helper="Información base para control patrimonial, rentas, contratos y cobranza." />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Info label="Agrupación / plaza" value={assetGroupName(asset)} />
-        <Info label="Dirección" value={asset.address || asset.location || "Pendiente"} />
-        <Info label="Propietario del predio" value={asset.ownerName || (data.propertyOwners || []).find((o) => o.id === asset.ownerId)?.name || "Pendiente"} />
-        <Info label="Cuenta de depósito" value={asset.depositAccountAlias || (data.depositAccounts || []).find((a) => a.id === asset.depositAccountId)?.alias || "Pendiente asignar"} />
-        <Info label="Cédula / clave catastral" value={asset.cadastralId || asset.hasCadastralCertificate || "Pendiente"} />
-        <Info label="Situación documental" value={asset.legalStatus || asset.importStatus || "Pendiente"} />
-        <Info label="Coordenadas" value={asset.coordinates || "Pendiente"} />
+        <Info label="Dirección" value={asset.address || asset.location || "Pendiente"} /><Info label="Propietario del predio" value={asset.ownerName || (data.propertyOwners || []).find((o) => o.id === asset.ownerId)?.name || "Pendiente"} /><Info label="Cuenta de depósito" value={asset.depositAccountAlias || (data.depositAccounts || []).find((a) => a.id === asset.depositAccountId)?.alias || "Pendiente asignar"} /><Info label="Cédula / clave catastral" value={asset.cadastralId || asset.hasCadastralCertificate || "Pendiente"} /><Info label="Situación documental" value={asset.legalStatus || asset.importStatus || "Pendiente"} /><Info label="Coordenadas" value={asset.coordinates || "Pendiente"} />
       </div>
     </Card>
-    <Card style={{ boxShadow: "none" }}><SectionTitle title="Contratos ligados" helper="Da clic en el contrato o arrendatario para abrir el expediente correspondiente." />
-      <MiniTable columns={[{ key: "tenantId", label: "Arrendatario", render: (r) => <EntityLink onClick={() => onOpenTenant?.(tenantMap[r.tenantId])}>{tenantMap[r.tenantId]?.name || "Arrendatario"}</EntityLink> }, { key: "id", label: "Contrato", render: (r) => <EntityLink onClick={() => onOpenContract?.(r)}>{r.contractType || "Arrendamiento"}</EntityLink> }, { key: "rentBase", label: "Renta", render: (r) => money(r.rentBase) }, { key: "startDate", label: "Inicio" }, { key: "endDate", label: "Fin" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }]} rows={contracts} />
+    <Card style={{ boxShadow: "none" }}><SectionTitle title="Mapa / ubicación" helper="Vista rápida del predio. Más adelante se puede conectar Google Maps con polígonos y capas." />
+      <div style={{ border: `1px solid ${c.border}`, borderRadius: 22, minHeight: 190, background: "linear-gradient(135deg,#f5f1e8,#ffffff)", display: "grid", placeItems: "center", textAlign: "center", padding: 20 }}>
+        <div><div style={{ fontSize: 34 }}>⌖</div><b>{asset.address || asset.location || "Ubicación pendiente"}</b><div style={{ color: c.muted, marginTop: 6 }}>{asset.coordinates ? `Coordenadas: ${asset.coordinates}` : "Agrega coordenadas para ubicarlo en mapa."}</div>{asset.mapsUrl ? <a href={asset.mapsUrl} target="_blank" rel="noreferrer" style={{ color: c.primaryDark, fontWeight: 900, display: "inline-block", marginTop: 8 }}>Abrir mapa</a> : null}</div>
+      </div>
     </Card>
-    <Card style={{ boxShadow: "none" }}><SectionTitle title="Predial del inmueble" helper="Control de riesgo: mantener predial al día y conservar comprobantes." />
-      <MiniTable columns={[{ key: "year", label: "Año" }, { key: "amount", label: "Importe", render: (r) => money(r.amount) }, { key: "dueDate", label: "Vence" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Pagado" ? "ok" : r.status === "Vencido" ? "danger" : "warn"}>{r.status}</Pill> }, { key: "bankReference", label: "Referencia" }, { key: "attachments", label: "Comprobante", render: (r) => <AttachmentViewer value={r.attachments} /> }]} rows={predials} />
+    <Card style={{ boxShadow: "none" }}><SectionTitle title="Contratos ligados" helper="Histórico de ocupación y rentas del inmueble." />
+      <MiniTable columns={[{ key: "tenantId", label: "Arrendatario", render: (r) => tenantMap[r.tenantId]?.name }, { key: "rentBase", label: "Renta", render: (r) => money(r.rentBase) }, { key: "startDate", label: "Inicio" }, { key: "endDate", label: "Fin" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }]} rows={contracts} />
     </Card>
-    <Card style={{ boxShadow: "none" }}><SectionTitle title="Historial del inmueble" helper="Ocupación, desocupaciones, cambios de estatus y movimientos con usuario responsable." />
-      <div style={{ display: "grid", gap: 9 }}>{history.length ? history.map((h) => <div key={h.id || `${h.date}-${h.action}`} style={{ padding: 12, borderRadius: 16, border: `1px solid ${c.border}`, background: c.soft }}><div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}><Pill tone="primary">{h.action}</Pill><b>{h.user || "sistema"}</b><span style={{ color: c.muted, fontSize: 12 }}>{String(h.date || "").slice(0, 10)}</span><span style={{ color: c.muted, fontSize: 12 }}>{h.source}</span></div><div style={{ marginTop: 7, color: c.text }}>{h.comment || "Sin comentario"}</div></div>) : <div style={{ color: c.muted }}>Sin historial todavía.</div>}</div>
-    </Card>
-    <Card style={{ boxShadow: "none" }}><SectionTitle title="Documentos del inmueble" helper="Cédulas, predial, croquis, escrituras, fotos, contratos relacionados y soportes." /><AttachmentViewer value={asset.attachments} /></Card>
   </SideDrawer>;
 }
 function LeaseContractDrawer({ contract, data, tenantMap, assetMap, onClose, onEdit }) {
@@ -1903,119 +1887,77 @@ function parseAssetCoordinates(asset = {}) {
   return { lat, lng };
 }
 
-function assetGroupName(asset = {}) {
-  const text = [asset.collection, asset.assetGroup, asset.propertyGroup, asset.location, asset.address, asset.name].join(" ").toLowerCase();
-  if (text.includes("plaza las vias") || text.includes("plaza las vías")) return "Plaza Las Vías";
-  if (text.includes("aura caucel")) return "Locales Aura Caucel";
-  if (text.includes("itzimna") || text.includes("itzimná")) return "Itzimná";
-  if (text.includes("campestre")) return "Campestre";
-  if (text.includes("sodzil")) return "Sodzil";
-  if (text.includes("temozon") || text.includes("temozón")) return "Temozón";
-  if (asset.location) return asset.location.split(",")[0].trim();
-  if (asset.type === "Terreno") return "Terrenos independientes";
-  return "Inmuebles independientes";
-}
-function metersBetween(a, b) {
-  const R = 6371000;
-  const lat1 = a.lat * Math.PI / 180;
-  const lat2 = b.lat * Math.PI / 180;
-  const dLat = (b.lat - a.lat) * Math.PI / 180;
-  const dLng = (b.lng - a.lng) * Math.PI / 180;
-  const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
-function groupNearbyMappedAssets(mappedAssets = [], radiusMeters = 70) {
-  const groups = [];
-  mappedAssets.forEach((item) => {
-    const match = groups.find((group) => metersBetween(group.center, item.coords) <= radiusMeters);
-    if (match) {
-      match.items.push(item);
-      const n = match.items.length;
-      match.center = { lat: (match.center.lat * (n - 1) + item.coords.lat) / n, lng: (match.center.lng * (n - 1) + item.coords.lng) / n };
-    } else {
-      groups.push({ id: `map-group-${groups.length + 1}`, center: item.coords, items: [item] });
-    }
-  });
-  return groups;
-}
-function periodLabel(value = todayIso()) { return String(value || todayIso()).slice(0, 7); }
-function rentChargeLabel(charge = {}) { return charge.chargeType || (Number(charge.maintenance || 0) && !Number(charge.rent || 0) ? "Mantenimiento" : "Renta"); }
-function chargeNetAmount(charge = {}) { return Number(charge.rent || 0) + Number(charge.maintenance || 0) + Number(charge.otherCharges || 0); }
-function chargeVatAmount(charge = {}) { return Number(charge.vat || charge.iva || 0); }
-function chargeGrossAmount(charge = {}) { return chargeNetAmount(charge) + chargeVatAmount(charge); }
-function assetHistoryEntries(asset = {}, data = {}, tenantMap = {}) {
-  const manual = Array.isArray(asset.history) ? asset.history.map((h) => ({ ...h, source: "Historial manual" })) : [];
-  const contracts = (data.contracts || []).filter((ct) => ct.assetId === asset.id).flatMap((ct) => {
-    const tenant = tenantMap[ct.tenantId]?.name || "Arrendatario";
-    return [
-      { id: `${ct.id}-start`, date: ct.startDate, action: "Contrato iniciado", user: ct.createdBy || "sistema", comment: `${tenant} · renta ${money(ct.rentBase)}`, source: "Contrato" },
-      { id: `${ct.id}-end`, date: ct.endDate, action: ct.status === "Activo" ? "Vencimiento programado" : "Contrato cerrado / desocupado", user: ct.updatedBy || "sistema", comment: `${tenant} · estatus ${ct.status || "Activo"}`, source: "Contrato" },
-    ];
-  });
-  return [...manual, ...contracts].filter((h) => h.date).sort((a, b) => String(b.date).localeCompare(String(a.date)));
-}
-
 function AssetMapView({ assets = [], onSelect }) {
   const mapId = React.useMemo(() => `triton-assets-map-${Math.random().toString(36).slice(2)}`, []);
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [selectedAsset, setSelectedAsset] = useState(null);
-  const [selectedGroupId, setSelectedGroupId] = useState("");
   const mappedAssets = useMemo(() => assets.map((asset) => ({ asset, coords: parseAssetCoordinates(asset) })).filter((x) => x.coords), [assets]);
-  const markerGroups = useMemo(() => groupNearbyMappedAssets(mappedAssets, 70), [mappedAssets]);
   const missingAssets = assets.length - mappedAssets.length;
   const selectedMapped = mappedAssets.find((x) => x.asset.id === selectedAsset?.id) || mappedAssets[0] || null;
-  const selectedGroup = markerGroups.find((group) => group.id === selectedGroupId) || markerGroups.find((group) => group.items.some((x) => x.asset.id === selectedMapped?.asset?.id)) || markerGroups[0] || null;
 
   useEffect(() => {
-    if (!mappedAssets.length) { setSelectedAsset(null); setSelectedGroupId(""); return; }
-    if (!selectedAsset || !mappedAssets.some((x) => x.asset.id === selectedAsset.id)) setSelectedAsset(mappedAssets[0].asset);
+    if (!mappedAssets.length) {
+      setSelectedAsset(null);
+      return;
+    }
+    if (!selectedAsset || !mappedAssets.some((x) => x.asset.id === selectedAsset.id)) {
+      setSelectedAsset(mappedAssets[0].asset);
+    }
   }, [mappedAssets, selectedAsset]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !mappedAssets.length) return undefined;
     const el = mapContainerRef.current;
     el.innerHTML = "";
+
     const first = mappedAssets[0].coords;
-    const map = L.map(el, { scrollWheelZoom: false, zoomControl: true, attributionControl: true }).setView([first.lat, first.lng], mappedAssets.length === 1 ? 15 : 12);
+    const map = L.map(el, {
+      scrollWheelZoom: false,
+      zoomControl: true,
+      attributionControl: true,
+    }).setView([first.lat, first.lng], mappedAssets.length === 1 ? 15 : 12);
     mapRef.current = map;
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap",
+    }).addTo(map);
+
     const bounds = [];
-    const iconForGroup = (group) => L.divIcon({
+    const goldIcon = L.divIcon({
       className: "triton-map-pin-wrap",
-      html: group.items.length > 1 ? `<div class="triton-map-cluster"><b>${group.items.length}</b></div>` : `<div class="triton-map-pin"><span></span></div>`,
-      iconSize: group.items.length > 1 ? [44, 44] : [34, 42],
-      iconAnchor: group.items.length > 1 ? [22, 22] : [17, 38],
-      popupAnchor: [0, group.items.length > 1 ? -18 : -36],
+      html: `<div class="triton-map-pin"><span></span></div>`,
+      iconSize: [34, 42],
+      iconAnchor: [17, 38],
+      popupAnchor: [0, -36],
     });
-    markerGroups.forEach((group) => {
-      bounds.push([group.center.lat, group.center.lng]);
-      const marker = L.marker([group.center.lat, group.center.lng], { icon: iconForGroup(group) }).addTo(map);
-      const listHtml = group.items.slice(0, 18).map(({ asset }) => `<button type="button" data-asset-id="${asset.id}" style="display:block;width:100%;text-align:left;margin-top:6px;border:1px solid rgba(88,84,76,.16);border-radius:12px;padding:8px 9px;background:#fff;color:#242322;font-weight:800;cursor:pointer;"><span style="display:block;white-space:normal;">${asset.name || "Inmueble"}</span><small style="color:#6B6862;">${asset.type || ""} · ${asset.status || ""}</small></button>`).join("");
-      const title = group.items.length > 1 ? `${group.items.length} inmuebles en este punto/cerca` : (group.items[0]?.asset?.name || "Inmueble");
-      marker.bindPopup(`<div style="min-width:260px;max-width:320px;font-family:Montserrat,Arial,sans-serif;"><strong style="font-size:14px;color:#242322;">${title}</strong><br/><span style="color:#6B6862;">Selecciona uno para abrir su expediente.</span>${listHtml}</div>`);
-      marker.on("mouseover", () => marker.openPopup());
-      marker.on("click", () => { setSelectedGroupId(group.id); setSelectedAsset(group.items[0]?.asset || null); marker.openPopup(); });
+
+    mappedAssets.forEach(({ asset, coords }) => {
+      bounds.push([coords.lat, coords.lng]);
+      const marker = L.marker([coords.lat, coords.lng], { icon: goldIcon }).addTo(map);
+      marker.bindPopup(`<div style="min-width:210px;font-family:Montserrat,Arial,sans-serif;"><strong style="font-size:14px;color:#242322;">${asset.name || "Inmueble"}</strong><br/><span style="color:#6B6862;">${asset.type || ""}</span><br/><span style="color:#6B6862;">${asset.address || asset.location || "Ubicación pendiente"}</span><br/><button type="button" data-asset-id="${asset.id}" style="margin-top:10px;border:0;border-radius:12px;padding:8px 10px;background:#B08A2E;color:white;font-weight:900;cursor:pointer;">Ver expediente</button></div>`);
+      marker.on("click", () => setSelectedAsset(asset));
       marker.on("popupopen", () => {
         setTimeout(() => {
-          group.items.forEach(({ asset }) => {
-            const btn = document.querySelector(`[data-asset-id="${asset.id}"]`);
-            if (btn) btn.onclick = () => { setSelectedGroupId(group.id); setSelectedAsset(asset); onSelect(asset); };
-          });
+          const btn = document.querySelector(`[data-asset-id="${asset.id}"]`);
+          if (btn) btn.onclick = () => onSelect(asset);
         }, 0);
       });
     });
-    if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    setTimeout(() => map.invalidateSize(), 220);
-    return () => { map.remove(); mapRef.current = null; };
-  }, [mapId, mappedAssets, markerGroups, onSelect]);
+
+    if (bounds.length > 1) map.fitBounds(bounds, { padding: [34, 34], maxZoom: 15 });
+    setTimeout(() => map.invalidateSize(), 180);
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [mapId, mappedAssets, onSelect]);
 
   function focusAsset(asset) {
     const coords = parseAssetCoordinates(asset);
     setSelectedAsset(asset);
-    const group = markerGroups.find((g) => g.items.some((x) => x.asset.id === asset.id));
-    if (group) setSelectedGroupId(group.id);
-    if (coords && mapRef.current) mapRef.current.setView([coords.lat, coords.lng], 17, { animate: true });
+    if (coords && mapRef.current) mapRef.current.setView([coords.lat, coords.lng], 16, { animate: true });
   }
 
   return <Card style={{ boxShadow: "none" }}>
@@ -2025,68 +1967,39 @@ function AssetMapView({ assets = [], onSelect }) {
       .triton-map-pin-wrap { background: transparent; border: 0; }
       .triton-map-pin { width: 30px; height: 30px; border-radius: 999px 999px 999px 4px; transform: rotate(-45deg); background: #B08A2E; border: 3px solid #fff; box-shadow: 0 10px 24px rgba(0,0,0,.24); display: grid; place-items: center; }
       .triton-map-pin span { width: 9px; height: 9px; border-radius: 50%; background: #fff; display: block; }
-      .triton-map-cluster { width: 44px; height: 44px; border-radius: 999px; background: #B08A2E; color: white; border: 4px solid white; box-shadow: 0 12px 26px rgba(0,0,0,.24); display: grid; place-items: center; font-weight: 950; }
       .triton-real-map .leaflet-popup-content-wrapper { border-radius: 18px; box-shadow: 0 16px 40px rgba(0,0,0,.18); }
       .triton-real-map .leaflet-popup-content { margin: 14px; }
     `}</style>
-    <SectionTitle title="Vista mapa real" helper="Los inmuebles en el mismo punto o muy cercanos se agrupan. Pasa el mouse por un pin agrupado para escoger el predio/local correcto." />
-    {!mappedAssets.length ? <div style={{ padding: 16, border: `1px dashed ${c.border}`, borderRadius: 18, color: c.muted }}>No hay inmuebles con coordenadas para mostrar en mapa. Agrega latitud/longitud o coordenadas en el expediente del inmueble.</div> : <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(290px,390px)", gap: 14, alignItems: "stretch" }}>
-      <div className="triton-real-map" style={{ minHeight: 590, borderRadius: 26, overflow: "hidden", border: `1px solid ${c.border}`, background: c.soft, position: "relative" }}><div ref={mapContainerRef} id={mapId} style={{ height: "100%", minHeight: 590, width: "100%" }} /></div>
+    <SectionTitle title="Vista mapa real" helper="Mapa real con OpenStreetMap/Leaflet. Selecciona un pin o un inmueble de la lista para ver su resumen y abrir el expediente." />
+    {!mappedAssets.length ? <div style={{ padding: 16, border: `1px dashed ${c.border}`, borderRadius: 18, color: c.muted }}>No hay inmuebles con coordenadas para mostrar en mapa. Agrega latitud/longitud o coordenadas en el expediente del inmueble.</div> : <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(280px,360px)", gap: 14, alignItems: "stretch" }}>
+      <div className="triton-real-map" style={{ minHeight: 560, borderRadius: 26, overflow: "hidden", border: `1px solid ${c.border}`, background: c.soft, position: "relative" }}>
+        <div ref={mapContainerRef} id={mapId} style={{ height: "100%", minHeight: 560, width: "100%" }} />
+      </div>
       <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
         <Card style={{ boxShadow: "none", padding: 14, borderRadius: 20 }}>
-          <Pill tone="primary">Punto seleccionado</Pill>
-          <h3 style={{ margin: "10px 0 4px", fontSize: 20, color: c.text }}>{selectedGroup?.items?.length > 1 ? `${selectedGroup.items.length} inmuebles cercanos` : selectedMapped?.asset?.name || "Selecciona un inmueble"}</h3>
-          <div style={{ color: c.muted, fontSize: 13, lineHeight: 1.45 }}>Puedes abrir directamente el expediente o escoger otro inmueble del mismo punto.</div>
-          <div style={{ display: "grid", gap: 8, marginTop: 12, maxHeight: 210, overflow: "auto" }}>{(selectedGroup?.items || []).map(({ asset }) => <button key={asset.id} type="button" onClick={() => focusAsset(asset)} style={{ textAlign: "left", border: selectedAsset?.id === asset.id ? `2px solid ${c.primary}` : `1px solid ${c.border}`, background: selectedAsset?.id === asset.id ? c.primarySoft : "white", borderRadius: 14, padding: 10, cursor: "pointer" }}><b>{asset.name}</b><div style={{ color: c.muted, fontSize: 12 }}>{asset.type || "Inmueble"} · {asset.location || asset.address || "Sin ubicación"}</div></button>)}</div>
-          {selectedMapped?.asset ? <Button style={{ width: "100%", marginTop: 12 }} onClick={() => onSelect(selectedMapped.asset)}>Abrir expediente seleccionado</Button> : null}
+          <Pill tone="primary">Inmueble seleccionado</Pill>
+          <h3 style={{ margin: "10px 0 4px", fontSize: 20, color: c.text }}>{selectedMapped?.asset?.name || "Selecciona un inmueble"}</h3>
+          <div style={{ color: c.muted, fontSize: 13, lineHeight: 1.45 }}>{selectedMapped?.asset?.type || ""} · {selectedMapped?.asset?.address || selectedMapped?.asset?.location || "Ubicación pendiente"}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
+            <Info label="Renta / valor" value={selectedMapped?.asset?.rentalPrice ? money(selectedMapped.asset.rentalPrice) : "Por definir"} />
+            <Info label="m²" value={selectedMapped?.asset?.area ? numberFmt(selectedMapped.asset.area) : "Pendiente"} />
+            <Info label="Propietario" value={selectedMapped?.asset?.ownerName || "Pendiente"} />
+            <Info label="Cuenta depósito" value={selectedMapped?.asset?.depositAccountAlias || "Pendiente"} />
+          </div>
+          {selectedMapped?.asset ? <Button style={{ width: "100%", marginTop: 12 }} onClick={() => onSelect(selectedMapped.asset)}>Abrir expediente</Button> : null}
         </Card>
-        <Card style={{ boxShadow: "none", padding: 14, borderRadius: 20, maxHeight: 280, overflow: "auto" }}>
+        <Card style={{ boxShadow: "none", padding: 14, borderRadius: 20, maxHeight: 290, overflow: "auto" }}>
           <SectionTitle title="Predios ubicados" helper="Da clic para centrar el mapa." />
-          <div style={{ display: "grid", gap: 8 }}>{mappedAssets.map(({ asset }) => <button key={asset.id} type="button" onClick={() => focusAsset(asset)} style={{ textAlign: "left", border: selectedAsset?.id === asset.id ? `2px solid ${c.primary}` : `1px solid ${c.border}`, background: selectedAsset?.id === asset.id ? c.primarySoft : "white", borderRadius: 16, padding: 10, cursor: "pointer" }}><b style={{ color: c.text }}>{asset.name}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>{assetGroupName(asset)} · {asset.type || "Inmueble"}</div></button>)}</div>
+          <div style={{ display: "grid", gap: 8 }}>{mappedAssets.map(({ asset }) => <button key={asset.id} type="button" onClick={() => focusAsset(asset)} style={{ textAlign: "left", border: selectedAsset?.id === asset.id ? `2px solid ${c.primary}` : `1px solid ${c.border}`, background: selectedAsset?.id === asset.id ? c.primarySoft : "white", borderRadius: 16, padding: 10, cursor: "pointer" }}><b style={{ color: c.text }}>{asset.name}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>{asset.type || "Inmueble"} · {asset.location || asset.address || "Sin ubicación"}</div></button>)}</div>
         </Card>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Pill tone="primary">{mappedAssets.length} con ubicación</Pill><Pill tone="primary">{markerGroups.length} puntos en mapa</Pill>{missingAssets ? <Pill tone="warn">{missingAssets} sin coordenadas</Pill> : <Pill tone="ok">Todos ubicados</Pill>}</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Pill tone="primary">{mappedAssets.length} con ubicación</Pill>
+          {missingAssets ? <Pill tone="warn">{missingAssets} sin coordenadas</Pill> : <Pill tone="ok">Todos ubicados</Pill>}
+        </div>
       </div>
     </div>}
   </Card>;
 }
-
-
-function AssetGroupedTable({ rows = [], data, onOpen, onEdit }) {
-  const [collapsed, setCollapsed] = useState({});
-  const groups = useMemo(() => {
-    const map = new Map();
-    rows.forEach((asset) => {
-      const group = assetGroupName(asset);
-      if (!map.has(group)) map.set(group, []);
-      map.get(group).push(asset);
-    });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [rows]);
-  const columns = [
-    { key: "name", label: "Inmueble", render: (r) => <EntityLink onClick={() => onOpen(r)}>{r.name}</EntityLink> },
-    { key: "type", label: "Tipo" },
-    { key: "ownerName", label: "Propietario", render: (r) => r.ownerName || (data.propertyOwners || []).find((o) => o.id === r.ownerId)?.name || "Pendiente" },
-    { key: "depositAccountAlias", label: "Cuenta depósito", render: (r) => r.depositAccountAlias || "Pendiente" },
-    { key: "location", label: "Ubicación" },
-    { key: "area", label: "m²" },
-    { key: "rentalPrice", label: "Precio/renta", render: (r) => Number(r.rentalPrice || 0) ? money(r.rentalPrice) : "Por definir" },
-    { key: "cadastralId", label: "Cédula" },
-    { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Ocupado" ? "ok" : r.status === "Revisión pendiente" ? "warn" : "primary"}>{r.status}</Pill> },
-    { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => onOpen(r)}>Abrir</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => onEdit(r)}>Editar</Button></ActionCell> },
-  ];
-  return <div style={{ display: "grid", gap: 12 }}>{groups.map(([groupName, groupRows]) => {
-    const isCollapsed = collapsed[groupName];
-    const occupied = groupRows.filter((a) => a.status === "Ocupado").length;
-    return <Card key={groupName} style={{ padding: 0, overflow: "hidden" }}>
-      <button type="button" onClick={() => setCollapsed((prev) => ({ ...prev, [groupName]: !prev[groupName] }))} style={{ width: "100%", border: 0, background: c.soft, padding: 14, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
-        <div><b style={{ fontSize: 16, color: c.text }}>{groupName}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 3 }}>{groupRows.length} inmueble(s) · {occupied} ocupado(s)</div></div>
-        <span style={{ fontWeight: 950, color: c.primaryDark }}>{isCollapsed ? "Mostrar" : "Minimizar"}</span>
-      </button>
-      {!isCollapsed ? <div style={{ padding: 12 }}><MiniTable columns={columns} rows={groupRows} /></div> : null}
-    </Card>;
-  })}</div>;
-}
-
 function RentalContractForm({ data, tenantMap, assetMap, form, setForm, onSave, editing }) {
   const [tenantMode, setTenantMode] = useState(form.newTenantName ? "nuevo" : "existente");
   const selectedTenant = tenantMap[form.tenantId];
@@ -2104,7 +2017,7 @@ function RentalContractForm({ data, tenantMap, assetMap, form, setForm, onSave, 
       <Field label="Día de pago"><input type="number" style={inputStyle()} value={form.paymentDay || 10} onChange={(e) => setForm({ ...form, paymentDay: e.target.value })} /></Field>
       <Field label="Banco"><input style={inputStyle()} value={form.bank || "VEPORMAS"} onChange={(e) => setForm({ ...form, bank: e.target.value })} /></Field>
       <Field label="Referencia bancaria"><input style={inputStyle()} value={form.reference || ""} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></Field>
-      <Field label="Base del incremento anual"><input style={inputStyle()} placeholder="Fijo %, índice pactado o regla según contrato" value={form.annualIncreaseBase || form.inpcMonth || ""} onChange={(e) => setForm({ ...form, annualIncreaseBase: e.target.value, inpcMonth: e.target.value })} /></Field>
+      <Field label="Base del incremento anual"><input style={inputStyle()} placeholder="INPC, fijo %, según contrato" value={form.annualIncreaseBase || form.inpcMonth || ""} onChange={(e) => setForm({ ...form, annualIncreaseBase: e.target.value, inpcMonth: e.target.value })} /></Field>
       <Field label="Último incremento"><input type="date" style={inputStyle()} value={form.lastIncreaseDate || form.startDate || todayIso()} onChange={(e) => setForm({ ...form, lastIncreaseDate: e.target.value, nextIncreaseDate: addMonthsIso(e.target.value, 12) })} /></Field>
       <Field label="Próximo incremento"><input type="date" style={inputStyle()} value={form.nextIncreaseDate || addMonthsIso(form.lastIncreaseDate || form.startDate || todayIso(), 12)} onChange={(e) => setForm({ ...form, nextIncreaseDate: e.target.value })} /></Field>
     </div>
@@ -2127,7 +2040,7 @@ function AssetForm({ data, form, setForm, onSave, editing }) {
       <Field label="Proyecto relacionado (opcional)"><select style={inputStyle()} value={form.projectId || ""} onChange={(e) => setForm({ ...form, projectId: e.target.value })}><option value="">Sin proyecto / predio independiente</option>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
       <Field label="Propietario del predio"><select style={inputStyle()} value={form.ownerId || ownerOptions[0]?.id || ""} onChange={(e) => { const owner = ownerOptions.find((o) => o.id === e.target.value); setForm({ ...form, ownerId: e.target.value, ownerName: owner?.name || "", depositAccountId: "", depositAccountAlias: "" }); }}>{ownerOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></Field>
       <Field label="Cuenta de depósito asignada"><select style={inputStyle()} value={form.depositAccountId || ""} onChange={(e) => { const account = accountOptions.find((a) => a.id === e.target.value); setForm({ ...form, depositAccountId: e.target.value, depositAccountAlias: account?.alias || account?.bank || "" }); }}><option value="">Pendiente asignar / definir en contrato</option>{accountsForOwner.map((a) => <option key={a.id} value={a.id}>{a.alias || a.bank || a.id} · {a.bank || "Banco pendiente"}</option>)}</select></Field>
-      <Field label="Agrupación / plaza"><input style={inputStyle()} placeholder="Ej. Plaza Las Vías" value={form.collection || form.assetGroup || ""} onChange={(e) => setForm({ ...form, collection: e.target.value, assetGroup: e.target.value })} /></Field><Field label="Ubicación / zona"><input style={inputStyle()} value={form.location || ""} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
+      <Field label="Ubicación / zona"><input style={inputStyle()} value={form.location || ""} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
       <Field label="Dirección"><input style={inputStyle()} value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
       <Field label="m²"><input type="number" style={inputStyle()} value={form.area || ""} onChange={(e) => setForm({ ...form, area: e.target.value })} /></Field>
       <Field label="Precio/renta objetivo"><input type="number" style={inputStyle()} value={form.rentalPrice || ""} onChange={(e) => setForm({ ...form, rentalPrice: e.target.value })} /></Field>
@@ -2158,11 +2071,6 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
   const [search, setSearch] = useState("");
   const [increaseFilter, setIncreaseFilter] = useState("todos");
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
-  const [billingPeriod, setBillingPeriod] = useState(periodLabel(todayIso()));
-  const [reportPeriod, setReportPeriod] = useState(periodLabel(todayIso()));
-  const [reportTenantId, setReportTenantId] = useState("todos");
-  const [reportStatus, setReportStatus] = useState("todos");
-  const [predialStatus, setPredialStatus] = useState("todos");
   const charges = filterByStatus((data.rentCharges || []), statusFilter).filter((r) => [tenantName(r, data), assetMap[contractMap[r.contractId]?.assetId]?.name, r.period, r.bankReference].join(" ").toLowerCase().includes(search.toLowerCase()));
   function saveContract() {
     let tenantId = form.tenantId || data.tenants[0]?.id;
@@ -2171,7 +2079,7 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
       addRecord("tenants", { id: tenantId, name: form.newTenantName, taxpayerType: form.newTenantTaxpayerType || "Persona moral", fiscalId: form.newTenantFiscalId || "", billingEmail: form.newTenantBillingEmail || "", email: form.newTenantBillingEmail || "", certificateStatus: "Pendiente", status: "Activo" });
     }
     const lastIncreaseDate = form.lastIncreaseDate || form.inpcMonth || todayIso();
-    const payload = { tenantId, assetId: form.assetId || data.assets[0]?.id, contractType: form.contractType || "Arrendamiento comercial", rentBase: Number(form.rentBase || 0), maintenancePct: Number(form.maintenancePct || 0), startDate: form.startDate || todayIso(), endDate: form.endDate || todayIso(), paymentDay: Number(form.paymentDay || 10), annualIncreaseBase: form.annualIncreaseBase || "Incremento anual según contrato", inpcMonth: form.inpcMonth || "", lastIncreaseDate, nextIncreaseDate: form.nextIncreaseDate || addMonthsIso(lastIncreaseDate, 12), bank: form.bank || "VEPORMAS", reference: form.reference || "", status: form.status || "Activo", autoInvoice: !!form.autoInvoice, attachments: normalizeAttachments(form.attachments), updatedAt: todayIso() };
+    const payload = { tenantId, assetId: form.assetId || data.assets[0]?.id, contractType: form.contractType || "Arrendamiento comercial", rentBase: Number(form.rentBase || 0), maintenancePct: Number(form.maintenancePct || 0), startDate: form.startDate || todayIso(), endDate: form.endDate || todayIso(), paymentDay: Number(form.paymentDay || 10), annualIncreaseBase: form.annualIncreaseBase || "INPC / definido en contrato", inpcMonth: form.inpcMonth || "", lastIncreaseDate, nextIncreaseDate: form.nextIncreaseDate || addMonthsIso(lastIncreaseDate, 12), bank: form.bank || "VEPORMAS", reference: form.reference || "", status: form.status || "Activo", autoInvoice: !!form.autoInvoice, attachments: normalizeAttachments(form.attachments), updatedAt: todayIso() };
     if (form.id) updateRecord("contracts", form.id, payload); else addRecord("contracts", payload);
     setShowForm(null); setForm({});
   }
@@ -2183,7 +2091,6 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
       type: form.type || "Local comercial",
       projectId: form.projectId || "",
       area: Number(form.area || 0),
-      collection: form.collection || form.assetGroup || assetGroupName(form),
       location: form.location || "",
       address: form.address || "",
       cadastralId: form.cadastralId || "",
@@ -2202,32 +2109,10 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
       requiresReview: !!form.reviewNotes || form.status === "Revisión pendiente",
       notes: form.notes || "",
       attachments: normalizeAttachments(form.attachments),
-      history: [{ id: uid("asset-hist"), date: todayIso(), action: form.id ? "Actualización de inmueble" : "Alta de inmueble", user: firebaseAuth.currentUser?.email || "sistema", comment: form.notes || form.reviewNotes || "Movimiento registrado en expediente del inmueble." }, ...(form.history || [])],
       updatedAt: todayIso(),
     };
     if (form.id) updateRecord("assets", form.id, payload); else addRecord("assets", payload);
     setShowForm(null); setForm({});
-  }
-  function generateMonthlyCharges(period = billingPeriod) {
-    const activeContracts = (data.contracts || []).filter((ct) => (ct.status || "Activo") === "Activo");
-    const existingKeys = new Set((data.rentCharges || []).map((ch) => `${ch.contractId}-${ch.period}-${rentChargeLabel(ch)}`));
-    let created = 0;
-    activeContracts.forEach((ct) => {
-      const dueDate = `${period}-${String(ct.paymentDay || 10).padStart(2, "0")}`;
-      const rentKey = `${ct.id}-${period}-Renta`;
-      if (!existingKeys.has(rentKey)) {
-        const rent = Number(ct.rentBase || 0);
-        addRecord("rentCharges", { contractId: ct.id, period, chargeType: "Renta", rent, maintenance: 0, vat: roundMoney(rent * 0.16), status: "Pendiente", paidAmount: 0, dueDate, bankReference: ct.reference || "", invoiceStatus: ct.autoInvoice ? "Por emitir" : "Manual", reconciled: false, remindersCount: 0, createdBy: firebaseAuth.currentUser?.email || "sistema" });
-        created += 1;
-      }
-      const maintenance = roundMoney(Number(ct.rentBase || 0) * Number(ct.maintenancePct || 0) / 100);
-      const maintenanceKey = `${ct.id}-${period}-Mantenimiento`;
-      if (maintenance > 0 && !existingKeys.has(maintenanceKey)) {
-        addRecord("rentCharges", { contractId: ct.id, period, chargeType: "Mantenimiento", rent: 0, maintenance, vat: roundMoney(maintenance * 0.16), status: "Pendiente", paidAmount: 0, dueDate, bankReference: ct.reference ? `${ct.reference}-M` : "", invoiceStatus: ct.autoInvoice ? "Por emitir" : "Manual", reconciled: false, remindersCount: 0, createdBy: firebaseAuth.currentUser?.email || "sistema" });
-        created += 1;
-      }
-    });
-    if (!created) alert("No se generaron cargos nuevos: el periodo ya existe para los contratos activos.");
   }
   if (mode === "arr_inmuebles") {
     const importedCount = (data.assets || []).filter((a) => a.source?.includes("Relación de Inmuebles") || a.importStatus).length;
@@ -2237,10 +2122,8 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
       <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Inmuebles / predios" helper="Alta y expediente de locales, terrenos, casas, departamentos y oficinas. El proyecto es opcional; propietario y cuenta de depósito se controlan por inmueble/contrato." /><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={() => { setForm({}); setShowForm(showForm === "asset" ? null : "asset"); }}>Nuevo inmueble</Button></div></div>{showForm === "asset" ? <AssetForm data={data} form={form} setForm={setForm} onSave={saveAsset} editing={!!form.id} /> : null}</Card>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><MetricCard label="Inmuebles" value={(data.assets || []).length} tone="primary" /><MetricCard label="Importados" value={importedCount} tone="ok" /><MetricCard label="Por revisar" value={reviewCount} tone={reviewCount ? "warn" : "ok"} /></div>
       <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "end" }}><div><SectionTitle title="Consulta de inmuebles" helper="Usa vista tabla para control operativo o vista mapa real para ubicar predios y abrir su expediente." /></div><div style={{ display: "flex", gap: 8, background: c.soft, padding: 5, borderRadius: 16 }}><Button variant={assetView === "tabla" ? "primary" : "secondary"} style={{ padding: "9px 12px" }} onClick={() => setAssetView("tabla")}>Vista tabla</Button><Button variant={assetView === "mapa" ? "primary" : "secondary"} style={{ padding: "9px 12px" }} onClick={() => setAssetView("mapa")}>Vista mapa real</Button></div></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginTop: 4 }}><Field label="Buscar inmueble"><input style={inputStyle({ maxWidth: 420 })} placeholder="Nombre, tipo, dirección, propietario, cuenta" value={search} onChange={(e) => setSearch(e.target.value)} /></Field><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.assets || []).map((a) => a.status)} total={(data.assets || []).length} shown={filterByStatus(rows, statusFilter).length} /></div></Card>
-      {assetView === "mapa" ? <AssetMapView assets={filterByStatus(rows, statusFilter)} onSelect={setAssetDetail} /> : <AssetGroupedTable rows={filterByStatus(rows, statusFilter)} data={data} onOpen={setAssetDetail} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); }} />}
-      {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} onOpenContract={(ct) => { setAssetDetail(null); setContractDetail(ct); }} onOpenTenant={(tenant) => { setAssetDetail(null); setTenantDetail(tenant); }} /> : null}
-      {tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}
-      {contractDetail ? <LeaseContractDrawer contract={contractDetail} data={data} tenantMap={tenantMap} assetMap={assetMap} onClose={() => setContractDetail(null)} onEdit={(ct) => { setContractDetail(null); setForm({ ...ct }); setShowForm("leaseContract"); }} /> : null}
+      {assetView === "mapa" ? <AssetMapView assets={filterByStatus(rows, statusFilter)} onSelect={setAssetDetail} /> : <Card><MiniTable columns={[{ key: "name", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(r)}>{r.name}</EntityLink> }, { key: "type", label: "Tipo" }, { key: "ownerName", label: "Propietario", render: (r) => r.ownerName || (data.propertyOwners || []).find((o) => o.id === r.ownerId)?.name || "Pendiente" }, { key: "depositAccountAlias", label: "Cuenta depósito", render: (r) => r.depositAccountAlias || "Pendiente" }, { key: "location", label: "Ubicación" }, { key: "area", label: "m²" }, { key: "rentalPrice", label: "Precio/renta", render: (r) => Number(r.rentalPrice || 0) ? money(r.rentalPrice) : "Por definir" }, { key: "cadastralId", label: "Cédula" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Ocupado" ? "ok" : r.status === "Revisión pendiente" ? "warn" : "primary"}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setAssetDetail(r)}>Abrir</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("asset"); }}>Editar</Button></ActionCell> }]} rows={filterByStatus(rows, statusFilter)} /></Card>}
+      {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}
     </div>;
   }
   if (mode === "arr_contratos") {
@@ -2277,70 +2160,18 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
         <MiniTable columns={[{ key: "tenantId", label: "Arrendatario", render: (r) => <EntityLink onClick={() => setTenantDetail(tenantMap[r.tenantId])}>{tenantMap[r.tenantId]?.name || "Arrendatario"}</EntityLink> }, { key: "assetId", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[r.assetId])}>{assetMap[r.assetId]?.name || "Inmueble"}</EntityLink> }, { key: "rentBase", label: "Renta", render: (r) => money(r.rentBase) }, { key: "maintenancePct", label: "Mantto %", render: (r) => `${r.maintenancePct || 0}%` }, { key: "paymentDay", label: "Día pago" }, { key: "annualIncrease", label: "Incremento anual", render: (r) => { const inc = annualIncreaseInfo(r); return <div><Pill tone={inc.status === "Vencido" ? "danger" : inc.status === "Por vencer" ? "warn" : "ok"}>{inc.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 4 }}>{inc.nextDate}</div></div>; } }, { key: "endDate", label: "Vence" }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "view", label: "Consultar", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setContractDetail(r)}>Abrir</Button> }, { key: "edit", label: "Editar", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { setForm({ ...r }); setShowForm("leaseContract"); }}>Editar</Button> }]} rows={contractRows} />
       </Card>
       {tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}
-      {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} onOpenContract={(ct) => { setAssetDetail(null); setContractDetail(ct); }} onOpenTenant={(tenant) => { setAssetDetail(null); setTenantDetail(tenant); }} /> : null}
+      {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}
       {contractDetail ? <LeaseContractDrawer contract={contractDetail} data={data} tenantMap={tenantMap} assetMap={assetMap} onClose={() => setContractDetail(null)} onEdit={(ct) => { setContractDetail(null); setForm({ ...ct }); setShowForm("leaseContract"); }} /> : null}
     </div>;
   }
   if (mode === "arr_reportes") {
-    const reportRows = (data.rentCharges || []).filter((r) => {
-      const ct = contractMap[r.contractId];
-      const tenantId = ct?.tenantId || "";
-      const status = r.status || "Pendiente";
-      return (!reportPeriod || r.period === reportPeriod) && (reportTenantId === "todos" || tenantId === reportTenantId) && (reportStatus === "todos" || status === reportStatus);
-    });
-    const reconciled = reportRows.filter((r) => r.reconciled || r.status === "Conciliado");
-    const pending = reportRows.filter((r) => !(r.reconciled || r.status === "Conciliado"));
-    const net = reconciled.reduce((a, r) => a + chargeNetAmount(r), 0);
-    const taxes = reconciled.reduce((a, r) => a + chargeVatAmount(r), 0);
-    const gross = net + taxes;
-    const overdue = pending.filter((r) => ["Vencido", "Parcial", "Pendiente"].includes(r.status)).reduce((a, r) => a + Math.max(0, chargeGrossAmount(r) - Number(r.paidAmount || 0)), 0);
-    const byGroup = Array.from(reportRows.reduce((map, r) => {
-      const asset = assetMap[contractMap[r.contractId]?.assetId];
-      const group = assetGroupName(asset || {});
-      const prev = map.get(group) || { group, net: 0, taxes: 0, total: 0, pending: 0, count: 0 };
-      prev.net += chargeNetAmount(r); prev.taxes += chargeVatAmount(r); prev.total += chargeGrossAmount(r); prev.pending += (r.reconciled || r.status === "Conciliado") ? 0 : Math.max(0, chargeGrossAmount(r) - Number(r.paidAmount || 0)); prev.count += 1;
-      map.set(group, prev); return map;
-    }, new Map()).values());
+    const reconciled = (data.rentCharges || []).filter((r) => r.reconciled || r.status === "Conciliado");
+    const pending = (data.rentCharges || []).filter((r) => !(r.reconciled || r.status === "Conciliado"));
     const overdueIncreases = (data.contracts || []).filter((ct) => annualIncreaseInfo(ct).status === "Vencido");
     const soonIncreases = (data.contracts || []).filter((ct) => annualIncreaseInfo(ct).status === "Por vencer");
-    return <div style={{ display: "grid", gap: 16 }}>
-      <Card><SectionTitle title="Reportes de arrendamientos" helper="Reporte mensual exportable. Solo se reconoce como cobrado lo conciliado con banco; lo pendiente queda como adeudo." />
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}>
-          <Field label="Mes"><input type="month" style={inputStyle({ width: 180 })} value={reportPeriod} onChange={(e) => setReportPeriod(e.target.value)} /></Field>
-          <Field label="Arrendatario"><select style={inputStyle({ width: 260 })} value={reportTenantId} onChange={(e) => setReportTenantId(e.target.value)}><option value="todos">Todos</option>{(data.tenants || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
-          <Field label="Estado"><select style={inputStyle({ width: 200 })} value={reportStatus} onChange={(e) => setReportStatus(e.target.value)}><option value="todos">Todos</option>{Array.from(new Set((data.rentCharges || []).map((r) => r.status || "Pendiente"))).map((s) => <option key={s}>{s}</option>)}</select></Field>
-          <Button variant="secondary" onClick={() => window.print()}>Exportar PDF / imprimir</Button>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-          <MetricCard label="Ingresos conciliados" value={money(gross)} tone="ok" />
-          <MetricCard label="Importe neto" value={money(net)} tone="primary" />
-          <MetricCard label="Impuestos cobrados" value={money(taxes)} tone="warn" />
-          <MetricCard label="Adeudos vencidos/no cobrados" value={money(overdue)} tone={overdue > 0 ? "danger" : "ok"} />
-        </div>
-      </Card>
-      <Card><SectionTitle title="Partidas por plaza / agrupación" helper="Totales por plaza, propiedad o grupo de inmuebles." /><MiniTable columns={[{ key: "group", label: "Plaza / grupo" }, { key: "count", label: "Movs." }, { key: "net", label: "Neto", render: (r) => money(r.net) }, { key: "taxes", label: "Impuestos", render: (r) => money(r.taxes) }, { key: "total", label: "Total", render: (r) => money(r.total) }, { key: "pending", label: "Adeudo", render: (r) => money(r.pending) }]} rows={byGroup} /></Card>
-      <Card><SectionTitle title="Incrementos anuales por atender" helper="Vista rápida para aplicar incrementos antes de facturar o renovar." /><MiniTable columns={[{ key: "tenant", label: "Arrendatario", render: (r) => tenantMap[r.tenantId]?.name }, { key: "asset", label: "Inmueble", render: (r) => assetMap[r.assetId]?.name }, { key: "rentBase", label: "Renta actual", render: (r) => money(r.rentBase) }, { key: "next", label: "Próximo incremento", render: (r) => annualIncreaseInfo(r).nextDate }, { key: "status", label: "Estado", render: (r) => <Pill tone={annualIncreaseInfo(r).status === "Vencido" ? "danger" : "warn"}>{annualIncreaseInfo(r).status}</Pill> }]} rows={[...overdueIncreases, ...soonIncreases]} /></Card>
-      <Card><SectionTitle title="Detalle de cobranza del mes" helper="Base para anexar al reporte PDF." /><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "asset", label: "Inmueble", render: (r) => assetMap[contractMap[r.contractId]?.assetId]?.name || "—" }, { key: "chargeType", label: "Tipo", render: (r) => rentChargeLabel(r) }, { key: "period", label: "Periodo" }, { key: "net", label: "Neto", render: (r) => money(chargeNetAmount(r)) }, { key: "vat", label: "IVA", render: (r) => money(chargeVatAmount(r)) }, { key: "total", label: "Total", render: (r) => money(chargeGrossAmount(r)) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "bankReference", label: "Referencia" }]} rows={reportRows} /></Card>
-    </div>;
+    return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Reportes de arrendamientos" helper="Las rentas cobradas del mes solo aparecen como cobradas cuando están conciliadas con bancos. Los incrementos anuales se revisan por contrato." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><MetricCard label="Cobrado conciliado" value={money(reconciled.reduce((a, r) => a + Number(r.paidAmount || 0), 0))} tone="ok" /><MetricCard label="Pendiente / no conciliado" value={money(pending.reduce((a, r) => a + Math.max(0, rentChargeTotal(r) - Number(r.paidAmount || 0)), 0))} tone="warn" /><MetricCard label="Incrementos vencidos" value={overdueIncreases.length} tone={overdueIncreases.length ? "danger" : "ok"} /><MetricCard label="Por vencer ≤45 días" value={soonIncreases.length} tone={soonIncreases.length ? "warn" : "ok"} /></div></Card><Card><SectionTitle title="Incrementos anuales por atender" helper="Vista rápida para aplicar incrementos antes de facturar o renovar." /><MiniTable columns={[{ key: "tenant", label: "Arrendatario", render: (r) => tenantMap[r.tenantId]?.name }, { key: "asset", label: "Inmueble", render: (r) => assetMap[r.assetId]?.name }, { key: "rentBase", label: "Renta actual", render: (r) => money(r.rentBase) }, { key: "next", label: "Próximo incremento", render: (r) => annualIncreaseInfo(r).nextDate }, { key: "status", label: "Estado", render: (r) => <Pill tone={annualIncreaseInfo(r).status === "Vencido" ? "danger" : "warn"}>{annualIncreaseInfo(r).status}</Pill> }]} rows={[...overdueIncreases, ...soonIncreases]} /></Card><Card><SectionTitle title="Rentas cobradas conciliadas" helper="Base oficial para reporte mensual." /><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "period", label: "Periodo" }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "bankReference", label: "Referencia" }, { key: "invoiceStatus", label: "Factura" }]} rows={reconciled} /></Card></div>;
   }
-  if (mode === "arr_predial") {
-    const predialRows = (data.propertyTaxes || []).filter((r) => {
-      const asset = assetMap[r.assetId];
-      const matchesText = [asset?.name, asset?.location, asset?.address, r.year, r.status, r.bankReference].join(" ").toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = predialStatus === "todos" || (r.status || "Pendiente") === predialStatus;
-      return matchesText && matchesStatus;
-    });
-    const overdue = predialRows.filter((r) => (r.status || "Pendiente") !== "Pagado" && r.dueDate && r.dueDate < todayIso()).length;
-    return <div style={{ display: "grid", gap: 16 }}>
-      <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Pago de predial" helper="Control por inmueble. El objetivo es detectar vencimientos, anexar comprobante y evitar riesgos por predios sin predial al día." /><Button onClick={() => setShowForm(showForm === "predial" ? null : "predial")}>Nuevo predial</Button></div>
-        {showForm === "predial" ? <div style={{ display: "grid", gap: 10, marginTop: 12 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Inmueble"><select style={inputStyle()} value={form.assetId || data.assets[0]?.id || ""} onChange={(e) => setForm({ ...form, assetId: e.target.value })}>{(data.assets || []).map((a) => <option key={a.id} value={a.id}>{assetGroupName(a)} · {a.name}</option>)}</select></Field><Field label="Año"><input style={inputStyle()} value={form.year || new Date().getFullYear()} onChange={(e) => setForm({ ...form, year: e.target.value })} /></Field><Field label="Vencimiento"><input type="date" style={inputStyle()} value={form.dueDate || todayIso()} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></Field><Field label="Importe"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field><Field label="Estado"><select style={inputStyle()} value={form.status || "Pendiente"} onChange={(e) => setForm({ ...form, status: e.target.value })}><option>Pendiente</option><option>Pagado</option><option>Vencido</option><option>En revisión</option></select></Field><Field label="Referencia"><input style={inputStyle()} value={form.bankReference || ""} onChange={(e) => setForm({ ...form, bankReference: e.target.value })} /></Field></div><AttachmentUploader label="Comprobante predial" value={form.attachments} folder="arrendamientos/predial" onChange={(attachments) => setForm({ ...form, attachments })} /><Button onClick={() => { addRecord("propertyTaxes", { assetId: form.assetId || data.assets[0]?.id, year: form.year || String(new Date().getFullYear()), dueDate: form.dueDate || todayIso(), amount: Number(form.amount || 0), status: form.status || "Pendiente", bankReference: form.bankReference || "", paidAt: form.status === "Pagado" ? todayIso() : "", attachments: normalizeAttachments(form.attachments), createdBy: firebaseAuth.currentUser?.email || "sistema" }); }}>Guardar predial</Button></div> : null}
-      </Card>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><MetricCard label="Registros" value={predialRows.length} tone="primary" /><MetricCard label="Vencidos" value={overdue} tone={overdue ? "danger" : "ok"} /><MetricCard label="Pagados" value={predialRows.filter((r) => r.status === "Pagado").length} tone="ok" /></div>
-      <Card><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}><Field label="Buscar"><input style={inputStyle({ width: 280 })} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Inmueble, año, referencia" /></Field><Field label="Estado"><select style={inputStyle({ width: 180 })} value={predialStatus} onChange={(e) => setPredialStatus(e.target.value)}><option value="todos">Todos</option><option>Pendiente</option><option>Pagado</option><option>Vencido</option><option>En revisión</option></select></Field></div><MiniTable columns={[{ key: "assetId", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[r.assetId])}>{assetMap[r.assetId]?.name || "Inmueble"}</EntityLink> }, { key: "group", label: "Plaza / grupo", render: (r) => assetGroupName(assetMap[r.assetId] || {}) }, { key: "year", label: "Año" }, { key: "amount", label: "Importe", render: (r) => money(r.amount) }, { key: "dueDate", label: "Vence" }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Pagado" ? "ok" : r.dueDate < todayIso() ? "danger" : "warn"}>{r.status || "Pendiente"}</Pill> }, { key: "bankReference", label: "Referencia" }, { key: "attachments", label: "Comprobante", render: (r) => <AttachmentViewer value={r.attachments} /> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("propertyTaxes", r.id, { status: "Pagado", paidAt: todayIso(), updatedBy: firebaseAuth.currentUser?.email || "sistema" })}>Marcar pagado</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("propertyTaxes", r.id, { status: "Vencido" })}>Vencido</Button></ActionCell> }]} rows={predialRows} /></Card>
-      {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} onOpenContract={(ct) => { setAssetDetail(null); setContractDetail(ct); }} onOpenTenant={(tenant) => { setAssetDetail(null); setTenantDetail(tenant); }} /> : null}
-    </div>;
-  }
-  if (mode === "arr_conciliacion") return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Conciliación bancaria de rentas" helper="Solo al conciliar un cargo de renta o mantenimiento puede entrar al reporte mensual de rentas cobradas." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.rentCharges || []).map((r) => r.status)} total={(data.rentCharges || []).length} shown={charges.length} /></Card><Card><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => <EntityLink onClick={() => setTenantDetail(tenantMap[contractMap[r.contractId]?.tenantId])}>{tenantName(r, data)}</EntityLink> }, { key: "asset", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[contractMap[r.contractId]?.assetId])}>{assetMap[contractMap[r.contractId]?.assetId]?.name || "—"}</EntityLink> }, { key: "chargeType", label: "Tipo", render: (r) => rentChargeLabel(r) }, { key: "period", label: "Periodo" }, { key: "expected", label: "Esperado", render: (r) => money(chargeGrossAmount(r)) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "bankReference", label: "Referencia" }, { key: "reconciled", label: "Conciliado", render: (r) => r.reconciled || r.status === "Conciliado" ? <Pill tone="ok">Sí</Pill> : <Pill tone="warn">No</Pill> }, { key: "actions", label: "Acciones", render: (r) => <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Conciliado", reconciled: true, paidAmount: Number(r.paidAmount || 0) || chargeGrossAmount(r), reconciledAt: todayIso(), reconciledBy: firebaseAuth.currentUser?.email || "sistema" })}>Conciliar</Button> }]} rows={charges} /></Card>{tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}{assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} onOpenContract={(ct) => { setAssetDetail(null); setContractDetail(ct); }} onOpenTenant={(tenant) => { setAssetDetail(null); setTenantDetail(tenant); }} /> : null}</div>;
+  if (mode === "arr_conciliacion") return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Conciliación bancaria de rentas" helper="Solo al conciliar un cargo de renta puede entrar al reporte mensual de rentas cobradas." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.rentCharges || []).map((r) => r.status)} total={(data.rentCharges || []).length} shown={charges.length} /></Card><Card><MiniTable columns={[{ key: "contractId", label: "Arrendatario", render: (r) => tenantName(r, data) }, { key: "period", label: "Periodo" }, { key: "expected", label: "Esperado", render: (r) => money(rentChargeTotal(r)) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "bankReference", label: "Referencia" }, { key: "reconciled", label: "Conciliado", render: (r) => r.reconciled || r.status === "Conciliado" ? <Pill tone="ok">Sí</Pill> : <Pill tone="warn">No</Pill> }, { key: "actions", label: "Acciones", render: (r) => <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Conciliado", reconciled: true, paidAmount: Number(r.paidAmount || 0) || rentChargeTotal(r), reconciledAt: todayIso() })}>Conciliar</Button> }]} rows={charges} /></Card></div>;
   if (mode === "arr_facturacion") {
     const invoiceRows = (data.rentCharges || []).filter((r) => [tenantName(r, data), assetMap[contractMap[r.contractId]?.assetId]?.name, r.period, r.invoiceStatus, r.status].join(" ").toLowerCase().includes(search.toLowerCase()));
     const selectedRows = invoiceRows.filter((r) => selectedInvoiceIds.includes(r.id));
@@ -2370,24 +2201,7 @@ function Rentals({ data, projectMap, tenantMap, assetMap, contractMap, addRecord
       </Card>
     </div>;
   }
-  const monthRows = (data.rentCharges || []).filter((r) => r.period === billingPeriod).filter((r) => [tenantName(r, data), assetMap[contractMap[r.contractId]?.assetId]?.name, r.period, r.bankReference, rentChargeLabel(r)].join(" ").toLowerCase().includes(search.toLowerCase()));
-  const cobranzaRows = filterByStatus(monthRows, statusFilter);
-  const monthNet = monthRows.reduce((a, r) => a + chargeNetAmount(r), 0);
-  const monthTaxes = monthRows.reduce((a, r) => a + chargeVatAmount(r), 0);
-  const monthPaid = monthRows.reduce((a, r) => a + Number(r.paidAmount || 0), 0);
-  const monthPending = monthRows.reduce((a, r) => a + Math.max(0, chargeGrossAmount(r) - Number(r.paidAmount || 0)), 0);
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "end" }}><SectionTitle title="Cobranza de rentas" helper="Genera cada mes los cargos de contratos activos. Renta y mantenimiento son movimientos separados porque normalmente llevan facturas diferentes." /><div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}><Field label="Mes de cobranza"><input type="month" style={inputStyle({ width: 170 })} value={billingPeriod} onChange={(e) => setBillingPeriod(e.target.value)} /></Field><Button onClick={() => generateMonthlyCharges(billingPeriod)}>Generar mes completo</Button><Button variant="secondary" onClick={() => setShowForm(showForm === "rent" ? null : "rent")}>Cargo manual</Button></div></div>
-      {showForm === "rent" ? <div style={{ display: "grid", gap: 10, marginTop: 12 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Contrato"><select style={inputStyle()} value={form.contractId || "r1"} onChange={(e) => setForm({ ...form, contractId: e.target.value })}>{data.contracts.map((r) => <option key={r.id} value={r.id}>{tenantMap[r.tenantId]?.name} · {assetMap[r.assetId]?.name}</option>)}</select></Field><Field label="Periodo"><input type="month" style={inputStyle()} value={form.period || billingPeriod} onChange={(e) => setForm({ ...form, period: e.target.value })} /></Field><Field label="Tipo"><select style={inputStyle()} value={form.chargeType || "Renta"} onChange={(e) => setForm({ ...form, chargeType: e.target.value })}><option>Renta</option><option>Mantenimiento</option><option>Otro cargo</option></select></Field><Field label="Importe neto"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field></div><Button onClick={() => { const ct = data.contracts.find((x) => x.id === (form.contractId || "r1")); const amount = Number(form.amount || (form.chargeType === "Mantenimiento" ? Number(ct?.rentBase || 0) * Number(ct?.maintenancePct || 0) / 100 : ct?.rentBase || 0)); const type = form.chargeType || "Renta"; addRecord("rentCharges", { contractId: ct?.id || "r1", period: form.period || billingPeriod, chargeType: type, rent: type === "Renta" ? amount : 0, maintenance: type === "Mantenimiento" ? amount : 0, otherCharges: type === "Otro cargo" ? amount : 0, vat: roundMoney(amount * 0.16), status: "Pendiente", paidAmount: 0, dueDate: `${form.period || billingPeriod}-${String(ct?.paymentDay || 10).padStart(2, "0")}`, bankReference: type === "Mantenimiento" && ct?.reference ? `${ct.reference}-M` : ct?.reference || "", invoiceStatus: ct?.autoInvoice ? "Por emitir" : "Manual", reconciled: false, remindersCount: 0, createdBy: firebaseAuth.currentUser?.email || "sistema" }); }}>Generar cargo</Button></div> : null}
-    </Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}><MetricCard label="Facturado neto" value={money(monthNet)} tone="primary" /><MetricCard label="IVA / impuestos" value={money(monthTaxes)} tone="warn" /><MetricCard label="Pagado" value={money(monthPaid)} tone="ok" /><MetricCard label="Por cobrar" value={money(monthPending)} tone={monthPending > 0 ? "danger" : "ok"} /></div>
-    <Card><SectionTitle title="Seguimiento de cobranza mensual" helper="Desde aquí se emite factura, se envía aviso, se registra recordatorio y se marca vencido/conciliado." /><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}><Field label="Buscar"><input style={inputStyle({ width: 260 })} placeholder="Arrendatario, inmueble, periodo, referencia" value={search} onChange={(e) => setSearch(e.target.value)} /></Field><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.rentCharges || []).map((r) => r.status)} total={monthRows.length} shown={cobranzaRows.length} /></div><MiniTable columns={[{ key: "contractId", label: "Cliente", render: (r) => <EntityLink onClick={() => setTenantDetail(tenantMap[contractMap[r.contractId]?.tenantId])}>{tenantName(r, data)}</EntityLink> }, { key: "asset", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[contractMap[r.contractId]?.assetId])}>{assetMap[contractMap[r.contractId]?.assetId]?.name}</EntityLink> }, { key: "chargeType", label: "Tipo", render: (r) => <Pill tone={rentChargeLabel(r) === "Mantenimiento" ? "warn" : "primary"}>{rentChargeLabel(r)}</Pill> }, { key: "period", label: "Periodo" }, { key: "net", label: "Neto", render: (r) => money(chargeNetAmount(r)) }, { key: "vat", label: "IVA", render: (r) => money(chargeVatAmount(r)) }, { key: "total", label: "Total", render: (r) => money(chargeGrossAmount(r)) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "invoiceStatus", label: "Factura" }, { key: "reminders", label: "Avisos", render: (r) => `${r.remindersCount || 0}` }, { key: "actions", label: "Acciones", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { invoiceStatus: "Emitida", invoicedAt: todayIso(), invoiceLog: [invoiceActionLog("Emisión desde cobranza"), ...(r.invoiceLog || [])] })}>Factura</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { lastReminderAt: todayIso(), remindersCount: Number(r.remindersCount || 0) + 1, reminderChannel: "Correo/WhatsApp preparado" })}>Recordatorio</Button><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Pagado", paidAmount: chargeGrossAmount(r), invoiceStatus: r.invoiceStatus || "Emitida" })}>Registrar pago</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Vencido" })}>Vencido</Button></div> }]} rows={cobranzaRows} /></Card>
-    <Card><SectionTitle title="Buenas prácticas activas" helper="Flujo sugerido de cobranza recurrente." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}><Info label="1. Generación mensual" value="Un cargo de renta y otro de mantenimiento si aplica." /><Info label="2. Facturación" value="Manual, por lote o automática al día pactado." /><Info label="3. Notificación" value="Correo/WhatsApp al cliente y recordatorios si no concilia." /><Info label="4. Conciliación" value="Solo conciliado entra al reporte de rentas cobradas." /></div></Card>
-    {tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}
-    {assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} onOpenContract={(ct) => { setAssetDetail(null); setContractDetail(ct); }} onOpenTenant={(tenant) => { setAssetDetail(null); setTenantDetail(tenant); }} /> : null}
-    {contractDetail ? <LeaseContractDrawer contract={contractDetail} data={data} tenantMap={tenantMap} assetMap={assetMap} onClose={() => setContractDetail(null)} onEdit={(ct) => { setContractDetail(null); setForm({ ...ct }); setShowForm("leaseContract"); }} /> : null}
-  </div>;
-
+  return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Cobranza de rentas" helper="Control mensual de rentas, mantenimientos, adeudos, facturación y conciliación." /><Button onClick={() => setShowForm(showForm === "rent" ? null : "rent")}>Generar renta manual</Button></div>{showForm === "rent" ? <div style={{ display: "grid", gap: 10, marginTop: 12 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Contrato"><select style={inputStyle()} value={form.contractId || "r1"} onChange={(e) => setForm({ ...form, contractId: e.target.value })}>{data.contracts.map((r) => <option key={r.id} value={r.id}>{tenantMap[r.tenantId]?.name} · {assetMap[r.assetId]?.name}</option>)}</select></Field><Field label="Periodo"><input style={inputStyle()} value={form.period || "2026-03"} onChange={(e) => setForm({ ...form, period: e.target.value })} /></Field></div><Button onClick={() => { const ct = data.contracts.find((x) => x.id === (form.contractId || "r1")); addRecord("rentCharges", { contractId: ct?.id || "r1", period: form.period || "2026-03", rent: Number(ct?.rentBase || 0), maintenance: Number(ct?.rentBase || 0) * Number(ct?.maintenancePct || 0) / 100, status: "Pendiente", paidAmount: 0, dueDate: `${form.period || "2026-03"}-${String(ct?.paymentDay || 10).padStart(2, "0")}`, bankReference: ct?.reference || "", invoiceStatus: ct?.autoInvoice ? "Por emitir" : "No automática", reconciled: false }); }}>Generar cargo</Button></div> : null}</Card><Card><div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 12 }}><Field label="Buscar"><input style={inputStyle({ width: 260 })} placeholder="Arrendatario, inmueble, periodo, referencia" value={search} onChange={(e) => setSearch(e.target.value)} /></Field><StatusFilter value={statusFilter} onChange={setStatusFilter} options={(data.rentCharges || []).map((r) => r.status)} total={(data.rentCharges || []).length} shown={charges.length} /></div><MiniTable columns={[{ key: "contractId", label: "Cliente", render: (r) => <EntityLink onClick={() => setTenantDetail(tenantMap[contractMap[r.contractId]?.tenantId])}>{tenantName(r, data)}</EntityLink> }, { key: "contractId2", label: "Inmueble", render: (r) => <EntityLink onClick={() => setAssetDetail(assetMap[contractMap[r.contractId]?.assetId])}>{assetMap[contractMap[r.contractId]?.assetId]?.name}</EntityLink> }, { key: "period", label: "Periodo" }, { key: "rent", label: "Renta base", render: (r) => money(r.rent) }, { key: "maintenance", label: "Mantto", render: (r) => money(r.maintenance) }, { key: "paidAmount", label: "Pagado", render: (r) => money(r.paidAmount) }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }, { key: "reconciled", label: "Conciliado", render: (r) => r.reconciled || r.status === "Conciliado" ? <Pill tone="ok">Sí</Pill> : <Pill tone="warn">No</Pill> }, { key: "bankReference", label: "Referencia" }, { key: "invoiceStatus", label: "Factura" }, { key: "actions", label: "Acciones", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Pagado", paidAmount: rentChargeTotal(r), invoiceStatus: "Emitida" })}>Registrar pago</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("rentCharges", r.id, { status: "Vencido" })}>Vencido</Button></div> }]} rows={charges} /></Card>{tenantDetail ? <TenantDrawer tenant={tenantDetail} data={data} assetMap={assetMap} onClose={() => setTenantDetail(null)} onEdit={(tenant) => { setTenantDetail(null); setShowForm("leaseContract"); setForm({ tenantId: tenant.id }); }} /> : null}{assetDetail ? <AssetDrawer asset={assetDetail} data={data} tenantMap={tenantMap} onClose={() => setAssetDetail(null)} onEdit={(asset) => { setForm({ ...asset }); setShowForm("asset"); setAssetDetail(null); }} /> : null}</div>;
 }
 
 function PermitDrawer({ permit, data, projectMap, onClose, onSave }) {

@@ -1,0 +1,23 @@
+MEJORAS V13 - BLOQUES DE UNIDADES
+
+Se agregó en Obras > Configuración un apartado de Bloques de unidades / responsables.
+
+Uso recomendado:
+1. Crear la obra.
+2. Dar de alta unidades/casas.
+3. Configurar bloques de unidades por residente, frente, etapa, torre, modelo o cualquier agrupación operativa.
+4. Cada bloque permite capturar:
+   - Nombre del bloque
+   - Tipo
+   - Responsable / residente
+   - Estatus
+   - Unidades asignadas
+   - Color
+   - Notas
+
+Los bloques se guardan en Firestore en:
+obras/{obraId}/unitBlocks
+
+Esto permite que después Calidad, Estimaciones, Documentos y Postventa puedan filtrar por bloque/responsable.
+
+Build validado con npm run build.

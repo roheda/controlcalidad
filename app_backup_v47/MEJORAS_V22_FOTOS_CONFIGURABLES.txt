@@ -1,0 +1,20 @@
+MEJORAS V22 - Evidencia fotográfica configurable por punto de calidad
+
+1. En Obras > Checklist de calidad por obra se agregó la configuración "Evidencia fotográfica".
+   - Puedes activar o desactivar "Requerir fotos" por cada punto de calidad.
+   - Si está activo, defines cuántas fotos mínimas se requieren.
+   - Si está desactivado, el punto se puede calificar sin foto obligatoria.
+
+2. La plantilla CSV de checklist ahora incluye:
+   - Requiere fotos
+   - Fotos requeridas
+
+3. En Control de Calidad, dentro del alcance por elementos/zonas:
+   - Si el punto requiere fotos, aparece botón Foto por cada elemento/zona.
+   - No permite marcar Cumple si faltan las fotos mínimas configuradas.
+   - Si el punto no requiere fotos, muestra "Fotos no obligatorias".
+   - Cada calificación guarda usuario, rol y fecha.
+
+4. Esto permite personalizar por obra y por punto qué revisiones requieren evidencia fotográfica y cuáles no.
+
+Build validado con npm run build.
