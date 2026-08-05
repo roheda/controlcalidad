@@ -1,0 +1,9 @@
+V42 - Configuración y Arrendamientos
+
+- Catálogos y reglas de operación: finanzas, arrendamientos, trámites, documentos, bancos y reglas de autorización.
+- Nuevo submódulo Arrendamientos > Inmuebles con ficha 360, ubicación, m2, precio, cédula, documentos y mapa base.
+- Contratos de arrendamiento editables y consultables en expediente lateral.
+- Alta de arrendatario + contrato en un solo movimiento.
+- Arrendatario clickeable con estado de cuenta, pagos, adeudos y vencimientos.
+- Reporte mensual de rentas cobradas toma únicamente rentas conciliadas con banco.
+- Flujo preparado para facturación y conciliación bancaria de arrendamientos.
