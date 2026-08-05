@@ -1,0 +1,21 @@
+MEJORAS V12 - NOMBRES DE ESTIMACION Y CALIDAD DINAMICA
+
+1) Nombre de borradores / estimaciones
+- El nombre automático integra el nombre de la obra.
+- Formato ejemplo: KALIZA TOWNHOUSE 20 FEB 2026 ESTIMACION01.
+- El número se calcula con base en estimaciones aprobadas/administrativas.
+- Si ESTIMACION01 todavía no está aprobada, los borradores nuevos siguen mostrando ESTIMACION01.
+- Cuando ESTIMACION01 ya pasa a lista de administración, la siguiente estimación será ESTIMACION02.
+- Al aprobar una estimación, el sistema vuelve a validar el siguiente número disponible para evitar duplicados aprobados.
+
+2) Control de calidad dinámico por obra
+- Control de Calidad ya no apunta fijo a Arenna.
+- Toma la obra activa dada de alta en el módulo Obras.
+- Si la obra tiene unidades y todavía no tiene casas/checklist de calidad, crea automáticamente las unidades base y las partidas/checklist definidos.
+- Si hay más de una obra, aparece selector de obra en Control de Calidad.
+
+3) Demo
+- Se mantiene eliminado el botón de cargar demo.
+
+Validación:
+- npm run build compiló correctamente.

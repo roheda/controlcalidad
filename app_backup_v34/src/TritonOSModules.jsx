@@ -135,11 +135,6 @@ function SupplierContextModal({ supplier, data, projectMap, categoryMap, onClose
   const relatedPayments = (data.payments || []).filter((pay) => relatedPayables.some((p) => p.id === pay.payableId));
   const totalRequested = relatedPayables.reduce((a, p) => a + payableTotal(p), 0);
   const totalPaid = relatedPayments.reduce((a, p) => a + Number(p.amount || 0), 0);
-  const communicationLog = [
-    ...(supplier.communicationLog || []),
-    ...relatedPayables.map((pay) => ({ date: pay.requiredDate || pay.createdAt || todayIso(), channel: supplier.notifyEmail ? "Correo" : supplier.notifyWhatsapp ? "WhatsApp" : "Sistema", event: `Solicitud ${pay.status || "registrada"}`, detail: `${pay.concept} · ${money(payableTotal(pay))}` })),
-    ...relatedPayments.map((pay) => ({ date: pay.date || pay.paidAt || todayIso(), channel: "Sistema", event: pay.reconciled ? "Pago conciliado" : "Pago registrado", detail: `${pay.reference || "Sin referencia"} · ${money(pay.amount)}` })),
-  ].slice(-10).reverse();
   return <div style={{ position: "fixed", inset: 0, zIndex: 2147483641, pointerEvents: "none" }}>
     <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.14)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
     <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(760px, calc(100vw - 36px))", background: "rgba(255,255,255,0.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
@@ -154,82 +149,11 @@ function SupplierContextModal({ supplier, data, projectMap, categoryMap, onClose
           <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone={supplier.bankStatus === "Validado" || supplier.bankStatus === "No aplica" ? "ok" : "warn"}>Banco</Pill><b style={{ display: "block", marginTop: 8 }}>{supplier.bankStatus || "Pendiente"}</b><small style={{ color: c.muted }}>{supplier.bank || "Banco pendiente"} · {supplier.clabe || "CLABE pendiente"}</small></Card>
           <Card style={{ padding: 14, boxShadow: "none" }}><Pill tone="primary">Histórico</Pill><b style={{ display: "block", marginTop: 8 }}>{money(totalPaid)}</b><small style={{ color: c.muted }}>Solicitado {money(totalRequested)}</small></Card>
         </div>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Canales de aviso al proveedor" helper="Estos datos se usan para avisos de solicitud, programación, pago y observaciones. El envío real por correo/WhatsApp requiere integración posterior, pero el expediente ya deja el canal y el log." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
-            <div><b>Correo</b><div style={{ color: c.muted, fontSize: 13 }}>{supplier.email || "Sin correo"}</div><Pill tone={supplier.notifyEmail ? "ok" : "idle"}>{supplier.notifyEmail ? "Avisos activos" : "Sin aviso"}</Pill></div>
-            <div><b>WhatsApp</b><div style={{ color: c.muted, fontSize: 13 }}>{supplier.whatsapp || supplier.phone || "Sin WhatsApp"}</div><Pill tone={supplier.notifyWhatsapp ? "ok" : "idle"}>{supplier.notifyWhatsapp ? "Avisos activos" : "Sin aviso"}</Pill></div>
-            <div><b>Eventos</b><div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>{supplier.notifyOnRequested ? <Pill tone="primary">Solicitud</Pill> : null}{supplier.notifyOnScheduled ? <Pill tone="primary">Programación</Pill> : null}{supplier.notifyOnPaid ? <Pill tone="primary">Pago</Pill> : null}</div></div>
-          </div>
-        </Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Documentos del proveedor" helper="Constancia fiscal, carátula bancaria, contrato marco, opinión de cumplimiento y soportes." /><AttachmentViewer value={supplier.documents} /></Card>
+        <Card style={{ boxShadow: "none" }}><SectionTitle title="Documentos del proveedor" helper="Constancia fiscal, carátula bancaria, contrato marco y soportes." />{Array.isArray(supplier.documents) && supplier.documents.length ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{supplier.documents.map((d, i) => <Pill key={i} tone="idle">{typeof d === "string" ? d : d.name}</Pill>)}</div> : <Pill tone="warn">Sin documentos</Pill>}</Card>
         <Card style={{ boxShadow: "none" }}><SectionTitle title="Contratos ligados" helper="Techo autorizado, pagos parciales, anticipos y saldos." />{relatedContracts.length ? <MiniTable columns={[{ key: "name", label: "Contrato" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "status", label: "Estatus", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }]} rows={relatedContracts} /> : <div style={{ color: c.muted }}>Sin contratos ligados.</div>}</Card>
         <Card style={{ boxShadow: "none" }}><SectionTitle title="Solicitudes y pagos anteriores" helper="Contexto para detectar duplicados, recurrencias o patrones fuera de operación." />{relatedPayables.length ? <MiniTable columns={[{ key: "concept", label: "Concepto" }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name || r.categoryId }, { key: "amount", label: "Total", render: (r) => money(payableTotal(r)) }, { key: "status", label: "Estado", render: (r) => <Pill tone={statusTone(r.status)}>{r.status}</Pill> }]} rows={relatedPayables} /> : <div style={{ color: c.muted }}>Sin solicitudes registradas.</div>}</Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Log de proveedor" helper="Historial de avisos, solicitudes y pagos relacionados para contexto operativo." />{communicationLog.length ? <div style={{ display: "grid", gap: 8 }}>{communicationLog.map((item, idx) => <div key={idx} style={{ padding: 10, border: `1px solid ${c.border}`, borderRadius: 14, background: c.soft }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><b>{item.event}</b><Pill tone="idle">{item.channel}</Pill></div><div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>{item.date} · {item.detail}</div></div>)}</div> : <div style={{ color: c.muted }}>Sin actividad registrada.</div>}</Card>
       </main>
       <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cerrar</Button>{onEdit ? <Button onClick={() => onEdit(supplier)}>Editar proveedor</Button> : null}</footer>
-    </aside>
-  </div>;
-}
-
-
-function SupplierEditModal({ supplier, data, categoryMap, onClose, onSave }) {
-  const [draft, setDraft] = useState(supplier || {});
-  if (!supplier) return null;
-  const notificationEvents = [
-    { key: "notifyOnRequested", label: "Solicitud recibida" },
-    { key: "notifyOnScheduled", label: "Pago programado" },
-    { key: "notifyOnPaid", label: "Pago realizado" },
-  ];
-  const addLog = (channel, event, detail) => {
-    const item = { date: todayIso(), channel, event, detail };
-    setDraft({ ...draft, communicationLog: [item, ...(draft.communicationLog || [])] });
-  };
-  return <div style={{ position: "fixed", inset: 0, zIndex: 2147483643, pointerEvents: "none" }}>
-    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.16)", backdropFilter: "blur(2px)", pointerEvents: "auto" }} onClick={onClose} />
-    <aside style={{ position: "absolute", right: 18, top: 18, bottom: 18, width: "min(780px, calc(100vw - 36px))", background: "rgba(255,255,255,0.99)", border: `1px solid ${c.border}`, borderRadius: 28, boxShadow: "0 24px 80px rgba(0,0,0,.18)", overflow: "hidden", pointerEvents: "auto", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
-      <header style={{ padding: 20, borderBottom: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <div><Pill tone="primary">Editar proveedor</Pill><h2 style={{ margin: "10px 0 4px", fontSize: 22 }}>Ficha 360 del proveedor</h2><div style={{ color: c.muted, fontSize: 13 }}>Datos fiscales, bancarios, documentación, avisos y log de comunicación.</div></div>
-        <button onClick={onClose} style={{ border: 0, background: c.soft, borderRadius: 14, width: 40, height: 40, cursor: "pointer", fontWeight: 950 }}>×</button>
-      </header>
-      <main style={{ padding: 20, overflow: "auto", display: "grid", gap: 14 }}>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Datos generales" helper="Esta información aparece en solicitudes, contratos, autorizaciones y pagos históricos." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-            <Field label="Nombre comercial"><input style={inputStyle()} value={draft.tradeName || ""} onChange={(e) => setDraft({ ...draft, tradeName: e.target.value })} /></Field>
-            <Field label="Razón social"><input style={inputStyle()} value={draft.legalName || ""} onChange={(e) => setDraft({ ...draft, legalName: e.target.value })} /></Field>
-            <Field label="RFC"><input style={inputStyle()} value={draft.rfc || ""} onChange={(e) => setDraft({ ...draft, rfc: e.target.value.toUpperCase() })} /></Field>
-            <Field label="Tipo"><select style={inputStyle()} value={draft.type || "Proveedor"} onChange={(e) => setDraft({ ...draft, type: e.target.value })}><option>Constructora</option><option>Servicios profesionales</option><option>Materiales</option><option>Dependencia</option><option>Arrendador</option><option>Proveedor</option></select></Field>
-            <Field label="Contacto"><input style={inputStyle()} value={draft.contact || ""} onChange={(e) => setDraft({ ...draft, contact: e.target.value })} /></Field>
-            <Field label="Categoría default"><select style={inputStyle()} value={draft.categoryId || "construccion"} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field>
-            <Field label="Requiere contrato"><select style={inputStyle()} value={draft.requiresContract ? "Sí" : "No"} onChange={(e) => setDraft({ ...draft, requiresContract: e.target.value === "Sí" })}><option>No</option><option>Sí</option></select></Field>
-            <Field label="Estatus"><select style={inputStyle()} value={draft.status || "Pendiente revisión"} onChange={(e) => setDraft({ ...draft, status: e.target.value })}><option>Pendiente revisión</option><option>Activo</option><option>Bloqueado</option><option>Inactivo</option></select></Field>
-          </div>
-        </Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Contacto y avisos" helper="El proveedor podrá recibir avisos por correo o WhatsApp cuando haya cambios en sus pagos. El envío automático se conectará a un servicio de correo/WhatsApp; por ahora queda configurado y registrado en el log." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-            <Field label="Correo de pagos"><input type="email" style={inputStyle()} value={draft.email || ""} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
-            <Field label="Teléfono"><input style={inputStyle()} value={draft.phone || ""} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></Field>
-            <Field label="WhatsApp"><input style={inputStyle()} placeholder="521999..." value={draft.whatsapp || ""} onChange={(e) => setDraft({ ...draft, whatsapp: e.target.value })} /></Field>
-            <Field label="Avisar por correo"><select style={inputStyle()} value={draft.notifyEmail ? "Sí" : "No"} onChange={(e) => setDraft({ ...draft, notifyEmail: e.target.value === "Sí" })}><option>Sí</option><option>No</option></select></Field>
-            <Field label="Avisar por WhatsApp"><select style={inputStyle()} value={draft.notifyWhatsapp ? "Sí" : "No"} onChange={(e) => setDraft({ ...draft, notifyWhatsapp: e.target.value === "Sí" })}><option>No</option><option>Sí</option></select></Field>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>{notificationEvents.map((ev) => <label key={ev.key} style={{ display: "inline-flex", alignItems: "center", gap: 8, border: `1px solid ${c.border}`, borderRadius: 999, padding: "8px 10px", fontSize: 12, fontWeight: 900 }}><input type="checkbox" checked={!!draft[ev.key]} onChange={(e) => setDraft({ ...draft, [ev.key]: e.target.checked })} />{ev.label}</label>)}</div>
-        </Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Datos bancarios y fiscales" helper="No se debe pagar si banco/fiscal no están validados, salvo dependencia o excepción controlada." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-            <Field label="Banco"><input style={inputStyle()} value={draft.bank || ""} onChange={(e) => setDraft({ ...draft, bank: e.target.value })} /></Field>
-            <Field label="CLABE"><input style={inputStyle()} value={draft.clabe || ""} onChange={(e) => setDraft({ ...draft, clabe: e.target.value })} /></Field>
-            <Field label="Beneficiario"><input style={inputStyle()} value={draft.accountHolder || draft.legalName || ""} onChange={(e) => setDraft({ ...draft, accountHolder: e.target.value })} /></Field>
-            <Field label="Validación fiscal"><select style={inputStyle()} value={draft.fiscalStatus || "Pendiente"} onChange={(e) => setDraft({ ...draft, fiscalStatus: e.target.value })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select></Field>
-            <Field label="Validación bancaria"><select style={inputStyle()} value={draft.bankStatus || "Pendiente"} onChange={(e) => setDraft({ ...draft, bankStatus: e.target.value })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select></Field>
-          </div>
-        </Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Documentación del proveedor" helper="Agrega o reemplaza constancia fiscal, carátula bancaria, opinión de cumplimiento, contratos marco u otros soportes." /><AttachmentUploader label="Subir documentos del proveedor" value={draft.documents} folder="finanzas/proveedores" onChange={(documents) => setDraft({ ...draft, documents })} /></Card>
-        <Card style={{ boxShadow: "none" }}><SectionTitle title="Notas internas y log" helper="Útil para auditoría y para entender lo que ha pasado con el proveedor." /><Field label="Notas internas"><textarea style={inputStyle({ minHeight: 76 })} value={draft.notes || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} /></Field>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}><Button variant="secondary" onClick={() => addLog("Correo", "Aviso registrado", "Se registró aviso por correo al proveedor.")}>Registrar aviso correo</Button><Button variant="secondary" onClick={() => addLog("WhatsApp", "Aviso registrado", "Se registró aviso por WhatsApp al proveedor.")}>Registrar aviso WhatsApp</Button></div>
-          {(draft.communicationLog || []).length ? <div style={{ display: "grid", gap: 8, marginTop: 12 }}>{(draft.communicationLog || []).slice(0, 5).map((item, idx) => <div key={idx} style={{ padding: 10, borderRadius: 14, background: c.soft, border: `1px solid ${c.border}` }}><b>{item.event}</b><div style={{ color: c.muted, fontSize: 12 }}>{item.date} · {item.channel} · {item.detail}</div></div>)}</div> : <div style={{ color: c.muted, fontSize: 13, marginTop: 10 }}>Sin log todavía.</div>}
-        </Card>
-      </main>
-      <footer style={{ padding: 16, borderTop: `1px solid ${c.border}`, display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={() => onSave({ ...draft, updatedAt: todayIso(), reviewedBy: draft.status === "Activo" ? "admin@tritondesarrollos.com" : draft.reviewedBy })}>Guardar proveedor</Button></footer>
     </aside>
   </div>;
 }
@@ -428,9 +352,9 @@ const initialData = {
     { id: "t3", projectId: "residente", name: "Factibilidad de uso de suelo", agency: "Municipio", status: "No iniciado", priority: "Media", owner: "Dirección", nextAction: "Confirmar alineamiento del predio", dueDate: todayIso(), documents: "Escritura, predial, croquis" },
   ],
   suppliers: [
-    { id: "sup-arq", tradeName: "Despacho Arquitectónico", legalName: "Despacho Arquitectónico Demo S.A. de C.V.", rfc: "DAD260101XXX", type: "Servicios profesionales", contact: "Coordinación", email: "facturacion@despacho.demo", phone: "9990000001", whatsapp: "5219990000001", status: "Activo", fiscalStatus: "Validado", bankStatus: "Validado", bank: "BBVA", clabe: "012180000000000000", accountHolder: "Despacho Arquitectónico Demo S.A. de C.V.", categoryId: "proyecto", requiresContract: true, notifyEmail: true, notifyWhatsapp: true, notifyOnRequested: true, notifyOnScheduled: true, notifyOnPaid: true, documents: [{ name: "Constancia fiscal", source: "manual" }, { name: "Carátula bancaria", source: "manual" }, { name: "Contrato marco", source: "manual" }], notes: "Proveedor demo validado para pruebas.", communicationLog: [{ date: todayIso(), channel: "Correo", event: "Alta de proveedor", detail: "Proveedor registrado y validado." }] },
-    { id: "sup-cons", tradeName: "Constructora Base", legalName: "Constructora Base S.A. de C.V.", rfc: "CBA260101XXX", type: "Constructora", contact: "Residente externo", email: "pagos@constructora.demo", phone: "9990000002", whatsapp: "5219990000002", status: "Pendiente revisión", fiscalStatus: "Pendiente", bankStatus: "Pendiente", bank: "", clabe: "", accountHolder: "Constructora Base S.A. de C.V.", categoryId: "construccion", requiresContract: true, notifyEmail: true, notifyWhatsapp: false, notifyOnRequested: true, notifyOnScheduled: true, notifyOnPaid: true, documents: [{ name: "Contrato pendiente", source: "manual" }], notes: "Pendiente validación fiscal y bancaria.", communicationLog: [] },
-    { id: "sup-mun", tradeName: "Municipio de Mérida", legalName: "Municipio de Mérida", rfc: "MMM000000XXX", type: "Dependencia", contact: "Ventanilla", email: "", phone: "", whatsapp: "", status: "Activo", fiscalStatus: "Validado", bankStatus: "No aplica", bank: "", clabe: "", accountHolder: "Municipio de Mérida", categoryId: "tramites", requiresContract: false, notifyEmail: false, notifyWhatsapp: false, notifyOnRequested: false, notifyOnScheduled: false, notifyOnPaid: false, documents: [{ name: "Recibo oficial", source: "manual" }], notes: "Dependencia / pago oficial.", communicationLog: [] },
+    { id: "sup-arq", tradeName: "Despacho Arquitectónico", legalName: "Despacho Arquitectónico Demo S.A. de C.V.", rfc: "DAD260101XXX", type: "Servicios profesionales", contact: "Coordinación", email: "facturacion@despacho.demo", phone: "", status: "Activo", fiscalStatus: "Validado", bankStatus: "Validado", bank: "BBVA", clabe: "012180000000000000", categoryId: "proyecto", requiresContract: true, documents: ["Constancia fiscal", "Carátula bancaria", "Contrato marco"] },
+    { id: "sup-cons", tradeName: "Constructora Base", legalName: "Constructora Base S.A. de C.V.", rfc: "CBA260101XXX", type: "Constructora", contact: "Residente externo", email: "pagos@constructora.demo", phone: "", status: "Pendiente revisión", fiscalStatus: "Pendiente", bankStatus: "Pendiente", bank: "", clabe: "", categoryId: "construccion", requiresContract: true, documents: ["Contrato pendiente"] },
+    { id: "sup-mun", tradeName: "Municipio de Mérida", legalName: "Municipio de Mérida", rfc: "MMM000000XXX", type: "Dependencia", contact: "Ventanilla", email: "", phone: "", status: "Activo", fiscalStatus: "Validado", bankStatus: "No aplica", bank: "", clabe: "", categoryId: "tramites", requiresContract: false, documents: ["Recibo oficial"] },
   ],
   financeContracts: [
     { id: "fc1", supplierId: "sup-arq", projectId: "residente", name: "Contrato anteproyecto Residente", amount: 580000, startDate: "2026-01-01", endDate: "2026-12-31", status: "Vigente", categoryId: "proyecto", paymentPlan: "Anticipo 30%, avance 40%, saldo 30%", documents: ["Contrato firmado PDF"] },
@@ -480,7 +404,7 @@ const moduleMeta = {
 
 function readData() {
   try {
-    const raw = localStorage.getItem("triton_os_v35") || localStorage.getItem("triton_os_v34") || localStorage.getItem("triton_os_v32");
+    const raw = localStorage.getItem("triton_os_v34") || localStorage.getItem("triton_os_v32");
     if (!raw) return initialData;
     const parsed = JSON.parse(raw);
     return { ...initialData, ...parsed };
@@ -534,7 +458,7 @@ export default function TritonOSModules() {
   const [showForm, setShowForm] = useState(null);
   const [form, setForm] = useState({});
 
-  useEffect(() => { localStorage.setItem("triton_os_v35", JSON.stringify(data)); }, [data]);
+  useEffect(() => { localStorage.setItem("triton_os_v34", JSON.stringify(data)); }, [data]);
   useEffect(() => {
     const openHandler = (event) => { setActive(event.detail?.module || "dashboard"); setOpen(true); };
     const closeHandler = () => setOpen(false);
@@ -573,7 +497,7 @@ export default function TritonOSModules() {
     setData((prev) => ({ ...prev, [collectionName]: prev[collectionName].map((item) => item.id === id ? { ...item, ...patch } : item) }));
   }
   function resetDemo() {
-    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v35"); localStorage.removeItem("triton_os_v34"); setData(initialData); }
+    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v34"); setData(initialData); }
   }
 
   if (!open) return null;
@@ -595,7 +519,7 @@ export default function TritonOSModules() {
         {active === "dashboard" && <Dashboard totals={totals} data={data} projectMap={projectMap} setActive={setActive} />}
         {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "finanzas" && <Finance data={data} projectMap={projectMap} categoryMap={categoryMap} projectFilter={projectFilter} setActive={setActive} />}
-        {active === "proveedores" && <Suppliers data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
+        {active === "proveedores" && <Suppliers data={data} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "presupuestos" && <Budgets data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "contratos_financieros" && <FinanceContracts data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "pagos_recurrentes" && <RecurringPayments data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
@@ -926,46 +850,16 @@ function supplierDisplayName(row, data) {
   return supplier?.tradeName || row.supplier || "Proveedor";
 }
 
-function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  const [selectedSupplier, setSelectedSupplier] = useState(null);
-  const [editingSupplier, setEditingSupplier] = useState(null);
+function Suppliers({ data, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
   const statuses = ["Pendiente revisión", "Activo", "Bloqueado", "Inactivo"];
   function createSupplier() {
-    addRecord("suppliers", {
-      tradeName: form.tradeName || "Proveedor",
-      legalName: form.legalName || form.tradeName || "Razón social",
-      rfc: form.rfc || "",
-      type: form.type || "Proveedor",
-      contact: form.contact || "",
-      email: form.email || "",
-      phone: form.phone || "",
-      whatsapp: form.whatsapp || "",
-      status: "Pendiente revisión",
-      fiscalStatus: form.fiscalStatus || "Pendiente",
-      bankStatus: form.bankStatus || "Pendiente",
-      bank: form.bank || "",
-      clabe: form.clabe || "",
-      accountHolder: form.accountHolder || form.legalName || "",
-      categoryId: form.categoryId || "construccion",
-      requiresContract: form.requiresContract === "Sí",
-      notifyEmail: form.notifyEmail !== "No",
-      notifyWhatsapp: form.notifyWhatsapp === "Sí",
-      notifyOnRequested: true,
-      notifyOnScheduled: true,
-      notifyOnPaid: true,
-      documents: normalizeAttachments(form.documents),
-      notes: form.notes || "",
-      createdAt: todayIso(),
-      reviewedBy: "",
-      communicationLog: [{ date: todayIso(), channel: "Sistema", event: "Alta de proveedor", detail: "Proveedor creado desde Finanzas." }],
-    });
+    addRecord("suppliers", { tradeName: form.tradeName || "Proveedor", legalName: form.legalName || form.tradeName || "Razón social", rfc: form.rfc || "", type: form.type || "Proveedor", contact: form.contact || "", email: form.email || "", phone: form.phone || "", status: "Pendiente revisión", fiscalStatus: form.fiscalStatus || "Pendiente", bankStatus: form.bankStatus || "Pendiente", bank: form.bank || "", clabe: form.clabe || "", accountHolder: form.accountHolder || form.legalName || "", categoryId: form.categoryId || "construccion", requiresContract: form.requiresContract === "Sí", documents: String(form.documents || "").split(",").map((x) => x.trim()).filter(Boolean), createdAt: todayIso(), reviewedBy: "" });
   }
-  const rows = data.suppliers || [];
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Proveedores" helper="Ficha 360: alta, edición, datos fiscales, bancos, documentos, canales de aviso, historial y pagos ligados." />
+    <Card><SectionTitle title="Proveedores" helper="Alta segura de proveedores. No se puede pagar si el proveedor no está activo, si fiscal/banco no están validados o si está bloqueado." />
       <ProgressLine items={[{ label: "Alta", done: true }, { label: "Documentos" }, { label: "Validación fiscal" }, { label: "Validación bancaria" }, { label: "Activo" }]} />
     </Card>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Alta de proveedor" helper="Captura lo mínimo; después abre la ficha del proveedor para completar datos, documentación y canales de aviso." /><Button onClick={() => setShowForm(showForm === "supplier" ? null : "supplier")}>Nuevo proveedor</Button></div>
+    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Alta de proveedor" helper="Captura solo lo mínimo; administración completa documentos y validaciones." /><Button onClick={() => setShowForm(showForm === "supplier" ? null : "supplier")}>Nuevo proveedor</Button></div>
       {showForm === "supplier" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
           <Field label="Nombre comercial"><input style={inputStyle()} value={form.tradeName || ""} onChange={(e) => setForm({ ...form, tradeName: e.target.value })} /></Field>
@@ -973,22 +867,18 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
           <Field label="RFC"><input style={inputStyle()} value={form.rfc || ""} onChange={(e) => setForm({ ...form, rfc: e.target.value.toUpperCase() })} /></Field>
           <Field label="Tipo"><select style={inputStyle()} value={form.type || "Proveedor"} onChange={(e) => setForm({ ...form, type: e.target.value })}><option>Constructora</option><option>Servicios profesionales</option><option>Materiales</option><option>Dependencia</option><option>Arrendador</option><option>Proveedor</option></select></Field>
           <Field label="Contacto"><input style={inputStyle()} value={form.contact || ""} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></Field>
-          <Field label="Correo de pagos"><input type="email" style={inputStyle()} value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-          <Field label="WhatsApp"><input style={inputStyle()} placeholder="521999..." value={form.whatsapp || ""} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></Field>
+          <Field label="Correo"><input style={inputStyle()} value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
           <Field label="Categoría default"><select style={inputStyle()} value={form.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field>
           <Field label="Requiere contrato"><select style={inputStyle()} value={form.requiresContract || "No"} onChange={(e) => setForm({ ...form, requiresContract: e.target.value })}><option>No</option><option>Sí</option></select></Field>
           <Field label="Banco"><input style={inputStyle()} value={form.bank || ""} onChange={(e) => setForm({ ...form, bank: e.target.value })} /></Field>
           <Field label="CLABE"><input style={inputStyle()} value={form.clabe || ""} onChange={(e) => setForm({ ...form, clabe: e.target.value })} /></Field>
           <Field label="Beneficiario"><input style={inputStyle()} value={form.accountHolder || ""} onChange={(e) => setForm({ ...form, accountHolder: e.target.value })} /></Field>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Avisar por correo"><select style={inputStyle()} value={form.notifyEmail || "Sí"} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })}><option>Sí</option><option>No</option></select></Field><Field label="Avisar por WhatsApp"><select style={inputStyle()} value={form.notifyWhatsapp || "No"} onChange={(e) => setForm({ ...form, notifyWhatsapp: e.target.value })}><option>No</option><option>Sí</option></select></Field></div>
-        <AttachmentUploader label="Subir documentos iniciales" value={form.documents} folder="finanzas/proveedores" onChange={(documents) => setForm({ ...form, documents })} helper="Constancia fiscal, carátula bancaria, opinión de cumplimiento, contrato marco u otros soportes." />
+        <Field label="Documentos cargados"><textarea style={inputStyle({ minHeight: 72 })} placeholder="Constancia fiscal, carátula bancaria, opinión cumplimiento, contrato..." value={form.documents || ""} onChange={(e) => setForm({ ...form, documents: e.target.value })} /></Field>
         <Button onClick={createSupplier}>Guardar proveedor</Button>
       </div> : null}
     </Card>
-    <Card><SectionTitle title="Validación administrativa" helper="Da clic en el nombre para consultar histórico. Usa Editar para cambiar datos, agregar documentos o configurar avisos por correo/WhatsApp." /><MiniTable columns={[{ key: "tradeName", label: "Proveedor", render: (r) => <EntityLink onClick={() => setSelectedSupplier(r)}>{r.tradeName}</EntityLink> }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo" }, { key: "contact", label: "Contacto", render: (r) => <div><b>{r.contact || "—"}</b><div style={{ color: c.muted, fontSize: 12 }}>{r.email || "sin correo"}{r.whatsapp ? ` · WA ${r.whatsapp}` : ""}</div></div> }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal", render: (r) => <select value={r.fiscalStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { fiscalStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "bankStatus", label: "Banco", render: (r) => <select value={r.bankStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { bankStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "documents", label: "Docs", render: (r) => <Pill tone={attachmentCount(r.documents) ? "ok" : "warn"}>{attachmentCount(r.documents)}</Pill> }, { key: "ready", label: "Listo", render: (r) => <Pill tone={supplierReady(r) ? "ok" : "warn"}>{supplierReady(r) ? "Pagable" : "Bloquea pago"}</Pill> }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value, reviewedBy: "admin@tritondesarrollos.com" })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedSupplier(r)}>Ficha</Button><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingSupplier(r)}>Editar</Button></div> }]} rows={rows} /></Card>
-    <SupplierContextModal supplier={selectedSupplier} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedSupplier(null)} onEdit={(s) => { setSelectedSupplier(null); setEditingSupplier(s); }} />
-    <SupplierEditModal supplier={editingSupplier} data={data} categoryMap={categoryMap} onClose={() => setEditingSupplier(null)} onSave={(patch) => { updateRecord("suppliers", editingSupplier.id, patch); setEditingSupplier(null); }} />
+    <Card><SectionTitle title="Validación administrativa" helper="Activa proveedores solo cuando documentos fiscales y datos bancarios estén revisados." /><MiniTable columns={[{ key: "tradeName", label: "Proveedor" }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal", render: (r) => <select value={r.fiscalStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { fiscalStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "bankStatus", label: "Banco", render: (r) => <select value={r.bankStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { bankStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "documents", label: "Anexos", render: (r) => (r.documents || []).join(", ") || "Pendiente" }, { key: "ready", label: "Listo", render: (r) => <Pill tone={supplierReady(r) ? "ok" : "warn"}>{supplierReady(r) ? "Pagable" : "Bloquea pago"}</Pill> }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value, reviewedBy: "admin@tritondesarrollos.com" })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }]} rows={data.suppliers} /></Card>
   </div>;
 }
 
