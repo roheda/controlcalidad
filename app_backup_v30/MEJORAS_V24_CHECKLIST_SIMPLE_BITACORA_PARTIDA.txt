@@ -1,0 +1,16 @@
+V24 - Checklist simplificado y bitácora general por partida
+
+Cambios principales:
+- Checklist queda como pantalla principal de operación en Control de Calidad.
+- Se ocultan las pestañas Evidencia y Notas para simplificar el uso.
+- Se agrega Bitácora de la partida dentro del mismo flujo del checklist.
+- La bitácora sustituye Evidencia + Notas a nivel partida.
+- La bitácora permite comentarios y fotos generales de la partida.
+- Cada entrada puede ser informativa o bloquear liberación.
+- Las entradas que bloquean liberación deben quedar solventadas y validadas.
+- La partida no puede aprobarse si hay pendientes abiertos en la bitácora.
+- Constructora puede marcar pendiente como solventado.
+- Supervisión puede validar cierre.
+
+Regla operativa:
+Checklist técnico completo + bitácora sin pendientes = partida liberable.

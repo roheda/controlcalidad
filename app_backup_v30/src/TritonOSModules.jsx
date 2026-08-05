@@ -174,12 +174,8 @@ const initialData = {
     { id: "sup-mun", tradeName: "Municipio de Mérida", legalName: "Municipio de Mérida", rfc: "MMM000000XXX", type: "Dependencia", contact: "Ventanilla", email: "", phone: "", status: "Activo", fiscalStatus: "Validado", bankStatus: "No aplica", bank: "", clabe: "", categoryId: "tramites", requiresContract: false, documents: ["Recibo oficial"] },
   ],
   financeContracts: [
-    { id: "fc1", supplierId: "sup-arq", projectId: "residente", name: "Contrato anteproyecto Residente", amount: 580000, startDate: "2026-01-01", endDate: "2026-12-31", status: "Vigente", categoryId: "proyecto", paymentPlan: "Anticipo 30%, avance 40%, saldo 30%", documents: ["Contrato firmado PDF"] },
-    { id: "fc2", supplierId: "sup-cons", projectId: "arenna", name: "Contrato obra Arenna", amount: 60710338, startDate: "2026-01-01", endDate: "2026-12-31", status: "Pendiente firma", categoryId: "construccion", paymentPlan: "Estimaciones contra avance autorizado", documents: ["Borrador contrato"] },
-  ],
-  recurringPayments: [
-    { id: "rec1", supplierId: "sup-arq", projectId: "residente", categoryId: "proyecto", concept: "Honorarios mensuales coordinación", amount: 45000, iva: 7200, retention: 0, frequency: "Mensual", day: 5, status: "Activo", authorizedBy: "rodrigo@tritondesarrollos.com", requiresInvoice: true, nextDate: todayIso(), notes: "Autorización base recurrente; cada cargo requiere factura/comprobante." },
-    { id: "rec2", supplierId: "sup-mun", projectId: "arenna", categoryId: "tramites", concept: "Pagos oficiales recurrentes / derechos", amount: 15000, iva: 0, retention: 0, frequency: "Variable", day: 15, status: "Activo", authorizedBy: "rodrigo@tritondesarrollos.com", requiresInvoice: false, nextDate: todayIso(), notes: "Se genera como solicitud autorizada base, pendiente de soporte oficial." },
+    { id: "fc1", supplierId: "sup-arq", projectId: "residente", name: "Contrato anteproyecto Residente", amount: 580000, startDate: "2026-01-01", endDate: "2026-12-31", status: "Vigente", documents: ["Contrato firmado PDF"] },
+    { id: "fc2", supplierId: "sup-cons", projectId: "arenna", name: "Contrato obra Arenna", amount: 60710338, startDate: "2026-01-01", endDate: "2026-12-31", status: "Pendiente firma", documents: ["Borrador contrato"] },
   ],
   paymentDocuments: [
     { id: "doc1", payableId: "p3", type: "Factura PDF", fileName: "factura-demo.pdf", uploadedBy: "admin@tritondesarrollos.com", status: "Válido", uploadedAt: todayIso() },
@@ -201,16 +197,9 @@ const initialData = {
 const moduleMeta = {
   dashboard: { title: "Dashboard", subtitle: "Vista directiva de toda la operación", icon: "▦" },
   proyectos: { title: "Proyectos", subtitle: "Base para cruzar obra, pagos, rentas y trámites", icon: "⌂" },
-  finanzas: { title: "Finanzas", subtitle: "Resumen ERP: presupuesto, proveedores, contratos, pagos y conciliación", icon: "$" },
+  finanzas: { title: "Finanzas", subtitle: "Resumen ERP: presupuesto, proveedores, pagos y conciliación", icon: "$" },
   proveedores: { title: "Proveedores", subtitle: "Alta, documentos, validación fiscal y cuentas bancarias", icon: "◧" },
-  presupuestos: { title: "Presupuestos", subtitle: "Partidas autorizadas por proyecto y control de sobregiros", icon: "▥" },
-  contratos_financieros: { title: "Contratos", subtitle: "Monto total autorizado, anticipos, parciales y saldos", icon: "□" },
-  pagos_recurrentes: { title: "Pagos recurrentes", subtitle: "Servicios, rentas y honorarios ya autorizados por base", icon: "↻" },
-  cxp: { title: "Solicitudes de pago", subtitle: "Solicitud → revisión administrativa → autorización final → pago", icon: "↗" },
-  autorizaciones: { title: "Autorizaciones", subtitle: "Última revisión con información completa para dirección", icon: "✓" },
-  pagos_programados: { title: "Pagos programados", subtitle: "Tesorería y calendario de egresos", icon: "◷" },
-  pagos_realizados: { title: "Pagos realizados", subtitle: "Comprobantes, referencias y bancos", icon: "▣" },
-  conciliacion: { title: "Conciliación bancaria", subtitle: "Cruce contra movimientos bancarios", icon: "≋" },
+  cxp: { title: "Cuentas por pagar", subtitle: "Solicitud → revisión → autorización → pago → conciliación", icon: "↗" },
   caja_chica: { title: "Caja chica", subtitle: "Fondos, comprobantes, liquidación y reposición", icon: "▣" },
   cobranza: { title: "Cobranza / rentas", subtitle: "Contratos, INPC, rentas mensuales, facturación y conciliación", icon: "↙" },
   tramites: { title: "Trámites", subtitle: "Permisos, dependencias, responsables y siguientes acciones", icon: "◷" },
@@ -221,7 +210,7 @@ const moduleMeta = {
 
 function readData() {
   try {
-    const raw = localStorage.getItem("triton_os_v31");
+    const raw = localStorage.getItem("triton_os_v28");
     if (!raw) return initialData;
     const parsed = JSON.parse(raw);
     return { ...initialData, ...parsed };
@@ -275,7 +264,7 @@ export default function TritonOSModules() {
   const [showForm, setShowForm] = useState(null);
   const [form, setForm] = useState({});
 
-  useEffect(() => { localStorage.setItem("triton_os_v31", JSON.stringify(data)); }, [data]);
+  useEffect(() => { localStorage.setItem("triton_os_v28", JSON.stringify(data)); }, [data]);
   useEffect(() => {
     const openHandler = (event) => { setActive(event.detail?.module || "dashboard"); setOpen(true); };
     const closeHandler = () => setOpen(false);
@@ -314,7 +303,7 @@ export default function TritonOSModules() {
     setData((prev) => ({ ...prev, [collectionName]: prev[collectionName].map((item) => item.id === id ? { ...item, ...patch } : item) }));
   }
   function resetDemo() {
-    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v31"); setData(initialData); }
+    if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v28"); setData(initialData); }
   }
 
   if (!open) return null;
@@ -337,14 +326,7 @@ export default function TritonOSModules() {
         {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "finanzas" && <Finance data={data} projectMap={projectMap} categoryMap={categoryMap} projectFilter={projectFilter} setActive={setActive} />}
         {active === "proveedores" && <Suppliers data={data} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "presupuestos" && <Budgets data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "contratos_financieros" && <FinanceContracts data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "pagos_recurrentes" && <RecurringPayments data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "cxp" && <Payables data={data} projectMap={projectMap} categoryMap={categoryMap} rows={filteredPayables} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "autorizaciones" && <Authorizations data={data} projectMap={projectMap} categoryMap={categoryMap} updateRecord={updateRecord} />}
-        {active === "pagos_programados" && <ScheduledPayments data={data} projectMap={projectMap} categoryMap={categoryMap} updateRecord={updateRecord} addRecord={addRecord} />}
-        {active === "pagos_realizados" && <PaidPayments data={data} projectMap={projectMap} />}
-        {active === "conciliacion" && <BankReconciliation data={data} projectMap={projectMap} updateRecord={updateRecord} />}
         {active === "caja_chica" && <PettyCash data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "cobranza" && <Rentals data={data} projectMap={projectMap} tenantMap={tenantMap} assetMap={assetMap} contractMap={contractMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "tramites" && <Permits data={data} projectMap={projectMap} rows={filteredPermits} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
@@ -383,45 +365,6 @@ function Projects({ data, addRecord, showForm, setShowForm, form, setForm }) {
   return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><SectionTitle title="Proyectos" helper="Cada módulo debe cruzarse por proyecto para tener estado de resultados, trámites, pagos y cobranza." /><Button onClick={() => setShowForm(showForm === "project" ? null : "project")}>Nuevo proyecto</Button></div>{showForm === "project" ? <SimpleForm fields={["name", "type", "status", "budget", "incomeTarget"]} labels={{ name: "Nombre", type: "Tipo", status: "Estatus", budget: "Presupuesto", incomeTarget: "Ingresos proyectados" }} form={form} setForm={setForm} onSubmit={() => addRecord("projects", { ...form, budget: Number(form.budget || 0), incomeTarget: Number(form.incomeTarget || 0), owner: "TRITON" })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo" }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "incomeTarget", label: "Ingresos proyectados", render: (r) => money(r.incomeTarget) }]} rows={data.projects} /></Card></div>;
 }
 
-function payableTotal(row) {
-  return Number(row.amount || 0) + Number(row.iva || 0) - Number(row.retention || 0);
-}
-function budgetFor(data, projectId, categoryId) {
-  return Number((data.budgets || []).find((b) => b.projectId === projectId && b.categoryId === categoryId)?.budget || 0);
-}
-function committedFor(data, projectId, categoryId, ignoreId = null) {
-  return (data.payables || []).filter((p) => p.id !== ignoreId && p.projectId === projectId && p.categoryId === categoryId && !["Rechazado", "Cancelado"].includes(p.status)).reduce((a, p) => a + payableTotal(p), 0);
-}
-function budgetCheck(data, row) {
-  const budget = budgetFor(data, row.projectId, row.categoryId);
-  const committed = committedFor(data, row.projectId, row.categoryId, row.id);
-  const total = payableTotal(row);
-  const available = budget - committed;
-  const overspend = total - available;
-  return { budget, committed, total, available, overspend, hasBudget: budget > 0, over: overspend > 0 };
-}
-function contractCheck(data, row) {
-  const contract = (data.financeContracts || []).find((c) => c.id === row.contractId);
-  if (!contract) return { contract: null, paid: 0, requested: 0, remaining: 0, over: false };
-  const related = (data.payables || []).filter((p) => p.contractId === contract.id && p.id !== row.id && !["Rechazado", "Cancelado"].includes(p.status));
-  const paid = related.filter((p) => ["Pagado", "Conciliado"].includes(p.status)).reduce((a, p) => a + payableTotal(p), 0);
-  const requested = related.reduce((a, p) => a + payableTotal(p), 0);
-  const remaining = Number(contract.amount || 0) - requested;
-  return { contract, paid, requested, remaining, over: payableTotal(row) > remaining };
-}
-function canSendToAuthorization(data, row) {
-  const b = budgetCheck(data, row);
-  const ctc = contractCheck(data, row);
-  const supplier = data.suppliers.find((s) => s.id === row.supplierId);
-  const hasDocs = (row.attachments || []).length > 0 || String(row.documentStatus || "").toLowerCase().includes("cargado") || String(row.documentStatus || "").toLowerCase().includes("ok");
-  const supplierOk = supplier ? supplier.status === "Activo" && supplier.status !== "Bloqueado" : true;
-  const budgetOk = b.hasBudget && (!b.over || row.overspendApprovedByAdmin);
-  const contractOk = !ctc.contract || !ctc.over || row.contractOverrunApprovedByAdmin;
-  return { ok: supplierOk && hasDocs && row.adminReviewed && budgetOk && contractOk, supplierOk, hasDocs, budgetOk, contractOk, budget: b, contract: ctc };
-}
-function SmallAction({ label, helper, onClick }) {
-  return <button onClick={onClick} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>{label}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{helper}</div></button>;
-}
 function Finance({ data, projectMap, categoryMap, projectFilter, setActive }) {
   const projectIds = projectFilter === "todos" ? data.projects.map((p) => p.id) : [projectFilter];
   const rows = [];
@@ -429,121 +372,70 @@ function Finance({ data, projectMap, categoryMap, projectFilter, setActive }) {
     const budgets = data.budgets.filter((b) => b.projectId === projectId);
     const cats = [...new Set([...budgets.map((b) => b.categoryId), ...data.payables.filter((p) => p.projectId === projectId).map((p) => p.categoryId)])];
     for (const categoryId of cats) {
-      const budget = budgetFor(data, projectId, categoryId);
-      const committed = committedFor(data, projectId, categoryId);
-      rows.push({ id: `${projectId}-${categoryId}`, project: projectMap[projectId]?.name, category: categoryMap[categoryId]?.name || categoryId, budget, committed, variance: budget - committed });
+      const budget = budgets.find((b) => b.categoryId === categoryId)?.budget || 0;
+      const committed = data.payables.filter((p) => p.projectId === projectId && p.categoryId === categoryId).reduce((a, p) => a + Number(p.amount || 0) + Number(p.iva || 0), 0);
+      const paid = data.payments.filter((p) => p.projectId === projectId).reduce((a, p) => a + Number(p.amount || 0), 0);
+      rows.push({ id: `${projectId}-${categoryId}`, project: projectMap[projectId]?.name, category: categoryMap[categoryId]?.name || categoryId, budget, committed, paid: categoryId === rows[0]?.categoryId ? paid : 0, variance: budget - committed });
     }
   }
-  const totalBudget = rows.reduce((a, r) => a + r.budget, 0);
-  const totalCommitted = rows.reduce((a, r) => a + r.committed, 0);
-  const authorized = data.payables.filter((p) => ["Autorizado", "Programado"].includes(p.status)).reduce((a, p) => a + payableTotal(p), 0);
-  const paid = data.payments.reduce((a, p) => a + Number(p.amount || 0), 0);
-  const needsRodrigo = data.payables.filter((p) => p.status === "Listo para autorización").length;
-  const overs = data.payables.filter((p) => budgetCheck(data, p).over && !p.overspendApprovedByAdmin).length;
+  const totalBudget = rows.reduce((a, r) => a + r.budget, 0), totalCommitted = rows.reduce((a, r) => a + r.committed, 0);
+  const activeSuppliers = data.suppliers.filter((s) => s.status === "Activo").length;
+  const pendingSuppliers = data.suppliers.filter((s) => s.status !== "Activo").length;
+  const pendingDocs = data.payables.filter((p) => String(p.documentStatus || "").toLowerCase().includes("pendiente")).length;
   return <div style={{ display: "grid", gap: 16 }}>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 14 }}>
       <Card><Pill tone="primary">Presupuesto</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalBudget)}</div></Card>
       <Card><Pill tone="warn">Comprometido</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalCommitted)}</div></Card>
-      <Card><Pill tone="purple">Autorizado pendiente</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(authorized)}</div></Card>
-      <Card><Pill tone="ok">Pagado</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(paid)}</div></Card>
+      <Card><Pill tone={totalBudget - totalCommitted >= 0 ? "ok" : "danger"}>Saldo</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{money(totalBudget - totalCommitted)}</div></Card>
+      <Card><Pill tone={pendingDocs ? "danger" : "ok"}>Soporte pendiente</Pill><div style={{ fontSize: 28, fontWeight: 950, marginTop: 10 }}>{pendingDocs}</div></Card>
     </div>
-    <Card><SectionTitle title="Flujo financiero tipo ERP" helper="Todo pago debe salir de proveedor + presupuesto + soporte + revisión administrativa. Rodrigo solo ve la última revisión cuando la información ya está completa." />
+    <Card><SectionTitle title="Flujo financiero ERP" helper="Operación simplificada: proveedor validado → solicitud con anexos → autorización → pago → conciliación." />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-        <SmallAction label="Proveedores" helper={`${data.suppliers.filter((s) => s.status === "Activo").length} activos · datos fiscales/bancarios`} onClick={() => setActive("proveedores")} />
-        <SmallAction label="Presupuestos" helper={`${data.budgets.length} partidas presupuestales`} onClick={() => setActive("presupuestos")} />
-        <SmallAction label="Contratos" helper={`${data.financeContracts?.length || 0} contratos / soportes`} onClick={() => setActive("contratos_financieros")} />
-        <SmallAction label="Pagos recurrentes" helper={`${data.recurringPayments?.filter((x) => x.status === "Activo").length || 0} activos`} onClick={() => setActive("pagos_recurrentes")} />
-        <SmallAction label="Solicitudes" helper={`${data.payables.length} solicitudes · ${overs} sobregiros sin revisar`} onClick={() => setActive("cxp")} />
-        <SmallAction label="Autorizaciones" helper={`${needsRodrigo} listas para dirección`} onClick={() => setActive("autorizaciones")} />
+        <button onClick={() => setActive("proveedores")} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>Proveedores</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{activeSuppliers} activos · {pendingSuppliers} pendientes</div></button>
+        <button onClick={() => setActive("cxp")} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>Cuentas por pagar</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{data.payables.length} solicitudes</div></button>
+        <button onClick={() => setActive("caja_chica")} style={{ border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "white", textAlign: "left", cursor: "pointer" }}><b>Caja chica</b><div style={{ color: c.muted, fontSize: 12, marginTop: 5 }}>{data.pettyCash.filter((x) => x.status !== "Cerrada").length} abiertas</div></button>
       </div>
     </Card>
-    <Card><SectionTitle title="Presupuesto vs comprometido" helper="Si una solicitud rebasa presupuesto, administración debe justificar sobregiro antes de que llegue a autorización final." /><MiniTable columns={[{ key: "project", label: "Proyecto" }, { key: "category", label: "Categoría" }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "committed", label: "Comprometido", render: (r) => money(r.committed) }, { key: "variance", label: "Disponible", render: (r) => <Pill tone={r.variance >= 0 ? "ok" : "danger"}>{money(r.variance)}</Pill> }]} rows={rows} /></Card>
+    <Card><SectionTitle title="Presupuesto vs real" helper="Base para estado de resultados al día por proyecto. Las categorías salen de tus hojas de gastos y presupuestos." /><MiniTable columns={[{ key: "project", label: "Proyecto" }, { key: "category", label: "Categoría" }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "committed", label: "Solicitado / comprometido", render: (r) => money(r.committed) }, { key: "variance", label: "Saldo", render: (r) => <Pill tone={r.variance >= 0 ? "ok" : "danger"}>{money(r.variance)}</Pill> }]} rows={rows} /></Card>
   </div>;
 }
-function Budgets({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Presupuestos por proyecto" helper="Cada pago debe responder a una partida presupuestal. El sobregiro se permite solo con justificación administrativa y autorización final." /><Button onClick={() => setShowForm(showForm === "budget" ? null : "budget")}>Nueva partida</Button></div>
-      {showForm === "budget" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="Categoría"><select style={inputStyle()} value={form.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((c) => c.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field><Field label="Presupuesto autorizado"><input type="number" style={inputStyle()} value={form.budget || ""} onChange={(e) => setForm({ ...form, budget: e.target.value })} /></Field></div><Button onClick={() => addRecord("budgets", { projectId: form.projectId || "arenna", categoryId: form.categoryId || "construccion", budget: Number(form.budget || 0) })}>Guardar presupuesto</Button></div> : null}
-    </Card>
-    <Card><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "committed", label: "Comprometido", render: (r) => money(committedFor(data, r.projectId, r.categoryId)) }, { key: "available", label: "Disponible", render: (r) => { const av = Number(r.budget || 0) - committedFor(data, r.projectId, r.categoryId); return <Pill tone={av >= 0 ? "ok" : "danger"}>{money(av)}</Pill>; } }, { key: "actions", label: "Ajustar", render: (r) => <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const value = window.prompt("Nuevo presupuesto autorizado", r.budget); if (value !== null) updateRecord("budgets", r.id, { budget: Number(value || 0) }); }}>Editar</Button> }]} rows={data.budgets} /></Card>
-  </div>;
-}
-function FinanceContracts({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  function contractRows() { return (data.financeContracts || []).map((ct) => { const related = data.payables.filter((p) => p.contractId === ct.id && !["Rechazado", "Cancelado"].includes(p.status)); const requested = related.reduce((a, p) => a + payableTotal(p), 0); const paid = related.filter((p) => ["Pagado", "Conciliado"].includes(p.status)).reduce((a, p) => a + payableTotal(p), 0); return { ...ct, requested, paid, balance: Number(ct.amount || 0) - requested }; }); }
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Contratos y soportes autorizados" helper="Aquí se define el monto total autorizado. Anticipos, parcialidades y saldos quedan ligados para no pagar de más." /><Button onClick={() => setShowForm(showForm === "contract" ? null : "contract")}>Nuevo contrato</Button></div>
-      {showForm === "contract" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="Proveedor"><select style={inputStyle()} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName}</option>)}</select></Field><Field label="Categoría"><select style={inputStyle()} value={form.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((c) => c.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field><Field label="Monto total autorizado"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field></div><Field label="Nombre del contrato"><input style={inputStyle()} value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field><Field label="Plan de pagos"><textarea style={inputStyle({ minHeight: 68 })} placeholder="Anticipo 30%, avance 40%, saldo 30%" value={form.paymentPlan || ""} onChange={(e) => setForm({ ...form, paymentPlan: e.target.value })} /></Field><Button onClick={() => addRecord("financeContracts", { projectId: form.projectId || "arenna", supplierId: form.supplierId || data.suppliers[0]?.id || "", categoryId: form.categoryId || "construccion", name: form.name || "Contrato", amount: Number(form.amount || 0), status: "Vigente", startDate: todayIso(), endDate: "", paymentPlan: form.paymentPlan || "Anticipo / parcialidades / saldo", documents: [] })}>Guardar contrato</Button></div> : null}
-    </Card>
-    <Card><MiniTable columns={[{ key: "name", label: "Contrato" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplierId", label: "Proveedor", render: (r) => data.suppliers.find((s) => s.id === r.supplierId)?.tradeName }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Monto autorizado", render: (r) => money(r.amount) }, { key: "requested", label: "Solicitado ligado", render: (r) => money(r.requested) }, { key: "paid", label: "Pagado", render: (r) => money(r.paid) }, { key: "balance", label: "Saldo", render: (r) => <Pill tone={r.balance >= 0 ? "ok" : "danger"}>{money(r.balance)}</Pill> }, { key: "paymentPlan", label: "Plan" }]} rows={contractRows()} /></Card>
-  </div>;
-}
-function RecurringPayments({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  const recs = data.recurringPayments || [];
-  function generate(rec) {
-    addRecord("payables", { projectId: rec.projectId, supplierId: rec.supplierId, supplier: data.suppliers.find((s) => s.id === rec.supplierId)?.tradeName || "Proveedor", concept: rec.concept, categoryId: rec.categoryId, amount: Number(rec.amount || 0), iva: Number(rec.iva || 0), retention: Number(rec.retention || 0), requestedBy: "Pago recurrente", requiredDate: rec.nextDate || todayIso(), status: "En revisión", priority: "Media", documentStatus: rec.requiresInvoice ? "Pendiente factura" : "Soporte recurrente", recurringPaymentId: rec.id, adminReviewed: false, recurringAuthorized: true, notes: `Generado desde pago recurrente autorizado por ${rec.authorizedBy || "Dirección"}.` });
-  }
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Pagos recurrentes" helper="Son pagos con autorización base. Se generan automáticamente/por botón, pero administración revisa documento y monto antes de pagar." /><Button onClick={() => setShowForm(showForm === "recurring" ? null : "recurring")}>Nuevo recurrente</Button></div>
-      {showForm === "recurring" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="Proveedor"><select style={inputStyle()} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName}</option>)}</select></Field><Field label="Categoría"><select style={inputStyle()} value={form.categoryId || "admin_obra"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((c) => c.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field><Field label="Monto"><input type="number" style={inputStyle()} value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field><Field label="IVA"><input type="number" style={inputStyle()} value={form.iva || ""} onChange={(e) => setForm({ ...form, iva: e.target.value })} /></Field><Field label="Periodicidad"><select style={inputStyle()} value={form.frequency || "Mensual"} onChange={(e) => setForm({ ...form, frequency: e.target.value })}><option>Semanal</option><option>Quincenal</option><option>Mensual</option><option>Anual</option><option>Variable</option></select></Field></div><Field label="Concepto"><input style={inputStyle()} value={form.concept || ""} onChange={(e) => setForm({ ...form, concept: e.target.value })} /></Field><Button onClick={() => addRecord("recurringPayments", { projectId: form.projectId || "arenna", supplierId: form.supplierId || data.suppliers[0]?.id || "", categoryId: form.categoryId || "admin_obra", concept: form.concept || "Pago recurrente", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: 0, frequency: form.frequency || "Mensual", day: 5, status: "Activo", authorizedBy: "rodrigo@tritondesarrollos.com", requiresInvoice: true, nextDate: todayIso(), notes: "Autorización base registrada." })}>Guardar recurrente</Button></div> : null}
-    </Card>
-    <Card><MiniTable columns={[{ key: "concept", label: "Concepto" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplierId", label: "Proveedor", render: (r) => data.suppliers.find((s) => s.id === r.supplierId)?.tradeName }, { key: "amount", label: "Monto", render: (r) => money(Number(r.amount || 0) + Number(r.iva || 0) - Number(r.retention || 0)) }, { key: "frequency", label: "Frecuencia" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={r.status === "Activo" ? "ok" : "idle"}>{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => generate(r)}>Generar solicitud</Button> }]} rows={recs} /></Card>
-  </div>;
-}
+
 function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  const statuses = ["Solicitado", "En revisión", "Observado", "Listo para autorización", "Autorizado", "Programado", "Pagado", "Conciliado", "Rechazado", "Cancelado"];
+  const statuses = ["Solicitado", "En revisión", "Observado", "Autorizado", "Programado", "Pagado", "Conciliado", "Rechazado", "Cancelado"];
+  const next = { "Solicitado": "En revisión", "En revisión": "Autorizado", "Observado": "En revisión", "Autorizado": "Programado", "Programado": "Pagado", "Pagado": "Conciliado" };
   const docTypes = ["Factura PDF", "XML", "Contrato", "Orden de compra", "Estimación autorizada", "Cotización", "Carátula bancaria", "Comprobante", "Otro"];
-  const supplier = data.suppliers.find((s) => s.id === (form.supplierId || data.suppliers[0]?.id));
-  const previewRow = { projectId: form.projectId || "arenna", categoryId: form.categoryId || supplier?.categoryId || "construccion", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), contractId: form.contractId || "" };
-  const previewBudget = budgetCheck(data, previewRow);
   function addPayable() {
     const supplier = data.suppliers.find((s) => s.id === (form.supplierId || data.suppliers[0]?.id));
     const anexos = String(form.attachments || "").split(",").map((x) => x.trim()).filter(Boolean);
-    addRecord("payables", { projectId: form.projectId || "arenna", supplierId: supplier?.id || "", supplier: supplier?.tradeName || form.supplier || "Proveedor", concept: form.concept || "Solicitud de pago", categoryId: form.categoryId || supplier?.categoryId || "construccion", contractId: form.contractId || "", paymentStage: form.paymentStage || "Pago parcial", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), requestedBy: "Usuario", requiredDate: form.requiredDate || todayIso(), status: "Solicitado", priority: form.priority || "Media", documentStatus: anexos.length ? "Soporte cargado" : "Pendiente soporte", notes: form.notes || "", adminReviewed: false, overspendApprovedByAdmin: false, contractOverrunApprovedByAdmin: false, attachments: anexos.map((name, index) => ({ id: `att_${Date.now()}_${index}`, type: form.docType || "Factura PDF", fileName: name, status: "Por revisar" })) });
+    addRecord("payables", { projectId: form.projectId || "arenna", supplierId: supplier?.id || "", supplier: supplier?.tradeName || form.supplier || "Proveedor", concept: form.concept || "Solicitud de pago", categoryId: form.categoryId || supplier?.categoryId || "construccion", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), requestedBy: "Usuario", requiredDate: form.requiredDate || todayIso(), status: "Solicitado", priority: form.priority || "Media", documentStatus: anexos.length ? "Soporte cargado" : "Pendiente soporte", notes: form.notes || "", attachments: anexos.map((name, index) => ({ id: `att_${Date.now()}_${index}`, type: form.docType || "Factura PDF", fileName: name, status: "Por revisar" })) });
   }
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Solicitudes de pago" helper="Administración debe revisar proveedor, anexos, presupuesto y contrato antes de enviarla a autorización final." /><Button onClick={() => setShowForm(showForm === "payable" ? null : "payable")}>Nueva solicitud</Button></div>
+    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Solicitudes de pago" helper="ERP simplificado: proveedor validado, documentos/anexos, revisión administrativa, autorización, programación, pago y conciliación." /><Button onClick={() => setShowForm(showForm === "payable" ? null : "payable")}>Nueva solicitud</Button></div>
       {showForm === "payable" ? <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
           <Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Proveedor"><select style={inputStyle()} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(e) => { const s = data.suppliers.find((x) => x.id === e.target.value); setForm({ ...form, supplierId: e.target.value, categoryId: s?.categoryId || form.categoryId }); }}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName} · {s.status}</option>)}</select></Field>
-          <Field label="Categoría / partida"><select style={inputStyle()} value={form.categoryId || supplier?.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((p) => p.budgetable).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Contrato relacionado"><select style={inputStyle()} value={form.contractId || ""} onChange={(e) => { const ct = data.financeContracts.find((x) => x.id === e.target.value); setForm({ ...form, contractId: e.target.value, categoryId: ct?.categoryId || form.categoryId, supplierId: ct?.supplierId || form.supplierId, projectId: ct?.projectId || form.projectId }); }}><option value="">Sin contrato</option>{(data.financeContracts || []).map((ct) => <option key={ct.id} value={ct.id}>{ct.name} · {money(ct.amount)}</option>)}</select></Field>
-          <Field label="Tipo de pago"><select style={inputStyle()} value={form.paymentStage || "Pago parcial"} onChange={(e) => setForm({ ...form, paymentStage: e.target.value })}><option>Anticipo</option><option>Pago parcial</option><option>Saldo</option><option>Pago único</option></select></Field>
+          <Field label="Proveedor"><select style={inputStyle()} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(e) => { const supplier = data.suppliers.find((s) => s.id === e.target.value); setForm({ ...form, supplierId: e.target.value, categoryId: supplier?.categoryId || form.categoryId }); }}>{data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.tradeName} · {s.status}</option>)}</select></Field>
+          <Field label="Categoría / partida"><select style={inputStyle()} value={form.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
           <Field label="Monto antes de IVA"><input style={inputStyle()} type="number" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
           <Field label="IVA"><input style={inputStyle()} type="number" value={form.iva || ""} onChange={(e) => setForm({ ...form, iva: e.target.value })} /></Field>
           <Field label="Retención"><input style={inputStyle()} type="number" value={form.retention || ""} onChange={(e) => setForm({ ...form, retention: e.target.value })} /></Field>
           <Field label="Fecha requerida"><input style={inputStyle()} type="date" value={form.requiredDate || todayIso()} onChange={(e) => setForm({ ...form, requiredDate: e.target.value })} /></Field>
           <Field label="Prioridad"><select style={inputStyle()} value={form.priority || "Media"} onChange={(e) => setForm({ ...form, priority: e.target.value })}><option>Alta</option><option>Media</option><option>Baja</option></select></Field>
         </div>
-        <div style={{ padding: 12, borderRadius: 16, background: previewBudget.hasBudget ? (previewBudget.over ? c.redSoft : c.greenSoft) : c.orangeSoft, color: c.text, fontSize: 13, fontWeight: 800 }}>Presupuesto: {previewBudget.hasBudget ? `${money(previewBudget.budget)} · disponible ${money(previewBudget.available)} · solicitud ${money(previewBudget.total)}` : "No existe presupuesto para esta partida"}{previewBudget.over ? ` · Sobregiro ${money(previewBudget.overspend)}` : ""}</div>
         <Field label="Concepto / descripción"><textarea style={inputStyle({ minHeight: 70 })} value={form.concept || ""} onChange={(e) => setForm({ ...form, concept: e.target.value })} /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(180px,240px) 1fr", gap: 10 }}>
           <Field label="Tipo de anexo"><select style={inputStyle()} value={form.docType || "Factura PDF"} onChange={(e) => setForm({ ...form, docType: e.target.value })}>{docTypes.map((d) => <option key={d}>{d}</option>)}</select></Field>
           <Field label="Anexos / facturas / contratos"><input style={inputStyle()} placeholder="factura.pdf, factura.xml, contrato.pdf" value={form.attachments || ""} onChange={(e) => setForm({ ...form, attachments: e.target.value })} /></Field>
         </div>
-        <Field label="Notas para administración"><textarea style={inputStyle({ minHeight: 60 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
+        <Field label="Notas para revisión"><textarea style={inputStyle({ minHeight: 60 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
         <Button style={{ marginTop: 4 }} onClick={addPayable}>Guardar solicitud</Button>
       </div> : null}
     </Card>
-    <Card><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplier", label: "Proveedor", render: (r) => supplierDisplayName(r, data) }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name }, { key: "contractId", label: "Contrato", render: (r) => data.financeContracts.find((ct) => ct.id === r.contractId)?.name || "—" }, { key: "amount", label: "Total", render: (r) => money(payableTotal(r)) }, { key: "budget", label: "Presupuesto", render: (r) => { const b = budgetCheck(data, r); return <Pill tone={!b.hasBudget || b.over && !r.overspendApprovedByAdmin ? "danger" : "ok"}>{!b.hasBudget ? "Sin presupuesto" : b.over ? `Sobregiro ${money(b.overspend)}` : "OK"}</Pill>; } }, { key: "admin", label: "Admin", render: (r) => <label style={{ display: "flex", gap: 6, alignItems: "center", fontWeight: 800 }}><input type="checkbox" checked={!!r.adminReviewed} onChange={(e) => updateRecord("payables", r.id, { adminReviewed: e.target.checked })} /> Revisado</label> }, { key: "status", label: "Estado", render: (r) => <select value={r.status} onChange={(e) => updateRecord("payables", r.id, { status: e.target.value })} style={inputStyle({ padding: 8, minWidth: 165 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "actions", label: "Acción", render: (r) => { const check = canSendToAuthorization(data, r); return <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} disabled={!check.ok} onClick={() => updateRecord("payables", r.id, { status: "Listo para autorización" })}>Enviar a Rodrigo</Button>{check.budget.over ? <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const reason = window.prompt("Motivo administrativo del sobregiro"); if (reason) updateRecord("payables", r.id, { overspendApprovedByAdmin: true, overspendReason: reason }); }}>Justificar sobregiro</Button> : null}<Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Observado" })}>Observar</Button></div>; } }]} rows={rows} /></Card>
-    <Card><SectionTitle title="Bitácora de auditoría" helper="En versión Firebase esta bitácora será no editable y guardará usuario, fecha, evidencia y cambio de estado." /><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "itemId", label: "Registro" }, { key: "action", label: "Acción" }, { key: "user", label: "Usuario" }, { key: "date", label: "Fecha" }, { key: "comment", label: "Comentario" }]} rows={data.auditTrail} /></Card>
+    <Card><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplier", label: "Proveedor", render: (r) => supplierDisplayName(r, data) }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", render: (r) => money(Number(r.amount || 0) + Number(r.iva || 0) - Number(r.retention || 0)) }, { key: "documentStatus", label: "Soporte", render: (r) => <Pill tone={String(r.documentStatus || "").includes("Pendiente") ? "danger" : "ok"}>{r.documentStatus || "Pendiente"}</Pill> }, { key: "status", label: "Estado", render: (r) => <select value={r.status} onChange={(e) => updateRecord("payables", r.id, { status: e.target.value })} style={inputStyle({ padding: 8, minWidth: 145 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "attachments", label: "Anexos", render: (r) => (r.attachments || []).map((a) => a.fileName).join(", ") || "Sin anexos" }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{next[r.status] ? <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: next[r.status] })}>Avanzar</Button> : null}<Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Observado" })}>Observar</Button></div> }]} rows={rows} /></Card>
+    <Card><SectionTitle title="Bitácora de auditoría" helper="Cada paso debe guardar quién hizo qué, cuándo y con qué soporte. En Firebase se debe volver no editable." /><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "itemId", label: "Registro" }, { key: "action", label: "Acción" }, { key: "user", label: "Usuario" }, { key: "date", label: "Fecha" }, { key: "comment", label: "Comentario" }]} rows={data.auditTrail} /></Card>
   </div>;
 }
-function Authorizations({ data, projectMap, categoryMap, updateRecord }) {
-  const rows = data.payables.filter((p) => ["Listo para autorización", "Autorizado", "Rechazado"].includes(p.status));
-  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Autorización final" helper="Rodrigo solo debe recibir solicitudes completas: anexos, proveedor, presupuesto, contrato y revisión administrativa." /><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplier", label: "Proveedor", render: (r) => supplierDisplayName(r, data) }, { key: "concept", label: "Concepto" }, { key: "amount", label: "Total", render: (r) => money(payableTotal(r)) }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name }, { key: "summary", label: "Resumen", render: (r) => { const b = budgetCheck(data, r); const ct = contractCheck(data, r); return <div style={{ display: "grid", gap: 4 }}><span>Disponible: {money(b.available)}</span><span>{ct.contract ? `Contrato: ${money(ct.contract.amount)} · saldo ${money(ct.remaining)}` : "Sin contrato"}</span><span>{r.overspendReason ? `Sobregiro: ${r.overspendReason}` : "Sin sobregiro justificado"}</span></div>; } }, { key: "actions", label: "Decisión", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Autorizado", authorizedBy: "rodrigo@tritondesarrollos.com", authorizedAt: todayIso() })}>Autorizar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Observado" })}>Pedir corrección</Button><Button variant="danger" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Rechazado" })}>Rechazar</Button></div> }]} rows={rows} empty="No hay solicitudes listas para autorización." /></Card></div>;
-}
-function ScheduledPayments({ data, projectMap, updateRecord, addRecord }) {
-  const rows = data.payables.filter((p) => ["Autorizado", "Programado"].includes(p.status));
-  function pay(row) { updateRecord("payables", row.id, { status: "Pagado" }); addRecord("payments", { payableId: row.id, projectId: row.projectId, amount: payableTotal(row), bank: "Banco por definir", date: todayIso(), reference: `SPEI-${Date.now()}`, reconciled: false }); }
-  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Pagos programados" helper="Tesorería programa pagos ya autorizados, registra banco y comprobante." /><MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "supplier", label: "Proveedor", render: (r) => supplierDisplayName(r, data) }, { key: "concept", label: "Concepto" }, { key: "requiredDate", label: "Fecha requerida" }, { key: "amount", label: "Total", render: (r) => money(payableTotal(r)) }, { key: "status", label: "Estado", render: (r) => <Pill tone="purple">{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6 }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("payables", r.id, { status: "Programado" })}>Programar</Button><Button variant="success" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => pay(r)}>Registrar pago</Button></div> }]} rows={rows} /></Card></div>;
-}
-function PaidPayments({ data, projectMap }) {
-  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Pagos realizados" helper="Comprobantes de transferencia, referencia bancaria y relación con solicitud." /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "payableId", label: "Solicitud" }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "bank", label: "Banco" }, { key: "reference", label: "Referencia" }, { key: "reconciled", label: "Conciliado", render: (r) => <Pill tone={r.reconciled ? "ok" : "warn"}>{r.reconciled ? "Sí" : "Pendiente"}</Pill> }]} rows={data.payments} /></Card></div>;
-}
-function BankReconciliation({ data, projectMap, updateRecord }) {
-  return <div style={{ display: "grid", gap: 16 }}><Card><SectionTitle title="Conciliación bancaria" helper="Cruza cada pago contra el movimiento bancario. Pagado no significa conciliado." /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "bank", label: "Banco" }, { key: "reference", label: "Referencia" }, { key: "reconciled", label: "Estatus", render: (r) => <Pill tone={r.reconciled ? "ok" : "danger"}>{r.reconciled ? "Conciliado" : "Pendiente"}</Pill> }, { key: "actions", label: "Acción", render: (r) => <Button style={{ padding: "7px 9px", fontSize: 12 }} disabled={r.reconciled} onClick={() => updateRecord("payments", r.id, { reconciled: true })}>Conciliar</Button> }]} rows={data.payments} /></Card></div>;
-}
+
 function PettyCash({ data, projectMap, categoryMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
   return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><SectionTitle title="Caja chica" helper="Fondos por responsable. Cada gasto exige comprobante o motivo de excepción y se liquida antes de abrir otra caja." /><Button onClick={() => setShowForm(showForm === "cash" ? null : "cash")}>Crear caja</Button></div>{showForm === "cash" ? <SimpleForm fields={["name", "responsible", "amount"]} labels={{ name: "Nombre de caja", responsible: "Responsable", amount: "Monto asignado" }} form={form} setForm={setForm} onSubmit={() => addRecord("pettyCash", { projectId: "arenna", name: form.name || "Caja chica", responsible: form.responsible || "Responsable", amount: Number(form.amount || 0), status: "Abierta", openedAt: todayIso() })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Caja" }, { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "responsible", label: "Responsable" }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Cerrada" ? "ok" : "primary"}>{r.status}</Pill> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6 }}><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyCash", r.id, { status: "En revisión" })}>Liquidar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("pettyCash", r.id, { status: "Cerrada" })}>Cerrar</Button></div> }]} rows={data.pettyCash} /></Card><Card><SectionTitle title="Comprobantes de caja" /><MiniTable columns={[{ key: "date", label: "Fecha" }, { key: "concept", label: "Concepto" }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Monto", render: (r) => money(r.amount) }, { key: "status", label: "Estado", render: (r) => <Pill tone="warn">{r.status}</Pill> }, { key: "hasReceipt", label: "Comprobante", render: (r) => r.hasReceipt ? "Sí" : "No" }]} rows={data.pettyExpenses} /></Card></div>;
 }
