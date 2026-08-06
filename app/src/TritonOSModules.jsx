@@ -1119,6 +1119,7 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showF
     setShowForm("operationProject");
   }
   function saveProject() {
+    if (!String(form.name || "").trim()) { alert("Captura el nombre de la obra."); return; }
     const payload = {
       name: form.name || "Obra sin nombre",
       type: form.type || "Desarrollo",
@@ -1173,10 +1174,10 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showF
         <Field label="Unidades totales"><input type="number" style={inputStyle()} value={form.totalUnits || ""} onChange={(e) => setForm({ ...form, totalUnits: e.target.value })} /></Field>
         <Field label="Presupuesto"><input type="number" style={inputStyle()} value={form.budget || ""} onChange={(e) => setForm({ ...form, budget: e.target.value })} /></Field>
         <Field label="Ingresos proyectados"><input type="number" style={inputStyle()} value={form.incomeTarget || ""} onChange={(e) => setForm({ ...form, incomeTarget: e.target.value })} /></Field>
-        <Field label="Retención obra %"><input type="number" style={inputStyle()} value={form.retentionPct ?? 10} onChange={(e) => setForm({ ...form, retentionPct: e.target.value })} /></Field>
-        <Field label="Anticipo %"><input type="number" style={inputStyle()} value={form.advancePct ?? 0} onChange={(e) => setForm({ ...form, advancePct: e.target.value })} /></Field>
+        <Field label="Retención obra %" help="Porcentaje que se retiene de cada estimación como garantía de obra bien ejecutada; se libera al cierre del contrato."><input type="number" style={inputStyle()} value={form.retentionPct ?? 10} onChange={(e) => setForm({ ...form, retentionPct: e.target.value })} /></Field>
+        <Field label="Anticipo %" help="Porcentaje del contrato que se puede pagar por adelantado antes de que exista avance físico."><input type="number" style={inputStyle()} value={form.advancePct ?? 0} onChange={(e) => setForm({ ...form, advancePct: e.target.value })} /></Field>
       </div>
-      <Field label="Unidades / lotes"><input style={inputStyle()} placeholder="TH01, TH02, Casa 1, Depto 101" value={form.unitsText || ""} onChange={(e) => setForm({ ...form, unitsText: e.target.value })} /></Field>
+      <Field label="Unidades / lotes" help="Lista separada por comas. Cada unidad podrá seleccionarse después al capturar estimaciones y checklist de calidad."><input style={inputStyle()} placeholder="TH01, TH02, Casa 1, Depto 101" value={form.unitsText || ""} onChange={(e) => setForm({ ...form, unitsText: e.target.value })} /></Field>
       <Field label="Modelos"><input style={inputStyle()} placeholder="TH, HAUS, Depto A" value={form.modelsText || ""} onChange={(e) => setForm({ ...form, modelsText: e.target.value })} /></Field>
       <Field label="Notas operativas"><textarea style={inputStyle({ minHeight: 80 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={saveProject}>Guardar obra</Button><Button variant="secondary" onClick={() => { setShowForm(null); setForm({}); }}>Cancelar</Button></div>
@@ -1244,6 +1245,7 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
     if (!readyRows.length || amount <= 0) { alert("No hay conceptos listos con monto para solicitar. Captura avance y completa checklist."); return; }
     const supplier = data.suppliers.find((s) => s.id === "sup-cons") || data.suppliers.find((s) => String(s.type || "").toLowerCase().includes("constructora")) || data.suppliers[0];
     addRecord("payables", {
+      folio: nextFolio(data, "payables", "SP"),
       projectId,
       supplierId: supplier?.id || "",
       supplier: supplier?.tradeName || "Constructora",
@@ -1282,8 +1284,8 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
       <MetricCard label="Estimado capturado" value={money(sectionSummary.requested)} tone="warn" />
       <MetricCard label="Checklist liberado" value={`${sectionSummary.qualityPct || 0}%`} tone={(sectionSummary.qualityPct || 0) === 100 ? "ok" : "warn"} />
     </div>
-    <Card><SectionTitle title="Qué falta para liberar esta partida" helper="Reglas base derivadas del tipo de partida. Se podrá parametrizar en Catálogos y reglas." /><ValidationList checks={checklistForEstimateSection(selectedSection?.name).map((label) => ({ label, ok: (sectionSummary.qualityPct || 0) === 100, fix: "Pendiente" }))} /><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}><Button variant="secondary" onClick={markSectionQualityDone}>Marcar checklist de partida como completo</Button><Button onClick={requestEstimatePayment}>Enviar estimación a pagos</Button></div></Card>
-    <Card><MiniTable columns={[
+    <Card><SectionTitle title="Qué falta para liberar esta partida" helper="Reglas base derivadas del tipo de partida. Se podrá parametrizar en Catálogos y reglas." /><ValidationList checks={checklistForEstimateSection(selectedSection?.name).map((label) => ({ label, ok: (sectionSummary.qualityPct || 0) === 100, fix: "Pendiente" }))} /><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}><Button variant="secondary" help="Marca TODOS los conceptos de esta partida como checklist completo de una vez. Úsalo solo si ya verificaste cada concepto; si no, márcalos uno por uno en la tabla." onClick={markSectionQualityDone}>Marcar checklist de partida como completo</Button><Button help="Crea una solicitud de pago con el importe estimado de los conceptos que ya tienen checklist completo y avance capturado." onClick={requestEstimatePayment}>Enviar estimación a pagos</Button></div></Card>
+    <Card><div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><ExportCsvButton filename="estimacion-conceptos.csv" rows={rows.map((r) => ({ Clave: r.id, Concepto: r.description, Unidad: r.unit, CantidadContrato: r.quantity, PrecioUnitario: r.unitPrice, AvancePct: r.progressPct, CantidadEstimar: r.estimateQuantity, ImporteEstimado: r.requestedAmount, Checklist: r.qualityChecklistDone ? "Listo" : "Pendiente", Estado: r.status }))} /></div><MiniTable columns={[
       { key: "id", label: "Clave" },
       { key: "description", label: "Concepto", render: (r) => <div style={{ maxWidth: 440, lineHeight: 1.35 }}>{r.description}</div> },
       { key: "unit", label: "Unidad" },
@@ -1318,9 +1320,9 @@ function OperationTechnical({ data, projectMap, addRecord, updateRecord, showFor
       <Field label="Título"><input style={inputStyle()} value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
       <Field label="Consulta / duda"><textarea style={inputStyle({ minHeight: 92 })} value={form.question || ""} onChange={(e) => setForm({ ...form, question: e.target.value })} /></Field>
       <Field label="Respuesta / criterio"><textarea style={inputStyle({ minHeight: 92 })} value={form.response || ""} onChange={(e) => setForm({ ...form, response: e.target.value })} /></Field>
-      <Button onClick={() => addRecord("technicalQueries", { projectId: form.projectId || data.projects[0]?.id || "", title: form.title || "Consulta técnica", module: form.module || "Calidad", status: form.response ? "Respondida" : "Abierta", priority: form.priority || "Media", requestedBy: firebaseAuth.currentUser?.email || "usuario", question: form.question || "", response: form.response || "", history: [{ id: uid("tech"), date: new Date().toISOString(), user: firebaseAuth.currentUser?.email || "sistema", comment: "Alta de consulta técnica" }] })}>Guardar consulta</Button>
+      <Button onClick={() => { if (!String(form.question || "").trim()) { alert("Escribe la duda o consulta antes de guardar."); return; } addRecord("technicalQueries", { projectId: form.projectId || data.projects[0]?.id || "", title: form.title || "Consulta técnica", module: form.module || "Calidad", status: form.response ? "Respondida" : "Abierta", priority: form.priority || "Media", requestedBy: firebaseAuth.currentUser?.email || "usuario", question: form.question || "", response: form.response || "", history: [{ id: uid("tech"), date: new Date().toISOString(), user: firebaseAuth.currentUser?.email || "sistema", comment: "Alta de consulta técnica" }] }); }}>Guardar consulta</Button>
     </Card> : null}
-    <Card><MiniTable columns={[
+    <Card><div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><ExportCsvButton filename="consultas-tecnicas.csv" rows={rows.map((r) => ({ Proyecto: projectMap[r.projectId]?.name || "", Consulta: r.title, Modulo: r.module, Prioridad: r.priority, Estado: r.status, Pregunta: r.question, Respuesta: r.response || "" }))} /></div><MiniTable columns={[
       { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || r.projectId },
       { key: "title", label: "Consulta" },
       { key: "module", label: "Módulo" },
