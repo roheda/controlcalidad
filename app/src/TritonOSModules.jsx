@@ -1077,6 +1077,29 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showF
   const [selectedId, setSelectedId] = useState(data.projects[0]?.id || "");
   const selected = data.projects.find((p) => p.id === selectedId) || data.projects[0] || {};
   const obrasList = useObrasList();
+  const [showCreateObra, setShowCreateObra] = useState(false);
+  const [savingObra, setSavingObra] = useState(false);
+  const [obraCreateError, setObraCreateError] = useState("");
+  async function createAndLinkObra() {
+    const name = String(form.name || "").trim();
+    if (!name) { setObraCreateError("Primero captura el nombre de la obra."); return; }
+    const totalUnits = Number(form.totalUnits || 0);
+    if (!totalUnits) { setObraCreateError("Captura las unidades totales antes de crear la obra en Calidad: sin unidades no se generan casas ni checklist."); return; }
+    setObraCreateError("");
+    setSavingObra(true);
+    try {
+      const existingIds = new Set(obrasList.obras.map((o) => o.id));
+      const id = await createFirestoreObra({ name, totalUnits, location: form.location, retentionPct: form.retentionPct, advancePct: form.advancePct, existingIds });
+      setForm((prev) => ({ ...prev, firestoreObraId: id }));
+      obrasList.refresh();
+      setShowCreateObra(false);
+    } catch (err) {
+      setObraCreateError(`${err?.message || "No se pudo crear la obra en Calidad."} Antes de reintentar, revisa la lista: si la conexión tardó pero el registro sí se guardó, ya debería aparecer aquí.`);
+      obrasList.refresh();
+    } finally {
+      setSavingObra(false);
+    }
+  }
   function blankProject() {
     setForm({ name: "", type: "", status: "Planeación", location: "", owner: "TRITON", budget: "", incomeTarget: "", totalUnits: "", unitsText: "", modelsText: "", estimateCatalogId: arennaThEstimateCatalogMeta.id, retentionPct: 10, advancePct: 0, notes: "", firestoreObraId: "" });
     setShowForm("operationProject");
@@ -1155,6 +1178,23 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showF
           {obrasList.loading ? <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>Cargando obras de Calidad...</div> : null}
           {!obrasList.loading && !obrasList.obras.length ? <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>No hay obras dadas de alta en Calidad todavía.</div> : null}
           {obrasList.error ? <div style={{ color: c.red, fontSize: 12, marginTop: 4 }}>{obrasList.error}</div> : null}
+          {!showCreateObra && !form.firestoreObraId ? (
+            <button type="button" onClick={() => setShowCreateObra(true)} style={{ marginTop: 6, background: "none", border: "none", padding: 0, color: c.primaryDark, fontWeight: 850, fontSize: 12, cursor: "pointer" }}>
+              + Es un proyecto nuevo: crear su obra en Calidad
+            </button>
+          ) : null}
+          {showCreateObra ? (
+            <div style={{ marginTop: 8, padding: 12, borderRadius: 14, background: c.soft, border: `1px solid ${c.border}` }}>
+              <div style={{ fontSize: 12, color: c.muted, marginBottom: 8, lineHeight: 1.4 }}>
+                Crea la obra en Calidad usando el nombre y las unidades totales capturados arriba ({form.name || "sin nombre"} · {Number(form.totalUnits || 0)} unidades). En cuanto alguien de supervisión la abra por primera vez, el sistema genera automáticamente cada casa y su checklist de 14 partidas.
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Button style={{ padding: "7px 12px", fontSize: 12 }} onClick={createAndLinkObra} disabled={savingObra}>{savingObra ? "Creando..." : "Crear y vincular"}</Button>
+                <Button variant="secondary" style={{ padding: "7px 12px", fontSize: 12 }} onClick={() => { setShowCreateObra(false); setObraCreateError(""); }}>Cancelar</Button>
+              </div>
+              {obraCreateError ? <div style={{ color: c.red, fontSize: 12, marginTop: 6 }}>{obraCreateError}</div> : null}
+            </div>
+          ) : null}
         </Field>
       </div>
       <Field label="Unidades / lotes" help="Lista separada por comas. Cada unidad podrá seleccionarse después al capturar estimaciones y checklist de calidad."><input style={inputStyle()} placeholder="TH01, TH02, Casa 1, Depto 101" value={form.unitsText || ""} onChange={(e) => setForm({ ...form, unitsText: e.target.value })} /></Field>
@@ -1757,6 +1797,38 @@ function qualityReasonText(qualityEval) {
   if (qualityEval.criticosObs > 0) parts.push(`${qualityEval.criticosObs} punto(s) crítico(s) con observación`);
   if (!parts.length) parts.push(`Score de calidad: ${Math.round(qualityEval.score)}%`);
   return parts.join(" · ");
+}
+
+function slugifyObraId(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "obra";
+}
+
+async function createFirestoreObra({ name, totalUnits, location, retentionPct, advancePct, existingIds }) {
+  const base = slugifyObraId(name);
+  let id = base;
+  let n = 2;
+  while (existingIds.has(id)) { id = `${base}-${n}`; n += 1; }
+  await withTimeout(setDoc(doc(firestore, "obras", id), {
+    id,
+    name: String(name || "").trim(),
+    code: id,
+    location: location || "",
+    totalUnits: Number(totalUnits || 0),
+    status: "activa",
+    estimationConfig: {
+      anticipoPorcentaje: Number(advancePct || 0),
+      retencionPorcentaje: Number(retentionPct || 0),
+      multaDiaria: 0,
+    },
+    createdAt: serverTimestamp(),
+    createdBy: firebaseAuth.currentUser?.email || "sistema",
+  }, { merge: true }), 15000, "Tiempo de espera agotado creando la obra en Calidad. Revisa tu conexión e intenta de nuevo.");
+  return id;
 }
 
 function normalizeQualityText(text) {
