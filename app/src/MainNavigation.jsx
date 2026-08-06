@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 const desktopBreakpoint = 901;
-const brand = { gold: "#F5B21A", goldDark: "#8A6400", text: "#242322", muted: "#6B6862", border: "rgba(88,84,76,0.16)", soft: "rgba(245,178,26,0.14)" };
 
 const groups = [
   { id: "reportes", label: "Reportes", helper: "Obra, finanzas, ingresos, egresos e IA", icon: "▤", children: [
@@ -94,6 +93,7 @@ function closeAllModuleScreens() {
   clickButtonByText("Volver a Calidad");
   clickButtonByText("Volver");
 }
+
 export default function MainNavigation() {
   const isDesktop = useIsDesktop();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -151,39 +151,186 @@ export default function MainNavigation() {
     if (group.children?.length) { setPinned(pinned === group.id ? null : group.id); setHovered(group.id); return; }
     goTo(group.module || group.id, group.os);
   }
+
   function renderChildButton(child, nested = false) {
     if (child.children?.length) {
-      return <div key={child.id} style={{ margin: nested ? "2px 0" : "6px 0" }}>
-        <div style={{ padding: "9px 12px 5px", color: brand.goldDark, fontWeight: 950, fontSize: 12, textTransform: "uppercase", letterSpacing: .6 }}>{child.label}</div>
-        <div style={{ display: "grid", gap: 3, paddingLeft: 8 }}>{child.children.map((item) => renderChildButton(item, true))}</div>
-      </div>;
+      return (
+        <div key={child.id} className={nested ? "my-0.5" : "my-1.5"}>
+          <div className="px-3 pt-2.5 pb-1.5 text-xs font-black uppercase tracking-wide text-brand-gold-dark">
+            {child.label}
+          </div>
+          <div className="grid gap-0.5 pl-2">{child.children.map((item) => renderChildButton(item, true))}</div>
+        </div>
+      );
     }
     const active = activeModule === child.id;
-    return <button key={child.id} type="button" onClick={() => goTo(child.id, child.os)} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, textAlign: "left", border: active ? `1px solid ${brand.gold}` : "1px solid transparent", borderRadius: 16, padding: nested ? "9px 12px" : "11px 12px", background: active ? brand.soft : "transparent", cursor: "pointer", alignItems: "center" }}><span><span style={{ display: "block", fontWeight: 950, color: active ? brand.goldDark : brand.text, fontSize: nested ? 13 : 14 }}>{child.label}</span><span style={{ display: "block", color: brand.muted, fontSize: 12, marginTop: 2 }}>{child.helper}</span></span><span style={{ color: "#8e8e93", fontWeight: 950 }}>›</span></button>;
+    return (
+      <button
+        key={child.id}
+        type="button"
+        onClick={() => goTo(child.id, child.os)}
+        className={`grid grid-cols-[1fr_auto] items-center gap-2 rounded-2xl text-left transition-colors ${
+          nested ? "px-3 py-2.5" : "px-3 py-2.5"
+        } ${active ? "border border-brand-gold bg-brand-soft" : "border border-transparent hover:bg-black/5"}`}
+      >
+        <span>
+          <span className={`block font-black ${nested ? "text-[13px]" : "text-sm"} ${active ? "text-brand-gold-dark" : "text-ink"}`}>
+            {child.label}
+          </span>
+          <span className="mt-0.5 block text-xs text-ink-muted">{child.helper}</span>
+        </span>
+        <span className="font-black text-ink-muted/70">›</span>
+      </button>
+    );
   }
 
-  const desktopNav = <>
-    <div style={{ display: "grid", placeItems: "center", marginBottom: 16 }}><img src="/triton-logo.png" alt="Triton" style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 16, background: "#111", padding: 5 }} /></div>
-    <div style={{ display: "grid", gap: 10 }}>{groups.map((group) => {
-      const active = isGroupActive(group, activeModule); const open = (pinned || hovered) === group.id;
-      return <button key={group.id} type="button" onMouseEnter={() => setHovered(group.id)} onClick={() => handleGroup(group)} title={group.label} style={{ width: 56, height: 56, border: active || open ? `2px solid ${brand.gold}` : `1px solid ${brand.border}`, borderRadius: 20, background: active || open ? brand.soft : "rgba(255,255,255,0.92)", color: active || open ? brand.goldDark : brand.text, cursor: "pointer", boxShadow: active ? "0 8px 20px rgba(245,178,26,0.24)" : "0 8px 18px rgba(0,0,0,0.06)", display: "grid", placeItems: "center", fontWeight: 950, fontSize: 19 }}>{group.icon}</button>;
-    })}</div>
-  </>;
+  const desktopNav = (
+    <>
+      <div className="mb-4 grid place-items-center">
+        <img src="/triton-logo.png" alt="Triton" className="h-12 w-12 rounded-2xl bg-black object-contain p-[5px]" />
+      </div>
+      <div className="grid gap-2.5">
+        {groups.map((group) => {
+          const active = isGroupActive(group, activeModule);
+          const open = (pinned || hovered) === group.id;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onMouseEnter={() => setHovered(group.id)}
+              onClick={() => handleGroup(group)}
+              title={group.label}
+              className={`grid h-14 w-14 place-items-center rounded-[20px] text-[19px] font-black transition-all ${
+                active || open
+                  ? "border-2 border-brand-gold bg-brand-soft text-brand-gold-dark shadow-[0_8px_20px_rgba(245,178,26,0.24)]"
+                  : "border border-line bg-white/90 text-ink shadow-soft"
+              }`}
+            >
+              {group.icon}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
 
-  const mobileNav = <>
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 18 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><img src="/triton-logo.png" alt="Triton" style={{ width: 38, height: 38, objectFit: "contain", borderRadius: 12, background: "#111" }} /><div><div style={{ fontSize: 20, fontWeight: 950 }}>TRITON OS</div><div style={{ color: brand.muted, fontSize: 12 }}>Operación integral</div></div></div><button type="button" onClick={() => setMobileOpen(false)} style={{ border: `1px solid ${brand.border}`, borderRadius: 999, width: 36, height: 36, background: "#fff", fontWeight: 950 }}>×</button></div>
-    <div style={{ display: "grid", gap: 9 }}>{groups.map((group) => {
-      const active = isGroupActive(group, activeModule); const opened = !!mobileGroups[group.id] || active;
-      return <div key={group.id}><button type="button" onClick={() => group.children?.length ? setMobileGroups((v) => ({ ...v, [group.id]: !v[group.id] })) : goTo(group.module || group.id, group.os)} style={{ width: "100%", border: active ? `2px solid ${brand.gold}` : `1px solid ${brand.border}`, borderRadius: 18, padding: 13, background: active ? brand.soft : "rgba(255,255,255,0.86)", color: active ? brand.goldDark : brand.text, cursor: "pointer", display: "grid", gridTemplateColumns: "34px 1fr 18px", gap: 10, alignItems: "center", textAlign: "left" }}><span style={{ width: 34, height: 34, borderRadius: 12, display: "inline-flex", alignItems: "center", justifyContent: "center", background: active ? brand.gold : "#f2f2f7", color: active ? "#fff" : brand.text, fontWeight: 950 }}>{group.icon}</span><span><span style={{ display: "block", fontWeight: 950, fontSize: 14 }}>{group.label}</span><span style={{ display: "block", color: brand.muted, fontSize: 12, marginTop: 3 }}>{group.helper}</span></span>{group.children?.length ? <span style={{ color: brand.muted, fontWeight: 950 }}>{opened ? "⌃" : "⌄"}</span> : null}</button>
-        {group.children?.length && opened ? <div style={{ margin: "6px 0 2px 46px", display: "grid", gap: 5 }}>{flattenChildren(group.children).filter((child) => !child.children).map((child) => <button key={child.id} type="button" onClick={() => goTo(child.id, child.os)} style={{ textAlign: "left", border: activeModule === child.id ? `1px solid ${brand.gold}` : `1px solid ${brand.border}`, borderRadius: 14, padding: "9px 11px", background: activeModule === child.id ? brand.soft : "rgba(255,255,255,0.62)", color: activeModule === child.id ? brand.goldDark : brand.text, cursor: "pointer", fontWeight: activeModule === child.id ? 950 : 750, fontSize: 13 }}>{child.label}</button>)}</div> : null}</div>;
-    })}</div>
-  </>;
+  const mobileNav = (
+    <>
+      <div className="mb-[18px] flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <img src="/triton-logo.png" alt="Triton" className="h-[38px] w-[38px] rounded-xl bg-black object-contain" />
+          <div>
+            <div className="text-xl font-black text-ink">TRITON OS</div>
+            <div className="text-xs text-ink-muted">Operación integral</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          className="h-9 w-9 rounded-full border border-line bg-white font-black text-ink"
+        >
+          ×
+        </button>
+      </div>
+      <div className="grid gap-2">
+        {groups.map((group) => {
+          const active = isGroupActive(group, activeModule);
+          const opened = !!mobileGroups[group.id] || active;
+          return (
+            <div key={group.id}>
+              <button
+                type="button"
+                onClick={() => (group.children?.length ? setMobileGroups((v) => ({ ...v, [group.id]: !v[group.id] })) : goTo(group.module || group.id, group.os))}
+                className={`grid w-full grid-cols-[34px_1fr_18px] items-center gap-2.5 rounded-2xl p-3.5 text-left transition-colors ${
+                  active ? "border-2 border-brand-gold bg-brand-soft" : "border border-line bg-white/85"
+                }`}
+              >
+                <span
+                  className={`grid h-[34px] w-[34px] place-items-center rounded-xl font-black ${
+                    active ? "bg-brand-gold text-white" : "bg-black/5 text-ink"
+                  }`}
+                >
+                  {group.icon}
+                </span>
+                <span>
+                  <span className={`block text-sm font-black ${active ? "text-brand-gold-dark" : "text-ink"}`}>{group.label}</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">{group.helper}</span>
+                </span>
+                {group.children?.length ? <span className="font-black text-ink-muted">{opened ? "⌃" : "⌄"}</span> : null}
+              </button>
+              {group.children?.length && opened ? (
+                <div className="mb-0.5 ml-11 mt-1.5 grid gap-1.5">
+                  {flattenChildren(group.children).filter((child) => !child.children).map((child) => (
+                    <button
+                      key={child.id}
+                      type="button"
+                      onClick={() => goTo(child.id, child.os)}
+                      className={`rounded-xl px-2.5 py-2 text-left text-[13px] transition-colors ${
+                        activeModule === child.id
+                          ? "border border-brand-gold bg-brand-soft font-black text-brand-gold-dark"
+                          : "border border-line bg-white/60 font-bold text-ink"
+                      }`}
+                    >
+                      {child.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
 
-  return <>
-    <style>{styleTag}</style>
-    <aside className="triton-shell-sidebar" onMouseLeave={() => { if (!pinned) setHovered(null); }} style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: sidebarWidth, zIndex: 2147483646, padding: "18px 14px", background: "rgba(255,255,255,0.94)", borderRight: "1px solid rgba(60,60,67,0.12)", boxShadow: "18px 0 50px rgba(0,0,0,0.08)", WebkitBackdropFilter: "blur(22px) saturate(180%)", backdropFilter: "blur(22px) saturate(180%)", overflow: "visible" }}>{desktopNav}</aside>
-    {showFlyout ? <div onMouseEnter={() => setHovered(flyoutGroup.id)} onMouseLeave={() => { if (!pinned) setHovered(null); }} style={{ position: "fixed", left: sidebarWidth + 12, top: Math.max(20, 70 + groups.findIndex((g) => g.id === flyoutGroup.id) * 66), zIndex: 2147483647, width: 360, maxWidth: "calc(100vw - 120px)", maxHeight: "calc(100vh - 40px)", overflow: "auto", background: "rgba(255,255,255,0.98)", border: "1px solid rgba(60,60,67,0.16)", borderRadius: 24, boxShadow: "0 22px 70px rgba(0,0,0,0.18)", padding: 12, WebkitBackdropFilter: "blur(18px) saturate(180%)", backdropFilter: "blur(18px) saturate(180%)" }}><div style={{ padding: "8px 10px 12px", borderBottom: "1px solid rgba(60,60,67,0.10)", marginBottom: 8 }}><div style={{ fontWeight: 950, fontSize: 16 }}>{flyoutGroup.label}</div><div style={{ color: brand.muted, fontSize: 12, marginTop: 3 }}>{flyoutGroup.helper}</div></div><div style={{ display: "grid", gap: 4 }}>{flyoutGroup.children.map((child) => renderChildButton(child))}</div></div> : null}
-    <button className="triton-shell-menu-button" type="button" onClick={() => setMobileOpen(true)} aria-label="Abrir navegación" style={{ display: "none", position: "fixed", left: 16, top: "calc(16px + env(safe-area-inset-top, 0px))", zIndex: 2147483646, width: 48, height: 48, border: `1px solid ${brand.border}`, borderRadius: 16, background: "rgba(255,255,255,0.94)", boxShadow: "0 10px 28px rgba(0,0,0,0.12)", fontSize: 22, fontWeight: 950, alignItems: "center", justifyContent: "center" }}>☰</button>
-    {mobileOpen ? <div onClick={() => setMobileOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2147483647, background: "rgba(29,29,31,0.32)", WebkitBackdropFilter: "blur(10px)", backdropFilter: "blur(10px)" }}><div onClick={(event) => event.stopPropagation()} style={{ width: "min(88vw, 380px)", height: "100%", background: "rgba(255,255,255,0.98)", borderRight: "1px solid rgba(60,60,67,0.12)", boxShadow: "20px 0 60px rgba(0,0,0,0.18)", padding: 16, overflow: "auto" }}>{mobileNav}</div></div> : null}
-  </>;
+  return (
+    <>
+      <style>{styleTag}</style>
+      <aside
+        className="triton-shell-sidebar fixed bottom-0 left-0 top-0 overflow-visible bg-white/95 px-3.5 py-[18px] shadow-elevated backdrop-blur-2xl"
+        style={{ width: sidebarWidth, zIndex: 2147483646, borderRight: "1px solid rgba(60,60,67,0.12)" }}
+        onMouseLeave={() => { if (!pinned) setHovered(null); }}
+      >
+        {desktopNav}
+      </aside>
+      {showFlyout ? (
+        <div
+          onMouseEnter={() => setHovered(flyoutGroup.id)}
+          onMouseLeave={() => { if (!pinned) setHovered(null); }}
+          className="fixed max-h-[calc(100vh-40px)] w-[360px] max-w-[calc(100vw-120px)] overflow-auto rounded-[24px] border border-line bg-white/98 p-3 shadow-elevated backdrop-blur-xl"
+          style={{ left: sidebarWidth + 12, top: Math.max(20, 70 + groups.findIndex((g) => g.id === flyoutGroup.id) * 66), zIndex: 2147483647 }}
+        >
+          <div className="mb-2 border-b border-line px-2.5 pb-3 pt-2">
+            <div className="text-base font-black text-ink">{flyoutGroup.label}</div>
+            <div className="mt-0.5 text-xs text-ink-muted">{flyoutGroup.helper}</div>
+          </div>
+          <div className="grid gap-1">{flyoutGroup.children.map((child) => renderChildButton(child))}</div>
+        </div>
+      ) : null}
+      <button
+        className="triton-shell-menu-button fixed hidden h-12 w-12 items-center justify-center rounded-2xl border border-line bg-white/95 text-2xl font-black shadow-soft"
+        style={{ left: 16, top: "calc(16px + env(safe-area-inset-top, 0px))", zIndex: 2147483646 }}
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Abrir navegación"
+      >
+        ☰
+      </button>
+      {mobileOpen ? (
+        <div
+          className="fixed inset-0 bg-black/35 backdrop-blur-md"
+          style={{ zIndex: 2147483647 }}
+          onClick={() => setMobileOpen(false)}
+        >
+          <div
+            className="h-full w-[min(88vw,380px)] overflow-auto bg-white/98 p-4 shadow-elevated"
+            style={{ borderRight: "1px solid rgba(60,60,67,0.12)" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {mobileNav}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 }

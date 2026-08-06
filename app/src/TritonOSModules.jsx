@@ -7,6 +7,7 @@ import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { importedInmuebles, importedPropertyOwners, importedDepositAccounts, importedInmueblesVersion } from "./importedInmuebles";
 import { arennaThEstimateCatalogMeta, arennaThEstimateSections, arennaThEstimateConcepts, checklistForEstimateSection } from "./estimateCatalogArennaTH";
+import { Button as UiButton, Card as UiCard, Badge as UiBadge } from "./ui/index.js";
 
 const money = (value) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(value || 0));
 const numberFmt = (value) => new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -500,8 +501,8 @@ const c = {
   primary: "#F5B21A",
   primaryDark: "#8A6400",
   primarySoft: "rgba(245,178,26,0.14)",
-  green: "#F5B21A",
-  greenSoft: "rgba(245,178,26,0.14)",
+  green: "#1FA35C",
+  greenSoft: "rgba(31,163,92,0.12)",
   orange: "#ff9500",
   orangeSoft: "rgba(255,149,0,0.14)",
   red: "#ff3b30",
@@ -791,35 +792,26 @@ function readData() {
   }
 }
 
+const pillToneMap = { ok: "success", warn: "warning", danger: "danger", primary: "brand", purple: "info", idle: "neutral" };
 function Pill({ children, tone = "idle" }) {
-  const map = {
-    ok: { bg: c.greenSoft, color: "#1f7a35" },
-    warn: { bg: c.orangeSoft, color: "#9a5a00" },
-    danger: { bg: c.redSoft, color: "#b42318" },
-    primary: { bg: c.primarySoft, color: "#8A6400" },
-    purple: { bg: c.purpleSoft, color: c.purple },
-    idle: { bg: c.soft, color: c.text },
-  };
-  const style = map[tone] || map.idle;
-  return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 999, padding: "5px 9px", fontSize: 12, fontWeight: 900, background: style.bg, color: style.color, whiteSpace: "nowrap" }}>{children}</span>;
+  return <UiBadge tone={pillToneMap[tone] || "neutral"}>{children}</UiBadge>;
 }
 
 function Card({ children, style, className }) {
-  return <div className={className} style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 24, padding: 18, boxShadow: "0 10px 30px rgba(0,0,0,0.04)", ...style }}>{children}</div>;
+  return <UiCard style={style} className={className}>{children}</UiCard>;
 }
 
+const buttonVariantMap = { primary: "primary", secondary: "secondary", danger: "danger", success: "success" };
 function Button({ children, onClick, variant = "primary", disabled, style, type = "button" }) {
-  const styles = {
-    primary: { background: c.primary, color: "white", border: "none" },
-    secondary: { background: "white", color: c.text, border: `1px solid ${c.border}` },
-    danger: { background: c.red, color: "white", border: "none" },
-    success: { background: c.green, color: "white", border: "none" },
-  };
-  return <button type={type} disabled={disabled} onClick={onClick} style={{ borderRadius: 14, padding: "11px 14px", fontWeight: 950, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.55 : 1, ...styles[variant], ...style }}>{children}</button>;
+  return (
+    <UiButton type={type} disabled={disabled} onClick={onClick} variant={buttonVariantMap[variant] || "primary"} style={style}>
+      {children}
+    </UiButton>
+  );
 }
 
 function Field({ label, children }) {
-  return <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 900, color: c.muted }}>{label}{children}</label>;
+  return <label className="grid gap-1.5 text-xs font-black text-ink-muted">{label}{children}</label>;
 }
 function inputStyle(extra = {}) { return { width: "100%", border: `1px solid ${c.border}`, borderRadius: 14, padding: "11px 12px", fontSize: 14, color: c.text, background: "white", boxSizing: "border-box", ...extra }; }
 function SectionTitle({ title, helper }) { return <div style={{ marginBottom: 14 }}><h3 style={{ margin: 0, fontSize: 18, color: c.text }}>{title}</h3>{helper ? <p style={{ margin: "4px 0 0", color: c.muted, fontSize: 13, lineHeight: 1.45 }}>{helper}</p> : null}</div>; }
@@ -849,7 +841,7 @@ function MiniTable({ columns, rows, empty = "Sin registros todavía." }) {
 }
 
 async function createSystemBackup(data, reason = "Respaldo manual") {
-  const id = `backup_${new Date().toISOString().slice(0,16).replace(/[-:T]/g,"")}`;
+  const id = `backup_${new Date().toISOString().slice(0,16).replace(/[^0-9]/g,"")}`;
   const payload = {
     id,
     reason,

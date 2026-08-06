@@ -1,9 +1,0 @@
-V44 - Trámites con catálogo, historial y expedientes
-
-- Se elimina el botón técnico de subir inmuebles a Firestore en Arrendamientos > Inmuebles.
-- Trámites ya no se dan de alta manualmente desde el módulo operativo.
-- Los trámites se precargan por proyecto desde Catálogos y reglas > Trámites.
-- Cada cambio de estatus se guarda desde un expediente del trámite con comentario obligatorio, siguiente acción, documentos/anexos e historial.
-- La tabla de trámites ya no permite cambiar el estatus directamente.
-- Línea del tiempo y Expediente documental permiten abrir cada trámite para ver historial completo y exportar/imprimir PDF.
-- Se agregan plantillas base de trámites: uso de suelo, alineamiento, licencia, CFE, agua/drenaje, protección civil, régimen en condominio y terminación de obra.
