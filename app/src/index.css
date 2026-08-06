@@ -264,6 +264,17 @@ div[style*='display: flex'][style*='margin-bottom: 16px'] {
   background-clip: content-box;
 }
 
+/* Nested CSS grids (module wrapper > metric cards, etc.) default to min-width:auto on
+   grid items, which stops a grid item shrinking below its own content's min size. With
+   several of these grids nested inside each other, that bubbles up and stops the whole
+   chain from reflowing to a single column on narrow screens — instead it gets clipped
+   by the module shell's overflow:hidden. Forcing min-width:0 on every child of an
+   inline-styled grid container lets the real breakpoint logic (minmax(...,1fr)) take
+   over again. No effect when there is enough width to spare, so desktop is unchanged. */
+[style*="display: grid"] > * {
+  min-width: 0;
+}
+
 @media (max-width: 768px) {
   #root > div {
     padding: 16px !important;

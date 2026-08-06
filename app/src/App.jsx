@@ -146,25 +146,27 @@ function qualitySpecsForPartida(partidaId, specs = []) {
 }
 
 const c = {
-  bg: "#f5f7fb",
-  panelSoft: "#f8fafc",
+  bg: "#F6F3EE",
+  panelSoft: "#F3EEE4",
   surface: "#ffffff",
-  border: "#e7ebf3",
-  text: "#101828",
-  muted: "#667085",
-  dark: "#0f172a",
-  primary: "#111827",
-  primarySoft: "#eef2ff",
-  primaryText: "#3730a3",
+  border: "rgba(60,60,67,0.14)",
+  text: "#242322",
+  muted: "#6B6862",
+  dark: "#1c1b1a",
+  primary: "#F5B21A",
+  primaryContrast: "#242322",
+  primarySoft: "rgba(245,178,26,0.14)",
+  primaryText: "#8A6400",
   successBg: "#e8f7ed",
   successText: "#157347",
   warnBg: "#fff3cd",
   warnText: "#9a6700",
+  danger: "#ff3b30",
   dangerBg: "#fdecec",
   dangerText: "#b42318",
   idleBg: "#eef2f6",
   idleText: "#475467",
-  shadow: "0 8px 24px rgba(16,24,40,0.06)",
+  shadow: "0 8px 28px rgba(0,0,0,0.055)",
   radius: 22,
 };
 
@@ -303,6 +305,16 @@ function cardStyle(selected = false) {
   };
 }
 
+const roleLabels = {
+  master: "Administrador",
+  finanzas_pagos: "Finanzas",
+  supervisora: "Supervisión",
+  constructora: "Constructora",
+};
+function roleLabel(role) {
+  return roleLabels[role] || (role ? "Usuario" : "Cargando…");
+}
+
 function badgeStyle(status) {
   const base = {
     display: "inline-flex",
@@ -376,7 +388,7 @@ function buttonStyle(kind = "primary", extra = {}) {
   return {
     ...common,
     background: c.primary,
-    color: "#fff",
+    color: c.primaryContrast,
     ...extra,
   };
 }
@@ -389,7 +401,7 @@ function ProgressBar({ value }) {
         width: "100%",
         height: 9,
         borderRadius: 999,
-        background: "#edf1f7",
+        background: "rgba(60,60,67,0.10)",
         overflow: "hidden",
       }}
     >
@@ -397,7 +409,7 @@ function ProgressBar({ value }) {
         style={{
           width: `${safe}%`,
           height: "100%",
-          background: "linear-gradient(90deg, #111827 0%, #374151 100%)",
+          background: "linear-gradient(90deg, #F5B21A 0%, #8A6400 100%)",
           borderRadius: 999,
         }}
       />
@@ -873,22 +885,6 @@ function StatCard({ title, value, children }) {
       <div style={{ fontSize: 22, fontWeight: 800, color: c.text }}>{value}</div>
       {children ? <div style={{ marginTop: 12 }}>{children}</div> : null}
     </div>
-  );
-}
-
-function TabButton({ active, onClick, children }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        ...buttonStyle(active ? "primary" : "secondary", {
-          flex: 1,
-          borderRadius: 16,
-        }),
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -1952,8 +1948,39 @@ const reviewBlockMessage =
                 <span style={{ position: "absolute", top: -8, right: -8, background: c.danger, color: "#fff", borderRadius: 999, padding: "2px 7px", fontSize: 11, fontWeight: 900 }}>{myOpenMentions.length}</span>
               ) : null}
             </button>
-            <span style={badgeStyle(profile?.role || "Pendiente")}>Rol: {profile?.role || "sin rol"}</span>
-            <span style={badgeStyle("Pendiente")}>{authUser.email}</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                padding: "6px 14px 6px 6px",
+                borderRadius: 999,
+                background: c.primarySoft,
+                border: `1px solid ${c.border}`,
+              }}
+              title={authUser.email}
+            >
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  background: c.primary,
+                  color: c.primaryContrast,
+                  display: "grid",
+                  placeItems: "center",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  flexShrink: 0,
+                }}
+              >
+                {(authUser.email || "?")[0].toUpperCase()}
+              </div>
+              <div style={{ lineHeight: 1.25 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: c.text }}>{roleLabel(profile?.role)}</div>
+                <div style={{ fontSize: 11, color: c.muted }}>{authUser.email}</div>
+              </div>
+            </div>
             <button onClick={() => signOut(auth)} style={buttonStyle("secondary")}>
               Salir
             </button>

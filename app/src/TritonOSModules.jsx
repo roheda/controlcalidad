@@ -743,7 +743,7 @@ const moduleMeta = {
   dashboard: { title: "Reportes", subtitle: "Reportes ejecutivos, obra, finanzas, ingresos, egresos e IA", icon: "▤" },
   proyectos: { title: "Proyectos", subtitle: "Base para cruzar obra, pagos, rentas y trámites", icon: "⌂" },
   operacion_os: { title: "Operación", subtitle: "Obra, calidad, estimaciones, equipo de construcción y consulta técnica", icon: "✓" },
-  calidad: { title: "Checklist / Calidad", subtitle: "Liberación técnica de partidas, evidencias, bitácora y control previo a estimaciones", icon: "✓" },
+  calidad: { title: "Resumen de calidad", subtitle: "Avance real de liberación por partida, tomado en vivo del checklist que llena supervisión en campo", icon: "✓" },
   obras: { title: "Configurar obra", subtitle: "Alta y edición de obras, unidades, modelos, alcance y parámetros operativos", icon: "⌂" },
   estimaciones: { title: "Estimaciones", subtitle: "Catálogo de conceptos, checklist de liberación, avance de constructora y solicitudes de pago", icon: "▥" },
   consulta_tecnica: { title: "Consulta técnica", subtitle: "Dudas, criterios, documentos y respuestas de supervisión", icon: "?" },
@@ -1040,21 +1040,6 @@ function Dashboard({ totals, data, projectMap, setActive }) {
 }
 
 
-function openLegacyOperationModule(moduleId) {
-  window.dispatchEvent(new Event("triton-close-os-module"));
-  window.setTimeout(() => {
-    if (moduleId === "calidad") return;
-    if (moduleId === "estimaciones") { window.dispatchEvent(new Event("triton-open-estimaciones")); return; }
-    if (moduleId === "obras") { window.dispatchEvent(new Event("triton-open-obras-config")); return; }
-    if (moduleId === "consulta_tecnica") {
-      window.dispatchEvent(new Event("triton-open-feedback-module"));
-      const buttons = Array.from(document.querySelectorAll("button"));
-      const target = buttons.find((button) => button.textContent?.trim().includes("Consulta técnica"));
-      if (target) target.click();
-    }
-  }, 90);
-}
-
 function OperationHub({ data, projectMap, categoryMap, setActive }) {
   const qualityRelated = (data.payables || []).filter((p) => String(p.concept || "").toLowerCase().includes("estimación") || p.categoryId === "construccion");
   const openPayables = qualityRelated.filter((p) => !["Pagado", "Conciliado", "Cancelado", "Rechazado"].includes(p.status));
@@ -1062,7 +1047,7 @@ function OperationHub({ data, projectMap, categoryMap, setActive }) {
   const openPermits = (data.permits || []).filter((t) => !["Aprobado", "Cerrado", "Finalizado"].includes(t.status));
   const team = data.constructionTeam || [];
   const actionCards = [
-    { label: "Checklist / Calidad", helper: "Liberaciones, evidencias, bitácora de partida y cumplimiento técnico.", action: () => setActive("calidad") },
+    { label: "Resumen de calidad", helper: "Avance real de liberación por partida, en vivo. El checklist se llena desde el módulo Checklist / Calidad del menú.", action: () => setActive("calidad") },
     { label: "Configurar obra", helper: "Alta/edición simple de obras, unidades, modelos, alcance y parámetros.", action: () => setActive("obras") },
     { label: "Estimaciones", helper: "Catálogo de conceptos, avance de constructora, checklist y solicitud de pago.", action: () => setActive("estimaciones") },
     { label: "Equipo construcción", helper: "Alta/baja de constructoras, responsables por obra y accesos operativos.", action: () => setActive("equipo_obra") },
@@ -1206,7 +1191,7 @@ function OperationQuality({ data, projectMap, setActive }) {
     ? Math.round(partidaRows.filter((r) => r.withPartida > 0).reduce((sum, r) => sum + r.avgScore, 0) / partidaRows.filter((r) => r.withPartida > 0).length)
     : 0;
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Checklist / Calidad por partida" helper="Datos en vivo desde el módulo de Calidad: liberación real por casa, con evidencias y firma de supervisión. Este estatus es el que bloquea o libera la estimación." />
+    <Card><SectionTitle title="Resumen de calidad por partida" helper="Datos en vivo desde el módulo Checklist / Calidad (menú Operación), donde supervisión llena el checklist con evidencias en campo. Este estatus es el que bloquea o libera la estimación." />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
         <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => setProjectId(e.target.value)}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
       </div>
@@ -1303,7 +1288,7 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
     });
   }
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="La constructora captura avance por casa. El sistema bloquea la captura si el checklist de calidad de esa partida en esa casa no está liberado por supervisión." /><Pill tone="primary">{arennaThEstimateCatalogMeta.supplier}</Pill></div>
+    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="La constructora captura avance por casa. El sistema bloquea la captura si el checklist de calidad de esa partida en esa casa no está liberado por supervisión." /><Pill tone="primary"><span style={{ display: "inline-block", maxWidth: "60vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>{arennaThEstimateCatalogMeta.supplier}</span></Pill></div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
         <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => { setProjectId(e.target.value); setHouseId(""); }}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
         <Field label="Casa / unidad" help="Se lee en vivo desde el módulo de Calidad. Cada casa tiene su propio checklist y liberación."><select style={inputStyle()} value={selectedHouseId} onChange={(e) => setHouseId(e.target.value)} disabled={!houses.length}>{houses.length ? houses.map((h) => <option key={h.id} value={h.id}>{h.nombre || h.name || h.id}</option>) : <option value="">Sin casas disponibles</option>}</select></Field>
