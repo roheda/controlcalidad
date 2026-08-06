@@ -6,3 +6,5 @@ export { default as Table } from "./Table.jsx";
 export { default as Modal } from "./Modal.jsx";
 export { default as EmptyState } from "./EmptyState.jsx";
 export { default as PageHeader } from "./PageHeader.jsx";
+export { PromptProvider } from "./Prompt.jsx";
+export { usePrompt } from "./PromptContext.js";
