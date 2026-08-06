@@ -8,3 +8,4 @@ export { default as EmptyState } from "./EmptyState.jsx";
 export { default as PageHeader } from "./PageHeader.jsx";
 export { PromptProvider } from "./Prompt.jsx";
 export { usePrompt } from "./PromptContext.js";
+export { default as Tooltip, HelpIcon } from "./Tooltip.jsx";
