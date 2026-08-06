@@ -567,7 +567,9 @@ function withAppDefaults(data = {}) {
   return {
     ...merged,
     operationSettings: { defaultEstimateCatalogId: arennaThEstimateCatalogMeta.id, qualityGateForPayment: true, blankNewProjectFlow: true, backupsEveryHours: 6, firestoreConfigured: true, ...(merged.operationSettings || {}) },
-    estimateCatalogs: merged.estimateCatalogs?.length ? merged.estimateCatalogs : [{ ...arennaThEstimateCatalogMeta, sectionsCount: arennaThEstimateSections.length, conceptsCount: arennaThEstimateConcepts.length }],
+    estimateCatalogs: (merged.estimateCatalogs?.length && merged.estimateCatalogs.every((cat) => Array.isArray(cat.sections)))
+      ? merged.estimateCatalogs
+      : [{ ...arennaThEstimateCatalogMeta, sections: arennaThEstimateSections, concepts: arennaThEstimateConcepts, builtin: true }],
     estimateProgress: merged.estimateProgress || {},
     technicalQueries: merged.technicalQueries || [],
   };
@@ -587,7 +589,7 @@ const initialData = {
     firestoreConfigured: true,
   },
   estimateCatalogs: [
-    { ...arennaThEstimateCatalogMeta, sectionsCount: arennaThEstimateSections.length, conceptsCount: arennaThEstimateConcepts.length },
+    { ...arennaThEstimateCatalogMeta, sections: arennaThEstimateSections, concepts: arennaThEstimateConcepts, builtin: true },
   ],
   estimateProgress: {},
   technicalQueries: [
@@ -988,7 +990,7 @@ export default function TritonOSModules() {
         {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "operacion_os" && <OperationHub data={data} projectMap={projectMap} categoryMap={categoryMap} setActive={setActive} />}
         {active === "calidad" && <OperationQuality data={data} projectMap={projectMap} setActive={setActive} updateRecord={updateRecord} />}
-        {active === "obras" && <OperationWorksConfig data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
+        {active === "obras" && <OperationWorksConfig data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} setData={setData} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "estimaciones" && <OperationEstimations data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} setData={setData} />}
         {active === "consulta_tecnica" && <OperationTechnical data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "finanzas" && <Finance data={data} projectMap={projectMap} categoryMap={categoryMap} projectFilter={projectFilter} setActive={setActive} />}
@@ -1073,13 +1075,43 @@ function OperationHub({ data, projectMap, categoryMap, setActive }) {
 }
 
 
-function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
+function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setData, showForm, setShowForm, form, setForm }) {
   const [selectedId, setSelectedId] = useState(data.projects[0]?.id || "");
   const selected = data.projects.find((p) => p.id === selectedId) || data.projects[0] || {};
   const obrasList = useObrasList();
   const [showCreateObra, setShowCreateObra] = useState(false);
   const [savingObra, setSavingObra] = useState(false);
   const [obraCreateError, setObraCreateError] = useState("");
+  const [showCreateCatalog, setShowCreateCatalog] = useState(false);
+  const [catalogForm, setCatalogForm] = useState({ name: "", model: "", supplier: "" });
+  const [catalogError, setCatalogError] = useState("");
+  const [parsingCatalog, setParsingCatalog] = useState(false);
+  async function handleCatalogFile(file) {
+    if (!file) return;
+    const name = String(catalogForm.name || "").trim();
+    if (!name) { setCatalogError("Primero captura el nombre del catálogo."); return; }
+    setCatalogError("");
+    setParsingCatalog(true);
+    try {
+      const text = await file.text();
+      const { sections, concepts } = rowsToEstimateCatalog(parseGenericCsv(text));
+      if (!concepts.length) { setCatalogError("No se encontraron conceptos válidos en el archivo. Revisa que tenga columnas PARTIDA, clave, descripcion, Unidades, unidad y P.U."); return; }
+      const existingIds = new Set(data.estimateCatalogs.map((cat) => cat.id));
+      const base = slugifyObraId(name);
+      let id = base; let n = 2;
+      while (existingIds.has(id)) { id = `${base}-${n}`; n += 1; }
+      const total = roundMoney(concepts.reduce((sum, cpt) => sum + Number(cpt.total || 0), 0));
+      const newCatalog = { id, name, model: catalogForm.model || "", supplier: catalogForm.supplier || "", sections, concepts, total, createdAt: new Date().toISOString(), createdBy: firebaseAuth.currentUser?.email || "sistema" };
+      setData((prev) => ({ ...prev, estimateCatalogs: [...(prev.estimateCatalogs || []), newCatalog] }));
+      setForm((prev) => ({ ...prev, estimateCatalogId: id }));
+      setShowCreateCatalog(false);
+      setCatalogForm({ name: "", model: "", supplier: "" });
+    } catch (err) {
+      setCatalogError(err?.message || "No se pudo leer el archivo. Verifica que sea un CSV válido.");
+    } finally {
+      setParsingCatalog(false);
+    }
+  }
   async function createAndLinkObra() {
     const name = String(form.name || "").trim();
     if (!name) { setObraCreateError("Primero captura el nombre de la obra."); return; }
@@ -1122,7 +1154,7 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showF
       totalUnits: Number(form.totalUnits || 0),
       units: String(form.unitsText || "").split(",").map((x) => x.trim()).filter(Boolean),
       models: String(form.modelsText || "").split(",").map((x) => x.trim()).filter(Boolean),
-      estimateCatalogId: form.estimateCatalogId || arennaThEstimateCatalogMeta.id,
+      estimateCatalogId: form.estimateCatalogId ?? arennaThEstimateCatalogMeta.id,
       retentionPct: Number(form.retentionPct ?? 10),
       advancePct: Number(form.advancePct ?? 0),
       notes: form.notes || "",
@@ -1153,7 +1185,7 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showF
           <Info label="Estatus" value={selected.status || "Pendiente"} />
           <Info label="Presupuesto" value={money(selected.budget)} />
           <Info label="Ingresos proyectados" value={money(selected.incomeTarget)} />
-          <Info label="Catálogo estimación" value={selected.estimateCatalogId || arennaThEstimateCatalogMeta.name} />
+          <Info label="Catálogo estimación" value={data.estimateCatalogs.find((cat) => cat.id === selected.estimateCatalogId)?.name || "Sin catálogo"} />
           <Info label="Obra vinculada en Calidad" value={selected.firestoreObraId ? (obrasList.obras.find((o) => o.id === selected.firestoreObraId)?.nombre || obrasList.obras.find((o) => o.id === selected.firestoreObraId)?.name || selected.firestoreObraId) : "Sin vincular"} />
         </div>
         {!selected.firestoreObraId ? <div style={{ marginTop: 10 }}><ValidationList checks={[{ label: "Sin vínculo con obra de Calidad: no se podrá bloquear estimación por checklist real hasta vincularla en Editar obra.", ok: false, fix: "Vincular obra" }]} /></div> : null}
@@ -1193,6 +1225,38 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showF
                 <Button variant="secondary" style={{ padding: "7px 12px", fontSize: 12 }} onClick={() => { setShowCreateObra(false); setObraCreateError(""); }}>Cancelar</Button>
               </div>
               {obraCreateError ? <div style={{ color: c.red, fontSize: 12, marginTop: 6 }}>{obraCreateError}</div> : null}
+            </div>
+          ) : null}
+        </Field>
+        <Field label="Catálogo de conceptos (Estimaciones)" help="El catálogo trae las partidas, conceptos, unidades y precios sobre los que la constructora captura avance en Estimaciones. Cada obra puede tener el suyo.">
+          <select style={inputStyle()} value={form.estimateCatalogId || ""} onChange={(e) => setForm({ ...form, estimateCatalogId: e.target.value })}>
+            <option value="">Sin catálogo</option>
+            {data.estimateCatalogs.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}{cat.builtin ? " (demo)" : ""}</option>)}
+          </select>
+          {!showCreateCatalog ? (
+            <button type="button" onClick={() => setShowCreateCatalog(true)} style={{ marginTop: 6, background: "none", border: "none", padding: 0, color: c.primaryDark, fontWeight: 850, fontSize: 12, cursor: "pointer" }}>
+              + Es un catálogo nuevo: importar desde CSV
+            </button>
+          ) : null}
+          {showCreateCatalog ? (
+            <div style={{ marginTop: 8, padding: 12, borderRadius: 14, background: c.soft, border: `1px solid ${c.border}` }}>
+              <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+                <input style={inputStyle({ padding: "8px 10px", fontSize: 12 })} placeholder="Nombre del catálogo (ej. Modelo Haus)" value={catalogForm.name} onChange={(e) => setCatalogForm({ ...catalogForm, name: e.target.value })} />
+                <input style={inputStyle({ padding: "8px 10px", fontSize: 12 })} placeholder="Modelo de casa (opcional)" value={catalogForm.model} onChange={(e) => setCatalogForm({ ...catalogForm, model: e.target.value })} />
+                <input style={inputStyle({ padding: "8px 10px", fontSize: 12 })} placeholder="Proveedor / constructora (opcional)" value={catalogForm.supplier} onChange={(e) => setCatalogForm({ ...catalogForm, supplier: e.target.value })} />
+              </div>
+              <div style={{ fontSize: 12, color: c.muted, marginBottom: 8, lineHeight: 1.4 }}>
+                Sube un CSV con columnas PARTIDA, clave, descripcion, Unidades, unidad y P.U. Cada fila es un concepto; las partidas se agrupan solas.
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <label style={{ display: "inline-flex", alignItems: "center", padding: "7px 12px", fontSize: 12, borderRadius: 999, background: c.primary, color: "#fff", fontWeight: 850, cursor: parsingCatalog ? "not-allowed" : "pointer", opacity: parsingCatalog ? 0.6 : 1 }}>
+                  {parsingCatalog ? "Leyendo..." : "Elegir archivo CSV"}
+                  <input type="file" accept=".csv,text/csv" disabled={parsingCatalog} style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; handleCatalogFile(file); }} />
+                </label>
+                <Button variant="secondary" style={{ padding: "7px 12px", fontSize: 12 }} onClick={() => exportToCsv("plantilla-catalogo-conceptos.csv", [{ PARTIDA: "CIMENTACION", clave: "CIM-001", descripcion: "Descripción del concepto conforme al catálogo autorizado", Unidades: 1, unidad: "lote", "P.U.": 0 }])}>Descargar plantilla</Button>
+                <Button variant="secondary" style={{ padding: "7px 12px", fontSize: 12 }} onClick={() => { setShowCreateCatalog(false); setCatalogError(""); }}>Cancelar</Button>
+              </div>
+              {catalogError ? <div style={{ color: c.red, fontSize: 12, marginTop: 6 }}>{catalogError}</div> : null}
             </div>
           ) : null}
         </Field>
@@ -1262,23 +1326,24 @@ function OperationQuality({ data, projectMap, setActive }) {
 
 function OperationEstimations({ data, projectMap, categoryMap, addRecord, updateRecord, setData }) {
   const [projectId, setProjectId] = useState(data.projects[0]?.id || "arenna");
-  const [sectionId, setSectionId] = useState(arennaThEstimateSections[0]?.id || "");
+  const [sectionId, setSectionId] = useState("");
   const [houseId, setHouseId] = useState("");
   const [search, setSearch] = useState("");
   const project = data.projects.find((p) => p.id === projectId) || data.projects[0] || {};
+  const catalog = data.estimateCatalogs.find((cat) => cat.id === project.estimateCatalogId) || data.estimateCatalogs[0] || { id: "", name: "Sin catálogo", supplier: "", total: 0, sections: [], concepts: [] };
   const obraQuality = useObraQuality(project.firestoreObraId || "");
   const houses = obraQuality.houses;
   const selectedHouseId = (houseId && houses.find((h) => h.id === houseId)?.id) || houses[0]?.id || "";
   const selectedHouse = houses.find((h) => h.id === selectedHouseId) || null;
   const progress = data.estimateProgress || {};
-  const selectedSection = arennaThEstimateSections.find((s) => s.id === sectionId) || arennaThEstimateSections[0];
+  const selectedSection = catalog.sections.find((s) => s.id === sectionId) || catalog.sections[0];
   const partidaId = mapSectionToPartidaId(selectedSection?.name || "");
   const partida = selectedHouse?.partidas?.find((p) => p.id === partidaId) || null;
   const qualityEval = partida ? evaluarPartidaCalidad(partida) : null;
   const qualityStatusKey = !project.firestoreObraId ? "sin_vinculo" : !selectedHouse ? "sin_vinculo" : !partida ? "sin_partida" : qualityEval.status;
   const qualityInfo = qualityStatusInfo[qualityStatusKey] || qualityStatusInfo.sin_partida;
   const canCaptureProgress = qualityInfo.unlocksPayment;
-  const sectionConcepts = arennaThEstimateConcepts.filter((cpt) => cpt.sectionId === selectedSection?.id);
+  const sectionConcepts = catalog.concepts.filter((cpt) => cpt.sectionId === selectedSection?.id);
   const progressKey = (conceptId) => `${selectedHouseId}::${conceptId}`;
   const rows = sectionConcepts.filter((cpt) => [cpt.id, cpt.description, cpt.unit, cpt.sectionName].join(" ").toLowerCase().includes(search.toLowerCase())).map((cpt) => {
     const p = progress[progressKey(cpt.id)] || {};
@@ -1315,9 +1380,9 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
       status: "Solicitado",
       priority: "Alta",
       documentStatus: "Checklist calidad liberado",
-      notes: `${readyRows.length} concepto(s) desde catálogo ${arennaThEstimateCatalogMeta.name}. Casa ${selectedHouse?.nombre || selectedHouse?.name || selectedHouseId}. Checklist de calidad: ${qualityInfo.label}. Conceptos: ${readyRows.slice(0, 8).map((r) => r.id).join(", ")}${readyRows.length > 8 ? "..." : ""}`,
+      notes: `${readyRows.length} concepto(s) desde catálogo ${catalog.name}. Casa ${selectedHouse?.nombre || selectedHouse?.name || selectedHouseId}. Checklist de calidad: ${qualityInfo.label}. Conceptos: ${readyRows.slice(0, 8).map((r) => r.id).join(", ")}${readyRows.length > 8 ? "..." : ""}`,
       attachments: [],
-      estimationCatalogId: arennaThEstimateCatalogMeta.id,
+      estimationCatalogId: catalog.id,
       estimationSectionId: selectedSection.id,
       houseId: selectedHouseId,
     });
@@ -1328,20 +1393,21 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
     });
   }
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="La constructora captura avance por casa. El sistema bloquea la captura si el checklist de calidad de esa partida en esa casa no está liberado por supervisión." /><Pill tone="primary"><span style={{ display: "inline-block", maxWidth: "60vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>{arennaThEstimateCatalogMeta.supplier}</span></Pill></div>
+    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="La constructora captura avance por casa. El sistema bloquea la captura si el checklist de calidad de esa partida en esa casa no está liberado por supervisión." />{catalog.supplier ? <Pill tone="primary"><span style={{ display: "inline-block", maxWidth: "60vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>{catalog.supplier}</span></Pill> : null}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => { setProjectId(e.target.value); setHouseId(""); }}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+        <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => { setProjectId(e.target.value); setHouseId(""); setSectionId(""); }}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
         <Field label="Casa / unidad" help="Se lee en vivo desde el módulo de Calidad. Cada casa tiene su propio checklist y liberación."><select style={inputStyle()} value={selectedHouseId} onChange={(e) => setHouseId(e.target.value)} disabled={!houses.length}>{houses.length ? houses.map((h) => <option key={h.id} value={h.id}>{h.nombre || h.name || h.id}</option>) : <option value="">Sin casas disponibles</option>}</select></Field>
-        <Field label="Partida"><select style={inputStyle()} value={sectionId} onChange={(e) => setSectionId(e.target.value)}>{arennaThEstimateSections.map((s) => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>)}</select></Field>
+        <Field label="Partida"><select style={inputStyle()} value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!catalog.sections.length}>{catalog.sections.length ? catalog.sections.map((s) => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>) : <option value="">Sin partidas en el catálogo</option>}</select></Field>
         <Field label="Buscar concepto"><input style={inputStyle()} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Clave, descripción, unidad" /></Field>
       </div>
     </Card>
+    {!project.estimateCatalogId || !catalog.concepts.length ? <EmptyState title="Este proyecto no tiene catálogo de conceptos" description="Asigna o crea un catálogo de estimación en Configurar obra para poder capturar avance." /> : null}
     {!project.firestoreObraId ? <EmptyState title="Esta obra no está vinculada a Calidad" description="Vincula el proyecto con su obra real en Firestore desde Configurar obra. Sin ese vínculo no se puede validar el checklist de calidad por casa y la captura de avance queda bloqueada." /> : null}
     {project.firestoreObraId && obraQuality.loading ? <Card><div style={{ color: c.muted }}>Cargando checklist de Calidad en vivo...</div></Card> : null}
     {project.firestoreObraId && !obraQuality.loading && !houses.length ? <EmptyState title="Sin casas registradas en Calidad" description="La obra vinculada todavía no tiene unidades/casas dadas de alta en el módulo de Calidad." /> : null}
-    {selectedHouse ? <>
+    {selectedHouse && catalog.concepts.length ? <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-        <MetricCard label="Total catálogo TH" value={money(arennaThEstimateCatalogMeta.total)} tone="primary" />
+        <MetricCard label={`Total catálogo ${catalog.name}`} value={money(catalog.total)} tone="primary" />
         <MetricCard label="Casa seleccionada" value={selectedHouse.nombre || selectedHouse.name || selectedHouseId} tone="idle" />
         <MetricCard label="Estimado capturado (partida)" value={money(capturedAmount)} tone="warn" />
         <MetricCard label="Checklist de calidad" value={qualityInfo.label} tone={canCaptureProgress ? "ok" : "danger"} />
@@ -1829,6 +1895,74 @@ async function createFirestoreObra({ name, totalUnits, location, retentionPct, a
     createdBy: firebaseAuth.currentUser?.email || "sistema",
   }, { merge: true }), 15000, "Tiempo de espera agotado creando la obra en Calidad. Revisa tu conexión e intenta de nuevo.");
   return id;
+}
+
+function cleanCsvText(text = "") {
+  return String(text)
+    .replace(/Ã“/g, "Ó").replace(/Ã‰/g, "É").replace(/Ã/g, "Á").replace(/Ã/g, "Í").replace(/Ãš/g, "Ú").replace(/Ã‘/g, "Ñ")
+    .replace(/Ã³/g, "ó").replace(/Ã©/g, "é").replace(/Ã¡/g, "á").replace(/Ã­/g, "í").replace(/Ãº/g, "ú").replace(/Ã±/g, "ñ")
+    .replace(/Â/g, "").trim();
+}
+
+function parseCsvNumber(value) {
+  const parsed = Number(String(value ?? "").replace(/\$/g, "").replace(/,/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+// Parser de CSV que respeta comillas y saltos de linea dentro de celdas (mismo enfoque
+// probado que ya usa ObrasConfigWidget para el catalogo de conceptos de Calidad).
+function parseGenericCsv(text) {
+  const rows = [];
+  let row = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === '"') { if (inQuotes && next === '"') { current += '"'; i += 1; } else inQuotes = !inQuotes; continue; }
+    if (char === "," && !inQuotes) { row.push(current); current = ""; continue; }
+    if ((char === "\n" || char === "\r") && !inQuotes) { if (char === "\r" && next === "\n") i += 1; row.push(current); if (row.some((cell) => String(cell).trim() !== "")) rows.push(row); row = []; current = ""; continue; }
+    current += char;
+  }
+  row.push(current);
+  if (row.some((cell) => String(cell).trim() !== "")) rows.push(row);
+  return rows;
+}
+
+// Convierte filas de CSV (encabezados: PARTIDA, clave, descripcion, Unidades, unidad, P.U.)
+// en secciones + conceptos con la misma forma que usa el catalogo Arenna TH, para que
+// cualquier obra nueva pueda traer su propio catalogo de estimacion.
+function rowsToEstimateCatalog(rows) {
+  if (!rows.length) return { sections: [], concepts: [] };
+  const headers = rows[0].map((header) => cleanCsvText(header));
+  const sectionOrder = [];
+  const sectionIndex = new Map();
+  const concepts = [];
+  rows.slice(1).forEach((row, index) => {
+    const raw = {};
+    headers.forEach((header, columnIndex) => { raw[header] = row[columnIndex] ?? ""; });
+    const sectionName = cleanCsvText(raw.PARTIDA || raw.partida || raw.Partida || "General").toUpperCase() || "GENERAL";
+    if (!sectionIndex.has(sectionName)) { sectionIndex.set(sectionName, sectionOrder.length); sectionOrder.push(sectionName); }
+    const sectionId = `P${String(sectionIndex.get(sectionName) + 1).padStart(2, "0")}`;
+    const clave = cleanCsvText(raw.clave || raw.Clave || `CON-${index + 1}`);
+    const description = cleanCsvText(raw.descripcion || raw.Descripcion || raw["DESCRIPCIÓN"] || raw.concepto || raw.Concepto || "");
+    const unit = cleanCsvText(raw.unidad || raw.Unidad || "lote");
+    const quantity = parseCsvNumber(raw.Unidades || raw.unidades || raw.Cantidad || raw.cantidad || 1);
+    const unitPrice = parseCsvNumber(raw["P.U."] || raw.PU || raw["Precio Unitario"] || raw.precioUnitario || 0);
+    if (!clave || !description || !(unitPrice > 0)) return;
+    concepts.push({
+      id: `${sectionId}-${slugifyObraId(clave)}-${String(index + 1).padStart(4, "0")}`,
+      sectionId,
+      sectionName,
+      description,
+      unit,
+      quantity,
+      unitPrice,
+      total: roundMoney(quantity * unitPrice),
+    });
+  });
+  const sections = sectionOrder.map((name, idx) => ({ id: `P${String(idx + 1).padStart(2, "0")}`, name }));
+  return { sections, concepts };
 }
 
 function normalizeQualityText(text) {
