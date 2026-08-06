@@ -1,0 +1,46 @@
+TRITON OS v50 - Operación, estimaciones, feedback y seguridad
+
+1. Operación actualizada a UX/UI TRITON OS
+- Se reemplazan vistas antiguas de operación por módulos nativos con Cards, métricas, filtros y tablas consistentes.
+- Resumen operación se conserva como centro de navegación conectado con pagos, trámites y equipo.
+- Checklist/Calidad, Configurar obra, Estimaciones y Consulta técnica abren dentro de TRITON OS.
+
+2. Configuración de obra editable y simple
+- Las obras existentes pueden abrirse y editarse.
+- Nueva obra inicia en blanco, sin matriz automática prellenada.
+- Campos base: tipo, estatus, ubicación, propietario/sociedad, presupuesto, ingresos, unidades, modelos, retención, anticipo, notas y catálogo de estimación.
+
+3. Estimaciones con catálogo inteligente
+- Se importó el catálogo de conceptos de Arenna TH como catálogo base de prueba.
+- 24 partidas/secciones y 261 conceptos.
+- Cada concepto permite capturar avance %, cantidad a estimar, importe estimado y checklist.
+- La partida puede marcarse con checklist completo para liberar la solicitud.
+- Las estimaciones pueden enviarse a solicitudes de pago con solicitante, proyecto, partida y notas del catálogo.
+
+4. Checklist conectado con estimaciones
+- El checklist de calidad muestra avance por partida.
+- Cada partida muestra importe de catálogo, conceptos, checklist y estado de liberación.
+- Regla base: no liberar pago si la partida no tiene checklist/soporte operativo.
+
+5. Consulta técnica
+- Módulo nativo para capturar dudas, criterios, respuestas y responsable.
+- Permite filtrar por proyecto y guardar historial inicial.
+
+6. Inmuebles tipo plaza
+- Se ajustó la agrupación para reconocer Plaza Faro como plaza.
+- Solo plazas/centros comerciales se agrupan en bloques desplegables; el resto de inmuebles queda normal.
+
+7. Feedback de pruebas
+- Botón flotante tipo chatbot para que administración reporte mejoras, errores o procesos confusos.
+- Guarda feedback en localStorage y en Firestore colección feedback cuando haya permisos/conexión.
+
+8. Seguridad básica y respaldos
+- Configuración incorpora pestaña Seguridad y respaldos.
+- Respaldo automático configurable por horas.
+- Respaldo manual y descarga JSON.
+- Colección Firestore preparada: systemBackups.
+- Usuarios permiten enviar correo de restablecimiento de contraseña vía Firebase Authentication.
+- Revocar acceso lógico queda registrado con usuario y fecha.
+
+Nota técnica:
+- En producción se recomienda complementar respaldos cliente con Cloud Function programada nocturna para respaldos reales de Firestore.

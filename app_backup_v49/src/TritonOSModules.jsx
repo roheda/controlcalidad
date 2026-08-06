@@ -3,10 +3,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { importedInmuebles, importedPropertyOwners, importedDepositAccounts, importedInmueblesVersion } from "./importedInmuebles";
-import { arennaThEstimateCatalogMeta, arennaThEstimateSections, arennaThEstimateConcepts, checklistForEstimateSection } from "./estimateCatalogArennaTH";
 
 const money = (value) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(value || 0));
 const numberFmt = (value) => new Intl.NumberFormat("es-MX", { maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -562,14 +561,7 @@ function withTramitesDefaults(data = {}) {
 }
 
 function withAppDefaults(data = {}) {
-  const merged = withTramitesDefaults(withImportedInmuebles(data));
-  return {
-    ...merged,
-    operationSettings: { defaultEstimateCatalogId: arennaThEstimateCatalogMeta.id, qualityGateForPayment: true, blankNewProjectFlow: true, backupsEveryHours: 6, firestoreConfigured: true, ...(merged.operationSettings || {}) },
-    estimateCatalogs: merged.estimateCatalogs?.length ? merged.estimateCatalogs : [{ ...arennaThEstimateCatalogMeta, sectionsCount: arennaThEstimateSections.length, conceptsCount: arennaThEstimateConcepts.length }],
-    estimateProgress: merged.estimateProgress || {},
-    technicalQueries: merged.technicalQueries || [],
-  };
+  return withTramitesDefaults(withImportedInmuebles(data));
 }
 
 const initialData = {
@@ -577,20 +569,6 @@ const initialData = {
     { id: "arenna", name: "Arenna", type: "Desarrollo habitacional", status: "Activo", budget: 94806101, incomeTarget: 112517760, owner: "TRITON" },
     { id: "plaza-vias", name: "Plaza Las Vías", type: "Plaza comercial", status: "Operando", budget: 0, incomeTarget: 0, owner: "TRITON" },
     { id: "residente", name: "Residente", type: "Departamentos", status: "Planeación", budget: 120000000, incomeTarget: 0, owner: "TRITON" },
-  ],
-  operationSettings: {
-    defaultEstimateCatalogId: arennaThEstimateCatalogMeta.id,
-    qualityGateForPayment: true,
-    blankNewProjectFlow: true,
-    backupsEveryHours: 6,
-    firestoreConfigured: true,
-  },
-  estimateCatalogs: [
-    { ...arennaThEstimateCatalogMeta, sectionsCount: arennaThEstimateSections.length, conceptsCount: arennaThEstimateConcepts.length },
-  ],
-  estimateProgress: {},
-  technicalQueries: [
-    { id: "tech-demo-1", projectId: "arenna", title: "Criterio de liberación de instalación hidráulica", module: "Calidad", status: "Abierta", priority: "Media", requestedBy: "Supervisión", createdAt: todayIso(), question: "Confirmar evidencia mínima para liberar tubería antes de tapar.", response: "Cargar prueba 90 PSI/24h, fotos por zona y bitácora sin pendientes." },
   ],
   categories: [
     { id: "terreno", name: "Terreno", group: "Costo de proyecto", budgetable: true },
@@ -742,10 +720,6 @@ const moduleMeta = {
   dashboard: { title: "Reportes", subtitle: "Reportes ejecutivos, obra, finanzas, ingresos, egresos e IA", icon: "▤" },
   proyectos: { title: "Proyectos", subtitle: "Base para cruzar obra, pagos, rentas y trámites", icon: "⌂" },
   operacion_os: { title: "Operación", subtitle: "Obra, calidad, estimaciones, equipo de construcción y consulta técnica", icon: "✓" },
-  calidad: { title: "Checklist / Calidad", subtitle: "Liberación técnica de partidas, evidencias, bitácora y control previo a estimaciones", icon: "✓" },
-  obras: { title: "Configurar obra", subtitle: "Alta y edición de obras, unidades, modelos, alcance y parámetros operativos", icon: "⌂" },
-  estimaciones: { title: "Estimaciones", subtitle: "Catálogo de conceptos, checklist de liberación, avance de constructora y solicitudes de pago", icon: "▥" },
-  consulta_tecnica: { title: "Consulta técnica", subtitle: "Dudas, criterios, documentos y respuestas de supervisión", icon: "?" },
   finanzas: { title: "Finanzas", subtitle: "Resumen ERP: presupuesto, proveedores, contratos, pagos y conciliación", icon: "$" },
   proveedores: { title: "Proveedores", subtitle: "Alta, documentos, validación fiscal y cuentas bancarias", icon: "◧" },
   presupuestos: { title: "Presupuestos", subtitle: "Partidas autorizadas por proyecto y control de sobregiros", icon: "▥" },
@@ -848,48 +822,9 @@ function MiniTable({ columns, rows, empty = "Sin registros todavía." }) {
   })}</tr></thead><tbody>{sortedRows.length ? sortedRows.map((row, idx) => <tr key={row.id || idx}>{columns.map((col) => <td key={col.key} style={{ padding: "12px 9px", borderBottom: `1px solid rgba(60,60,67,0.08)`, verticalAlign: "top", fontSize: 13, color: c.text }}>{typeof col.render === "function" ? col.render(row) : row[col.key]}</td>)}</tr>) : <tr><td colSpan={columns.length} style={{ padding: 18, color: c.muted, textAlign: "center" }}>{empty}</td></tr>}</tbody></table></div>;
 }
 
-async function createSystemBackup(data, reason = "Respaldo manual") {
-  const id = `backup_${new Date().toISOString().slice(0,16).replace(/[-:T]/g,"")}`;
-  const payload = {
-    id,
-    reason,
-    createdAt: new Date().toISOString(),
-    createdBy: firebaseAuth.currentUser?.email || "sistema",
-    appVersion: "v50",
-    collections: {
-      projects: data.projects?.length || 0,
-      payables: data.payables?.length || 0,
-      contracts: data.contracts?.length || 0,
-      rentCharges: data.rentCharges?.length || 0,
-      permits: data.permits?.length || 0,
-      assets: data.assets?.length || 0,
-    },
-    data,
-  };
-  localStorage.setItem("triton_os_backup_latest", JSON.stringify(payload));
-  localStorage.setItem("triton_os_last_backup_at", String(Date.now()));
-  try {
-    await setDoc(doc(firestore, "systemBackups", id), { ...payload, data: JSON.stringify(data), serverCreatedAt: serverTimestamp() }, { merge: true });
-    return { ok: true, id };
-  } catch (error) {
-    return { ok: false, id, error: error?.message || String(error) };
-  }
-}
-
-async function sendPasswordReset(email) {
-  const clean = String(email || "").trim().toLowerCase();
-  if (!clean) return { ok: false, message: "Correo requerido." };
-  try {
-    await sendPasswordResetEmail(firebaseAuth, clean);
-    return { ok: true, message: `Se envió correo para restablecer contraseña a ${clean}.` };
-  } catch (error) {
-    return { ok: false, message: error?.message || String(error) };
-  }
-}
-
 
 export default function TritonOSModules() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [active, setActive] = useState("reportes_os");
   const [data, setData] = useState(readData);
   const [projectFilter, setProjectFilter] = useState("todos");
@@ -897,14 +832,6 @@ export default function TritonOSModules() {
   const [form, setForm] = useState({});
 
   useEffect(() => { localStorage.setItem("triton_os_v44", JSON.stringify(data)); }, [data]);
-  useEffect(() => {
-    const hours = Number(data.operationSettings?.backupsEveryHours || 6);
-    const last = Number(localStorage.getItem("triton_os_last_backup_at") || 0);
-    const due = !last || (Date.now() - last) > hours * 60 * 60 * 1000;
-    if (!due) return;
-    const timer = window.setTimeout(() => createSystemBackup(data, "Respaldo automático programado"), 1400);
-    return () => window.clearTimeout(timer);
-  }, [data.operationSettings?.backupsEveryHours]);
   useEffect(() => {
     const openHandler = (event) => { setActive(event.detail?.module || "reportes_os"); setOpen(true); };
     const closeHandler = () => setOpen(false);
@@ -981,10 +908,6 @@ export default function TritonOSModules() {
         {active === "dashboard" && <Reports totals={totals} data={data} projectMap={projectMap} categoryMap={categoryMap} active="general" />}
         {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "operacion_os" && <OperationHub data={data} projectMap={projectMap} categoryMap={categoryMap} setActive={setActive} />}
-        {active === "calidad" && <OperationQuality data={data} projectMap={projectMap} setActive={setActive} updateRecord={updateRecord} />}
-        {active === "obras" && <OperationWorksConfig data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "estimaciones" && <OperationEstimations data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} setData={setData} />}
-        {active === "consulta_tecnica" && <OperationTechnical data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "finanzas" && <Finance data={data} projectMap={projectMap} categoryMap={categoryMap} projectFilter={projectFilter} setActive={setActive} />}
         {active === "proveedores" && <Suppliers data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "presupuestos" && <Budgets data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
@@ -1056,11 +979,11 @@ function OperationHub({ data, projectMap, categoryMap, setActive }) {
   const openPermits = (data.permits || []).filter((t) => !["Aprobado", "Cerrado", "Finalizado"].includes(t.status));
   const team = data.constructionTeam || [];
   const actionCards = [
-    { label: "Checklist / Calidad", helper: "Liberaciones, evidencias, bitácora de partida y cumplimiento técnico.", action: () => setActive("calidad") },
-    { label: "Configurar obra", helper: "Alta/edición simple de obras, unidades, modelos, alcance y parámetros.", action: () => setActive("obras") },
-    { label: "Estimaciones", helper: "Catálogo de conceptos, avance de constructora, checklist y solicitud de pago.", action: () => setActive("estimaciones") },
+    { label: "Checklist / Calidad", helper: "Liberaciones, evidencias, bitácora de partida y cumplimiento técnico.", action: () => openLegacyOperationModule("calidad") },
+    { label: "Configurar obra", helper: "Unidades, bloques, elementos, relación de checklist y documentos técnicos.", action: () => openLegacyOperationModule("obras") },
+    { label: "Estimaciones", helper: "Captura, revisión, retenciones, anticipos, avances y soporte para pagos.", action: () => openLegacyOperationModule("estimaciones") },
     { label: "Equipo construcción", helper: "Alta/baja de constructoras, responsables por obra y accesos operativos.", action: () => setActive("equipo_obra") },
-    { label: "Consulta técnica", helper: "Dudas técnicas, criterios, documentos y soporte para supervisión.", action: () => setActive("consulta_tecnica") },
+    { label: "Consulta técnica", helper: "Dudas técnicas, criterios, documentos y soporte para supervisión.", action: () => openLegacyOperationModule("consulta_tecnica") },
   ];
   return <div style={{ display: "grid", gap: 16 }}>
     <Card><SectionTitle title="Operación conectada" helper="Centro operativo de obra. Desde aquí se entra a los módulos trabajados previamente y se cruza la información con finanzas, trámites y reportes." />
@@ -1080,252 +1003,6 @@ function OperationHub({ data, projectMap, categoryMap, setActive }) {
     </Card>
   </div>;
 }
-
-
-function estimateSectionRows(data = {}) {
-  const progress = data.estimateProgress || {};
-  return arennaThEstimateSections.map((section) => {
-    const concepts = arennaThEstimateConcepts.filter((cpt) => cpt.sectionId === section.id);
-    const baseTotal = concepts.reduce((sum, cpt) => sum + Number(cpt.total || 0), 0);
-    const requested = concepts.reduce((sum, cpt) => {
-      const p = progress[cpt.id] || {};
-      const pct = Math.min(100, Math.max(0, Number(p.progressPct || 0))) / 100;
-      const qty = Number(p.estimateQuantity || 0);
-      const amountByQty = qty > 0 ? qty * Number(cpt.unitPrice || 0) : Number(cpt.total || 0) * pct;
-      return sum + amountByQty;
-    }, 0);
-    const ready = concepts.filter((cpt) => progress[cpt.id]?.qualityChecklistDone).length;
-    const touched = concepts.filter((cpt) => Number(progress[cpt.id]?.progressPct || 0) > 0 || Number(progress[cpt.id]?.estimateQuantity || 0) > 0).length;
-    return { ...section, conceptsCount: concepts.length, baseTotal, requested, ready, touched, progressPct: concepts.length ? Math.round((touched / concepts.length) * 100) : 0, qualityPct: concepts.length ? Math.round((ready / concepts.length) * 100) : 0 };
-  });
-}
-
-function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  const [selectedId, setSelectedId] = useState(data.projects[0]?.id || "");
-  const selected = data.projects.find((p) => p.id === selectedId) || data.projects[0] || {};
-  function blankProject() {
-    setForm({ name: "", type: "", status: "Planeación", location: "", owner: "TRITON", budget: "", incomeTarget: "", totalUnits: "", unitsText: "", modelsText: "", estimateCatalogId: arennaThEstimateCatalogMeta.id, retentionPct: 10, advancePct: 0, notes: "" });
-    setShowForm("operationProject");
-  }
-  function editProject(project) {
-    setSelectedId(project.id);
-    setForm({ ...project, unitsText: Array.isArray(project.units) ? project.units.join(", ") : project.unitsText || "", modelsText: Array.isArray(project.models) ? project.models.join(", ") : project.modelsText || "", retentionPct: project.retentionPct ?? 10, advancePct: project.advancePct ?? 0 });
-    setShowForm("operationProject");
-  }
-  function saveProject() {
-    const payload = {
-      name: form.name || "Obra sin nombre",
-      type: form.type || "Desarrollo",
-      status: form.status || "Planeación",
-      location: form.location || "",
-      owner: form.owner || "TRITON",
-      budget: Number(form.budget || 0),
-      incomeTarget: Number(form.incomeTarget || 0),
-      totalUnits: Number(form.totalUnits || 0),
-      units: String(form.unitsText || "").split(",").map((x) => x.trim()).filter(Boolean),
-      models: String(form.modelsText || "").split(",").map((x) => x.trim()).filter(Boolean),
-      estimateCatalogId: form.estimateCatalogId || arennaThEstimateCatalogMeta.id,
-      retentionPct: Number(form.retentionPct ?? 10),
-      advancePct: Number(form.advancePct ?? 0),
-      notes: form.notes || "",
-      updatedBy: firebaseAuth.currentUser?.email || "sistema",
-    };
-    if (form.id) updateRecord("projects", form.id, payload);
-    else addRecord("projects", { ...payload, createdBy: firebaseAuth.currentUser?.email || "sistema" });
-    setShowForm(null);
-    setForm({});
-  }
-  const operations = [
-    { label: "Alta nueva", helper: "Empieza en blanco, sin matriz predefinida ni información pesada.", done: true },
-    { label: "Editar obra existente", helper: "Carga el proyecto actual para corregir unidades, presupuesto y alcance.", done: true },
-    { label: "Checklist por etapa", helper: "Se activa después, cuando definas el catálogo o plantilla aplicable.", done: false },
-    { label: "Estimaciones", helper: "Liga el catálogo de conceptos para liberar pagos por avance.", done: !!selected?.estimateCatalogId },
-  ];
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}><SectionTitle title="Configuración de obra" helper="Proceso simple: primero alta/edición de obra, después se liga catálogo, unidades y reglas. Las nuevas obras empiezan en blanco para no saturar al usuario." /><Button onClick={blankProject}>Nueva obra en blanco</Button></div><ProgressLine items={operations.map((item) => ({ label: item.label, done: item.done, active: !item.done }))} /></Card>
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,.75fr) minmax(0,1.25fr)", gap: 16 }}>
-      <Card><SectionTitle title="Obras actuales" helper="Da clic para revisar o editar." />
-        <div style={{ display: "grid", gap: 9 }}>{data.projects.map((project) => <button key={project.id} type="button" onClick={() => setSelectedId(project.id)} style={{ textAlign: "left", border: selectedId === project.id ? `2px solid ${c.primary}` : `1px solid ${c.border}`, borderRadius: 18, background: selectedId === project.id ? c.primarySoft : "white", padding: 12, cursor: "pointer" }}><b style={{ color: c.text }}>{project.name}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>{project.type || "Sin tipo"} · {project.status || "Sin estatus"}</div><div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}><Pill tone="primary">{money(project.budget)}</Pill><Pill>{Number(project.totalUnits || 0)} unidades</Pill></div></button>)}</div>
-      </Card>
-      <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title={selected?.name || "Selecciona una obra"} helper="Ficha editable conectada con presupuestos, estimaciones, trámites y equipo de construcción." /><Button variant="secondary" onClick={() => editProject(selected)}>Editar obra</Button></div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-          <Info label="Tipo" value={selected.type || "Pendiente"} />
-          <Info label="Ubicación" value={selected.location || "Pendiente"} />
-          <Info label="Estatus" value={selected.status || "Pendiente"} />
-          <Info label="Presupuesto" value={money(selected.budget)} />
-          <Info label="Ingresos proyectados" value={money(selected.incomeTarget)} />
-          <Info label="Catálogo estimación" value={selected.estimateCatalogId || arennaThEstimateCatalogMeta.name} />
-        </div>
-      </Card>
-    </div>
-    {showForm === "operationProject" ? <Card><SectionTitle title={form.id ? "Editar obra existente" : "Nueva obra"} helper="Campos limpios. No se carga matriz automática hasta que elijas una plantilla o catálogo." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
-        <Field label="Nombre de obra"><input style={inputStyle()} value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-        <Field label="Tipo"><select style={inputStyle()} value={form.type || ""} onChange={(e) => setForm({ ...form, type: e.target.value })}><option value="">Seleccionar</option><option>Desarrollo habitacional</option><option>Departamentos</option><option>Plaza comercial</option><option>Oficinas</option><option>Casa / remodelación</option><option>Otro</option></select></Field>
-        <Field label="Estatus"><select style={inputStyle()} value={form.status || "Planeación"} onChange={(e) => setForm({ ...form, status: e.target.value })}><option>Planeación</option><option>Activo</option><option>En construcción</option><option>Pausado</option><option>Cerrado</option></select></Field>
-        <Field label="Ubicación"><input style={inputStyle()} value={form.location || ""} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Field>
-        <Field label="Unidades totales"><input type="number" style={inputStyle()} value={form.totalUnits || ""} onChange={(e) => setForm({ ...form, totalUnits: e.target.value })} /></Field>
-        <Field label="Presupuesto"><input type="number" style={inputStyle()} value={form.budget || ""} onChange={(e) => setForm({ ...form, budget: e.target.value })} /></Field>
-        <Field label="Ingresos proyectados"><input type="number" style={inputStyle()} value={form.incomeTarget || ""} onChange={(e) => setForm({ ...form, incomeTarget: e.target.value })} /></Field>
-        <Field label="Retención obra %"><input type="number" style={inputStyle()} value={form.retentionPct ?? 10} onChange={(e) => setForm({ ...form, retentionPct: e.target.value })} /></Field>
-        <Field label="Anticipo %"><input type="number" style={inputStyle()} value={form.advancePct ?? 0} onChange={(e) => setForm({ ...form, advancePct: e.target.value })} /></Field>
-      </div>
-      <Field label="Unidades / lotes"><input style={inputStyle()} placeholder="TH01, TH02, Casa 1, Depto 101" value={form.unitsText || ""} onChange={(e) => setForm({ ...form, unitsText: e.target.value })} /></Field>
-      <Field label="Modelos"><input style={inputStyle()} placeholder="TH, HAUS, Depto A" value={form.modelsText || ""} onChange={(e) => setForm({ ...form, modelsText: e.target.value })} /></Field>
-      <Field label="Notas operativas"><textarea style={inputStyle({ minHeight: 80 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={saveProject}>Guardar obra</Button><Button variant="secondary" onClick={() => { setShowForm(null); setForm({}); }}>Cancelar</Button></div>
-    </Card> : null}
-  </div>;
-}
-
-function OperationQuality({ data, projectMap, setActive }) {
-  const [projectId, setProjectId] = useState("arenna");
-  const [status, setStatus] = useState("todos");
-  const rows = estimateSectionRows(data).filter((row) => status === "todos" || (status === "listo" ? row.qualityPct === 100 : status === "pendiente" ? row.qualityPct < 100 : true));
-  const readyAmount = rows.reduce((sum, row) => sum + (row.qualityPct === 100 ? row.baseTotal : 0), 0);
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Checklist / Calidad por partida" helper="Vista operativa moderna. La constructora solo puede avanzar estimación cuando la partida tenga checklist y bitácora sin pendientes." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => setProjectId(e.target.value)}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label="Estatus calidad"><select style={inputStyle()} value={status} onChange={(e) => setStatus(e.target.value)}><option value="todos">Todos</option><option value="pendiente">Pendientes</option><option value="listo">Listos para estimar</option></select></Field>
-      </div>
-    </Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-      <MetricCard label="Proyecto" value={projectMap[projectId]?.name || projectId} tone="primary" />
-      <MetricCard label="Partidas" value={arennaThEstimateSections.length} tone="idle" />
-      <MetricCard label="Monto listo calidad" value={money(readyAmount)} tone="ok" />
-      <MetricCard label="Pendientes calidad" value={rows.filter((r) => r.qualityPct < 100).length} tone="warn" />
-    </div>
-    <Card><MiniTable columns={[
-      { key: "id", label: "Clave" },
-      { key: "name", label: "Partida" },
-      { key: "conceptsCount", label: "Conceptos" },
-      { key: "baseTotal", label: "Importe catálogo", render: (r) => money(r.baseTotal) },
-      { key: "qualityPct", label: "Checklist", render: (r) => <Pill tone={r.qualityPct === 100 ? "ok" : "warn"}>{r.qualityPct}%</Pill> },
-      { key: "actions", label: "Acción", render: (r) => <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setActive("estimaciones")}>Ir a estimar</Button> },
-    ]} rows={rows} /></Card>
-  </div>;
-}
-
-function OperationEstimations({ data, projectMap, categoryMap, addRecord, updateRecord, setData }) {
-  const [projectId, setProjectId] = useState("arenna");
-  const [sectionId, setSectionId] = useState(arennaThEstimateSections[0]?.id || "");
-  const [search, setSearch] = useState("");
-  const progress = data.estimateProgress || {};
-  const selectedSection = arennaThEstimateSections.find((s) => s.id === sectionId) || arennaThEstimateSections[0];
-  const sectionConcepts = arennaThEstimateConcepts.filter((cpt) => cpt.sectionId === selectedSection?.id);
-  const rows = sectionConcepts.filter((cpt) => [cpt.id, cpt.description, cpt.unit, cpt.sectionName].join(" ").toLowerCase().includes(search.toLowerCase())).map((cpt) => {
-    const p = progress[cpt.id] || {};
-    const pct = Math.min(100, Math.max(0, Number(p.progressPct || 0)));
-    const estimateQuantity = Number(p.estimateQuantity || 0);
-    const requestedAmount = estimateQuantity > 0 ? estimateQuantity * Number(cpt.unitPrice || 0) : Number(cpt.total || 0) * pct / 100;
-    return { ...cpt, ...p, progressPct: pct, estimateQuantity, requestedAmount, status: p.sentToPayable ? "Solicitado" : p.qualityChecklistDone ? "Listo para solicitar" : pct > 0 ? "Checklist pendiente" : "Sin avance" };
-  });
-  const sectionSummary = estimateSectionRows(data).find((x) => x.id === selectedSection?.id) || {};
-  function patchConcept(id, patch) {
-    setData((prev) => ({ ...prev, estimateProgress: { ...(prev.estimateProgress || {}), [id]: { ...(prev.estimateProgress?.[id] || {}), ...patch, updatedAt: new Date().toISOString(), updatedBy: firebaseAuth.currentUser?.email || "sistema" } } }));
-  }
-  function markSectionQualityDone() {
-    setData((prev) => {
-      const next = { ...(prev.estimateProgress || {}) };
-      sectionConcepts.forEach((cpt) => { next[cpt.id] = { ...(next[cpt.id] || {}), qualityChecklistDone: true, qualityChecklistAt: new Date().toISOString(), qualityChecklistBy: firebaseAuth.currentUser?.email || "sistema" }; });
-      return { ...prev, estimateProgress: next };
-    });
-  }
-  function requestEstimatePayment() {
-    const readyRows = rows.filter((r) => r.qualityChecklistDone && Number(r.requestedAmount || 0) > 0 && !r.sentToPayable);
-    const amount = readyRows.reduce((sum, r) => sum + Number(r.requestedAmount || 0), 0);
-    if (!readyRows.length || amount <= 0) { alert("No hay conceptos listos con monto para solicitar. Captura avance y completa checklist."); return; }
-    const supplier = data.suppliers.find((s) => s.id === "sup-cons") || data.suppliers.find((s) => String(s.type || "").toLowerCase().includes("constructora")) || data.suppliers[0];
-    addRecord("payables", {
-      projectId,
-      supplierId: supplier?.id || "",
-      supplier: supplier?.tradeName || "Constructora",
-      concept: `Estimación ${selectedSection.id} · ${selectedSection.name}`,
-      categoryId: "construccion",
-      amount: roundMoney(amount),
-      iva: 0,
-      retention: 0,
-      requestedBy: firebaseAuth.currentUser?.email || "Constructora",
-      requiredDate: todayIso(),
-      status: "Solicitado",
-      priority: "Alta",
-      documentStatus: "Checklist calidad liberado",
-      notes: `${readyRows.length} concepto(s) desde catálogo ${arennaThEstimateCatalogMeta.name}. Checklist técnico completo. Conceptos: ${readyRows.slice(0, 8).map((r) => r.id).join(", ")}${readyRows.length > 8 ? "..." : ""}`,
-      attachments: [],
-      estimationCatalogId: arennaThEstimateCatalogMeta.id,
-      estimationSectionId: selectedSection.id,
-    });
-    setData((prev) => {
-      const next = { ...(prev.estimateProgress || {}) };
-      readyRows.forEach((r) => { next[r.id] = { ...(next[r.id] || {}), sentToPayable: true, sentToPayableAt: new Date().toISOString() }; });
-      return { ...prev, estimateProgress: next };
-    });
-  }
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="Catálogo importado desde el Excel de prueba. La constructora captura avance; el sistema muestra qué falta para liberar y enviar a pago." /><Pill tone="primary">{arennaThEstimateCatalogMeta.supplier}</Pill></div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => setProjectId(e.target.value)}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label="Partida"><select style={inputStyle()} value={sectionId} onChange={(e) => setSectionId(e.target.value)}>{arennaThEstimateSections.map((s) => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>)}</select></Field>
-        <Field label="Buscar concepto"><input style={inputStyle()} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Clave, descripción, unidad" /></Field>
-      </div>
-    </Card>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-      <MetricCard label="Total catálogo TH" value={money(arennaThEstimateCatalogMeta.total)} tone="primary" />
-      <MetricCard label="Partida seleccionada" value={money(sectionSummary.baseTotal)} tone="idle" />
-      <MetricCard label="Estimado capturado" value={money(sectionSummary.requested)} tone="warn" />
-      <MetricCard label="Checklist liberado" value={`${sectionSummary.qualityPct || 0}%`} tone={(sectionSummary.qualityPct || 0) === 100 ? "ok" : "warn"} />
-    </div>
-    <Card><SectionTitle title="Qué falta para liberar esta partida" helper="Reglas base derivadas del tipo de partida. Se podrá parametrizar en Catálogos y reglas." /><ValidationList checks={checklistForEstimateSection(selectedSection?.name).map((label) => ({ label, ok: (sectionSummary.qualityPct || 0) === 100, fix: "Pendiente" }))} /><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}><Button variant="secondary" onClick={markSectionQualityDone}>Marcar checklist de partida como completo</Button><Button onClick={requestEstimatePayment}>Enviar estimación a pagos</Button></div></Card>
-    <Card><MiniTable columns={[
-      { key: "id", label: "Clave" },
-      { key: "description", label: "Concepto", render: (r) => <div style={{ maxWidth: 440, lineHeight: 1.35 }}>{r.description}</div> },
-      { key: "unit", label: "Unidad" },
-      { key: "quantity", label: "Cant. contrato", render: (r) => numberFmt(r.quantity) },
-      { key: "unitPrice", label: "PU", render: (r) => money(r.unitPrice) },
-      { key: "progressPct", label: "Avance %", render: (r) => <input type="number" min="0" max="100" style={inputStyle({ width: 92, padding: "7px 8px" })} value={r.progressPct || ""} onChange={(e) => patchConcept(r.id, { progressPct: Number(e.target.value || 0) })} /> },
-      { key: "estimateQuantity", label: "Cant. a estimar", render: (r) => <input type="number" min="0" style={inputStyle({ width: 110, padding: "7px 8px" })} value={r.estimateQuantity || ""} onChange={(e) => patchConcept(r.id, { estimateQuantity: Number(e.target.value || 0) })} /> },
-      { key: "requestedAmount", label: "Importe estimado", render: (r) => money(r.requestedAmount) },
-      { key: "qualityChecklistDone", label: "Checklist", render: (r) => <button type="button" onClick={() => patchConcept(r.id, { qualityChecklistDone: !r.qualityChecklistDone })} style={toggleChipStyle(!!r.qualityChecklistDone)}>{r.qualityChecklistDone ? "Listo" : "Pendiente"}</button> },
-      { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Solicitado" ? "ok" : r.status === "Listo para solicitar" ? "primary" : "warn"}>{r.status}</Pill> },
-    ]} rows={rows} /></Card>
-  </div>;
-}
-
-function OperationTechnical({ data, projectMap, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
-  const [projectId, setProjectId] = useState(data.projects[0]?.id || "arenna");
-  const [search, setSearch] = useState("");
-  const rows = (data.technicalQueries || []).filter((q) => (projectId === "todos" || q.projectId === projectId) && [q.title, q.question, q.response, q.status, q.module].join(" ").toLowerCase().includes(search.toLowerCase()));
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Consulta técnica" helper="Registro de dudas, criterios, respuestas y soporte documental. Evita que la información técnica se pierda en WhatsApp." /><Button onClick={() => setShowForm(showForm === "technicalQuery" ? null : "technicalQuery")}>Nueva consulta</Button></div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => setProjectId(e.target.value)}><option value="todos">Todos</option>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label="Buscar"><input style={inputStyle()} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Duda, respuesta, módulo" /></Field>
-      </div>
-    </Card>
-    {showForm === "technicalQuery" ? <Card><SectionTitle title="Nueva consulta técnica" helper="La respuesta queda en historial y puede ligarse a calidad o estimaciones." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
-        <Field label="Proyecto"><select style={inputStyle()} value={form.projectId || data.projects[0]?.id || ""} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label="Módulo"><select style={inputStyle()} value={form.module || "Calidad"} onChange={(e) => setForm({ ...form, module: e.target.value })}><option>Calidad</option><option>Estimaciones</option><option>Obra</option><option>Trámites</option><option>Finanzas</option></select></Field>
-        <Field label="Prioridad"><select style={inputStyle()} value={form.priority || "Media"} onChange={(e) => setForm({ ...form, priority: e.target.value })}><option>Alta</option><option>Media</option><option>Baja</option></select></Field>
-      </div>
-      <Field label="Título"><input style={inputStyle()} value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
-      <Field label="Consulta / duda"><textarea style={inputStyle({ minHeight: 92 })} value={form.question || ""} onChange={(e) => setForm({ ...form, question: e.target.value })} /></Field>
-      <Field label="Respuesta / criterio"><textarea style={inputStyle({ minHeight: 92 })} value={form.response || ""} onChange={(e) => setForm({ ...form, response: e.target.value })} /></Field>
-      <Button onClick={() => addRecord("technicalQueries", { projectId: form.projectId || data.projects[0]?.id || "", title: form.title || "Consulta técnica", module: form.module || "Calidad", status: form.response ? "Respondida" : "Abierta", priority: form.priority || "Media", requestedBy: firebaseAuth.currentUser?.email || "usuario", question: form.question || "", response: form.response || "", history: [{ id: uid("tech"), date: new Date().toISOString(), user: firebaseAuth.currentUser?.email || "sistema", comment: "Alta de consulta técnica" }] })}>Guardar consulta</Button>
-    </Card> : null}
-    <Card><MiniTable columns={[
-      { key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name || r.projectId },
-      { key: "title", label: "Consulta" },
-      { key: "module", label: "Módulo" },
-      { key: "priority", label: "Prioridad", render: (r) => <Pill tone={r.priority === "Alta" ? "danger" : "primary"}>{r.priority}</Pill> },
-      { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Respondida" ? "ok" : "warn"}>{r.status}</Pill> },
-      { key: "question", label: "Detalle", render: (r) => <div style={{ maxWidth: 420 }}><b>{r.question}</b>{r.response ? <div style={{ color: c.muted, marginTop: 4 }}>{r.response}</div> : null}</div> },
-      { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => updateRecord("technicalQueries", r.id, { status: "Respondida", response: r.response || "Respuesta registrada por supervisión.", answeredBy: firebaseAuth.currentUser?.email || "sistema" })}>Marcar respondida</Button></ActionCell> },
-    ]} rows={rows} /></Card>
-  </div>;
-}
-
 
 function Projects({ data, addRecord, showForm, setShowForm, form, setForm }) {
   return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><SectionTitle title="Proyectos" helper="Cada módulo debe cruzarse por proyecto para tener estado de resultados, trámites, pagos y cobranza." /><Button onClick={() => setShowForm(showForm === "project" ? null : "project")}>Nuevo proyecto</Button></div>{showForm === "project" ? <SimpleForm fields={["name", "type", "status", "budget", "incomeTarget"]} labels={{ name: "Nombre", type: "Tipo", status: "Estatus", budget: "Presupuesto", incomeTarget: "Ingresos proyectados" }} form={form} setForm={setForm} onSubmit={() => addRecord("projects", { ...form, budget: Number(form.budget || 0), incomeTarget: Number(form.incomeTarget || 0), owner: "TRITON" })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "incomeTarget", label: "Ingresos proyectados", render: (r) => money(r.incomeTarget) }]} rows={data.projects} /></Card></div>;
@@ -2279,7 +1956,6 @@ function parseAssetCoordinates(asset = {}) {
 function assetGroupName(asset = {}) {
   const text = [asset.collection, asset.assetGroup, asset.propertyGroup, asset.location, asset.address, asset.name].join(" ").toLowerCase();
   if (text.includes("plaza las vias") || text.includes("plaza las vías")) return "Plaza Las Vías";
-  if (text.includes("plaza faro") || text.includes("faro")) return "Plaza Faro";
   if (text.includes("aura caucel")) return "Locales Aura Caucel";
   if (text.includes("itzimna") || text.includes("itzimná")) return "Itzimná";
   if (text.includes("campestre")) return "Campestre";
@@ -3174,7 +2850,7 @@ function UsersAdmin({ data, setData }) {
             { key: "name", label: "Usuario", render: (r) => <button type="button" onClick={() => beginEditUser(r)} style={{ border: 0, background: "transparent", padding: 0, color: c.primaryDark, fontWeight: 950, cursor: "pointer", textAlign: "left" }}>{r.name || r.email}</button> },
             { key: "role", label: "Rol", render: (r) => roleLabel(r.role) },
             { key: "active", label: "Estado", render: (r) => <Pill tone={r.active === false ? "danger" : "ok"}>{r.active === false ? "Inactivo" : "Activo"}</Pill> },
-            { key: "actions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => beginEditUser(r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={async () => { const res = await sendPasswordReset(r.email); setMessage(res.message); }}>Restablecer contraseña</Button><Button variant={r.active === false ? "success" : "danger"} style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const active = r.active === false; setData((prev) => ({ ...prev, users: (prev.users || []).map((u) => (u.id || u.email) === (r.id || r.email) ? { ...u, active, revokedAt: active ? "" : new Date().toISOString(), revokedBy: active ? "" : firebaseAuth.currentUser?.email || "sistema" } : u) })); }}>{r.active === false ? "Activar" : "Revocar acceso"}</Button></ActionCell> }
+            { key: "actions", label: "Acciones", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => beginEditUser(r)}>Editar</Button><Button variant={r.active === false ? "success" : "danger"} style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const active = r.active === false; setData((prev) => ({ ...prev, users: (prev.users || []).map((u) => (u.id || u.email) === (r.id || r.email) ? { ...u, active } : u) })); }}>{r.active === false ? "Activar" : "Desactivar"}</Button></ActionCell> }
           ]} rows={users} />
         </Card>
       </div>
@@ -3202,9 +2878,8 @@ function Config({ data, setData }) {
   const [activeCatalog, setActiveCatalog] = useState("finanzas");
   const [localForm, setLocalForm] = useState({});
   const [editing, setEditing] = useState(null);
-  const [securityMessage, setSecurityMessage] = useState("");
   const tabs = [
-    { id: "finanzas", label: "Finanzas" }, { id: "arrendamientos", label: "Arrendamientos" }, { id: "tramites", label: "Trámites" }, { id: "documentos", label: "Documentos" }, { id: "bancos", label: "Bancos" }, { id: "reglas", label: "Reglas" }, { id: "seguridad", label: "Seguridad y respaldos" },
+    { id: "finanzas", label: "Finanzas" }, { id: "arrendamientos", label: "Arrendamientos" }, { id: "tramites", label: "Trámites" }, { id: "documentos", label: "Documentos" }, { id: "bancos", label: "Bancos" }, { id: "reglas", label: "Reglas" },
   ];
   function setCollection(name, rows) { setData((prev) => ({ ...prev, [name]: rows })); }
   function upsert(collectionName, payload) {
@@ -3249,32 +2924,6 @@ function Config({ data, setData }) {
         {activeCatalog === "documentos" && <Card><SectionTitle title="Documentos obligatorios" helper="Checklist documental para proveedores, solicitudes de pago, contratos de arrendamiento y trámites." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Módulo"><input style={inputStyle()} value={localForm.module || ""} onChange={(e) => setLocalForm({ ...localForm, module: e.target.value })} /></Field><Field label="Documento"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Aplica a"><input style={inputStyle()} value={localForm.appliesTo || ""} onChange={(e) => setLocalForm({ ...localForm, appliesTo: e.target.value })} /></Field><Field label="Vigencia días"><input type="number" style={inputStyle()} value={localForm.validityDays || 0} onChange={(e) => setLocalForm({ ...localForm, validityDays: e.target.value })} /></Field></div><label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 900, marginBottom: 10 }}><input type="checkbox" checked={localForm.required !== false} onChange={(e) => setLocalForm({ ...localForm, required: e.target.checked })} /> Obligatorio</label><Button style={{ marginBottom: 12 }} onClick={() => upsert("requiredDocuments", { module: localForm.module || "General", name: localForm.name || "Documento", appliesTo: localForm.appliesTo || "Todos", required: localForm.required !== false, validityDays: Number(localForm.validityDays || 0) })}>{editing?.collection === "requiredDocuments" ? "Guardar documento" : "Agregar documento"}</Button><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "name", label: "Documento" }, { key: "appliesTo", label: "Aplica a" }, { key: "required", label: "Obligatorio", render: (r) => r.required ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }, { key: "validityDays", label: "Vigencia días" }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("requiredDocuments", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("requiredDocuments", r)}>Desactivar</Button></ActionCell> }]} rows={data.requiredDocuments || []} /></Card>}
     {activeCatalog === "bancos" && <Card><SectionTitle title="Bancos y cuentas" helper="Cuentas origen/destino para pagos, ingresos, rentas y conciliación." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Nombre"><input style={inputStyle()} value={localForm.name || ""} onChange={(e) => setLocalForm({ ...localForm, name: e.target.value })} /></Field><Field label="Banco"><input style={inputStyle()} value={localForm.bank || ""} onChange={(e) => setLocalForm({ ...localForm, bank: e.target.value })} /></Field><Field label="Cuenta"><input style={inputStyle()} value={localForm.account || ""} onChange={(e) => setLocalForm({ ...localForm, account: e.target.value })} /></Field><Field label="CLABE"><input style={inputStyle()} value={localForm.clabe || ""} onChange={(e) => setLocalForm({ ...localForm, clabe: e.target.value })} /></Field><Field label="Uso"><input style={inputStyle()} value={localForm.use || ""} onChange={(e) => setLocalForm({ ...localForm, use: e.target.value })} /></Field></div><Button style={{ marginBottom: 12 }} onClick={() => upsert("bankAccounts", { name: localForm.name || "Cuenta", bank: localForm.bank || "Banco", account: localForm.account || "", clabe: localForm.clabe || "", currency: "MXN", use: localForm.use || "Operación", status: localForm.status || "Activa" })}>{editing?.collection === "bankAccounts" ? "Guardar cuenta" : "Agregar cuenta"}</Button><MiniTable columns={[{ key: "name", label: "Nombre" }, { key: "bank", label: "Banco" }, { key: "account", label: "Cuenta" }, { key: "use", label: "Uso" }, { key: "status", label: "Estatus", render: (r) => <Pill tone={r.status === "Inactivo" ? "warn" : "ok"}>{r.status}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("bankAccounts", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("bankAccounts", r)}>{r.status === "Inactivo" ? "Activar" : "Desactivar"}</Button></ActionCell> }]} rows={data.bankAccounts || []} /></Card>}
     {activeCatalog === "reglas" && <Card><SectionTitle title="Reglas de autorización y control" helper="Estados por movimiento, autorizaciones por rol/monto, sobregiro justificado y conciliación antes de reporte." /><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginBottom: 12 }}><Field label="Módulo"><input style={inputStyle()} value={localForm.module || ""} onChange={(e) => setLocalForm({ ...localForm, module: e.target.value })} /></Field><Field label="Monto umbral"><input type="number" style={inputStyle()} value={localForm.threshold || 0} onChange={(e) => setLocalForm({ ...localForm, threshold: e.target.value })} /></Field><Field label="Rol"><input style={inputStyle()} value={localForm.role || ""} onChange={(e) => setLocalForm({ ...localForm, role: e.target.value })} /></Field><Field label="Descripción"><input style={inputStyle()} value={localForm.description || ""} onChange={(e) => setLocalForm({ ...localForm, description: e.target.value })} /></Field></div><div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10 }}><label style={{ fontWeight: 900 }}><input type="checkbox" checked={!!localForm.requiresAdminReview} onChange={(e) => setLocalForm({ ...localForm, requiresAdminReview: e.target.checked })} /> Revisión admin</label><label style={{ fontWeight: 900 }}><input type="checkbox" checked={!!localForm.requiresMaster} onChange={(e) => setLocalForm({ ...localForm, requiresMaster: e.target.checked })} /> Master</label></div><Button style={{ marginBottom: 12 }} onClick={() => upsert("approvalRules", { module: localForm.module || "Cuentas por pagar", threshold: Number(localForm.threshold || 0), role: localForm.role || "Master", requiresAdminReview: !!localForm.requiresAdminReview, requiresMaster: !!localForm.requiresMaster, description: localForm.description || "Regla" })}>{editing?.collection === "approvalRules" ? "Guardar regla" : "Agregar regla"}</Button><MiniTable columns={[{ key: "module", label: "Módulo" }, { key: "threshold", label: "Monto", render: (r) => money(r.threshold) }, { key: "role", label: "Rol" }, { key: "requiresAdminReview", label: "Revisión admin", render: (r) => r.requiresAdminReview ? <Pill tone="ok">Sí</Pill> : <Pill>No</Pill> }, { key: "requiresMaster", label: "Master", render: (r) => r.requiresMaster ? <Pill tone="warn">Sí</Pill> : <Pill>No</Pill> }, { key: "description", label: "Regla" }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => editRow("approvalRules", r)}>Editar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => deactivateRow("approvalRules", r)}>Desactivar</Button></ActionCell> }]} rows={data.approvalRules || []} /></Card>}
-
-    {activeCatalog === "seguridad" && <div style={{ display: "grid", gap: 16 }}>
-      <Card><SectionTitle title="Seguridad del sistema" helper="Configuración básica para pruebas con administración: Firestore, respaldos, revocación de accesos y restablecimiento de contraseñas." />
-        {securityMessage ? <div style={{ padding: 12, borderRadius: 16, background: securityMessage.includes("error") || securityMessage.includes("Firestore") ? c.orangeSoft : c.greenSoft, color: securityMessage.includes("error") ? c.red : c.primaryDark, fontWeight: 850, marginBottom: 12 }}>{securityMessage}</div> : null}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-          <Info label="Base de datos" value="Firestore · control-de-calidad-triton" />
-          <Info label="Storage" value="Firebase Storage para anexos" />
-          <Info label="Último respaldo local" value={localStorage.getItem("triton_os_last_backup_at") ? new Date(Number(localStorage.getItem("triton_os_last_backup_at"))).toLocaleString("es-MX") : "Pendiente"} />
-          <Info label="Versión" value="TRITON OS v50" />
-        </div>
-      </Card>
-      <Card><SectionTitle title="Respaldos automáticos" helper="El cliente genera respaldo cuando hay sesión activa. Para producción se recomienda Cloud Function programada nocturna; esta base ya deja la colección systemBackups preparada." />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginBottom: 12 }}>
-          <Field label="Frecuencia respaldo activo (horas)"><input type="number" style={inputStyle()} value={data.operationSettings?.backupsEveryHours || 6} onChange={(e) => setData((prev) => ({ ...prev, operationSettings: { ...(prev.operationSettings || {}), backupsEveryHours: Number(e.target.value || 6) } }))} /></Field>
-          <Field label="Estado Firestore"><select style={inputStyle()} value={data.operationSettings?.firestoreConfigured === false ? "Pendiente" : "Configurado"} onChange={(e) => setData((prev) => ({ ...prev, operationSettings: { ...(prev.operationSettings || {}), firestoreConfigured: e.target.value === "Configurado" } }))}><option>Configurado</option><option>Pendiente</option></select></Field>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Button onClick={async () => { const res = await createSystemBackup(data, "Respaldo manual desde configuración"); setSecurityMessage(res.ok ? `Respaldo guardado: ${res.id}` : `Respaldo local guardado. Firestore: ${res.error}`); }}>Crear respaldo ahora</Button>
-          <Button variant="secondary" onClick={() => { const raw = localStorage.getItem("triton_os_backup_latest") || JSON.stringify({ data, createdAt: new Date().toISOString() }); const blob = new Blob([raw], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `triton-os-backup-${todayIso()}.json`; a.click(); URL.revokeObjectURL(url); }}>Descargar último respaldo JSON</Button>
-        </div>
-      </Card>
-      <Card><SectionTitle title="Contraseñas y accesos" helper="La contraseña real vive en Firebase Authentication. Desde Usuarios puedes revocar acceso lógico o enviar correo para restablecer contraseña." />
-        <MiniTable columns={[{ key: "name", label: "Usuario" }, { key: "email", label: "Correo" }, { key: "role", label: "Rol" }, { key: "active", label: "Acceso", render: (r) => <Pill tone={r.active === false ? "danger" : "ok"}>{r.active === false ? "Revocado" : "Activo"}</Pill> }, { key: "actions", label: "Acciones", render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={async () => { const res = await sendPasswordReset(r.email); setSecurityMessage(res.message); }}>Enviar reset</Button></ActionCell> }]} rows={data.users || []} />
-      </Card>
-    </div>}
-
   </div>;
 }
 

@@ -1,0 +1,11 @@
+V18 - Imagen de referencia unica en checklist de calidad
+
+Cambios:
+- La base TR-AC-M01 ya no carga la misma hoja como imagen correcta e incorrecta al mismo tiempo.
+- Cuando el sistema no tiene recortes separados de correcto/incorrecto, muestra una sola imagen bajo el titulo: Imagen de referencia del criterio.
+- Si en el futuro un punto si tiene imagen correcta e incorrecta diferentes, el visor sigue mostrando ambas por separado.
+- En el detalle de calidad, las imagenes duplicadas por misma URL se deduplican automaticamente.
+
+Nota:
+- Por ahora la referencia visual proviene de la hoja completa del manual.
+- Si mas adelante se extraen/cortan las fotos correcto/incorrecto de forma separada, el sistema ya soporta ambas imagenes.

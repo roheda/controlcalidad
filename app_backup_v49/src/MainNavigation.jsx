@@ -14,11 +14,11 @@ const groups = [
   ]},
   { id: "operacion", label: "Operación", helper: "Obra, calidad y estimaciones", icon: "✓", children: [
     { id: "operacion_os", label: "Resumen operación", helper: "Vista conectada de obra, calidad y finanzas", os: true },
-    { id: "calidad", label: "Checklist / Calidad", helper: "Liberaciones, evidencias y bitácora", os: true },
-    { id: "obras", label: "Configurar obra", helper: "Alta, edición, unidades y alcance", os: true },
-    { id: "estimaciones", label: "Estimaciones", helper: "Catálogo, avance, checklist y pagos", os: true },
+    { id: "calidad", label: "Checklist / Calidad", helper: "Liberaciones, evidencias y bitácora", os: false },
+    { id: "obras", label: "Configurar obra", helper: "Unidades, elementos y checklist", os: false },
+    { id: "estimaciones", label: "Estimaciones", helper: "Avances y aprobaciones", os: false },
     { id: "equipo_obra", label: "Equipo construcción", helper: "Altas/bajas por obra", os: true },
-    { id: "consulta_tecnica", label: "Consulta técnica", helper: "Dudas, criterios y soporte", os: true },
+    { id: "consulta_tecnica", label: "Consulta técnica", helper: "Dudas y soporte", os: false },
   ]},
   { id: "finanzas_group", label: "Finanzas", helper: "ERP financiero", icon: "$", children: [
     { id: "finanzas", label: "Resumen", helper: "Presupuesto, comprometido, pagado" },
@@ -109,11 +109,6 @@ export default function MainNavigation() {
     document.documentElement.style.setProperty("--triton-shell-offset", `${sidebarWidth}px`);
     return () => document.documentElement.style.removeProperty("--triton-shell-offset");
   }, [sidebarWidth]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => window.dispatchEvent(new CustomEvent("triton-open-os-module", { detail: { module: "reportes_os" } })), 250);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   const styleTag = useMemo(() => `
     .triton-desktop-sidebar, .triton-mobile-est-menu, button[aria-label='Abrir menú']:not(.triton-shell-menu-button) { display: none !important; }
