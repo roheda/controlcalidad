@@ -901,6 +901,10 @@ export default function App() {
   const [qualityInitializing, setQualityInitializing] = useState(false);
   const [qualitySpecs, setQualitySpecs] = useState([]);
   const [qualityScopes, setQualityScopes] = useState([]);
+  const [bloques, setBloques] = useState([]);
+  const [bloquesManagerOpen, setBloquesManagerOpen] = useState(false);
+  const [bloqueForm, setBloqueForm] = useState(null);
+  const [mobileStep, setMobileStep] = useState("unidad");
   const [checklistDetailOpen, setChecklistDetailOpen] = useState({});
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [selectedPartidaId, setSelectedPartidaId] = useState("cimentacion");
@@ -1035,6 +1039,18 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     return () => unsub();
   }, [authUser, obraId]);
 
+  useEffect(() => {
+    if (!authUser || !obraId) {
+      setBloques([]);
+      return;
+    }
+    const bloquesRef = collection(db, "obras", obraId, "bloques");
+    const unsub = onSnapshot(bloquesRef, (snapshot) => {
+      setBloques(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+    });
+    return () => unsub();
+  }, [authUser, obraId]);
+
   async function initializeQualityChecklistForObra(obra) {
     if (!obra?.id || qualityInitializing) return;
     const totalUnits = Math.max(0, Number(obra.totalUnits || 0));
@@ -1075,6 +1091,35 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     }
   }
 
+  async function saveBloqueForm() {
+    if (!bloqueForm || !obraId) return;
+    const name = String(bloqueForm.name || "").trim();
+    if (!name) { alert("Captura el nombre del bloque."); return; }
+    if (!(bloqueForm.houseIds || []).length) { alert("Selecciona al menos una casa para este bloque."); return; }
+    let id = bloqueForm.id;
+    if (!id) {
+      const existingIds = new Set(bloques.map((b) => b.id));
+      const base = slugify(name) || "bloque";
+      id = base;
+      let n = 2;
+      while (existingIds.has(id)) { id = `${base}-${n}`; n += 1; }
+    }
+    const assignedEmails = String(bloqueForm.emailsText || "").split(",").map((email) => email.trim()).filter(Boolean);
+    await setDoc(doc(db, "obras", obraId, "bloques", id), {
+      id,
+      name,
+      houseIds: bloqueForm.houseIds || [],
+      assignedEmails,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    setBloqueForm(null);
+  }
+
+  async function deleteBloque(bloqueId) {
+    if (!obraId || !window.confirm("¿Eliminar este bloque? Las casas quedarán sin bloque asignado hasta que crees otro.")) return;
+    await deleteDoc(doc(db, "obras", obraId, "bloques", bloqueId));
+  }
+
   useEffect(() => {
     if (!authUser || !obraId) {
       setHouses([]);
@@ -1112,8 +1157,22 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     return () => unsub();
   }, [authUser, obraId, selectedObra?.id, selectedObra?.totalUnits, selectedHouseId, qualityInitializing, qualitySpecs.length]);
 
+  const isSupervisora = ["supervisora", "master"].includes(profile?.role);
+  const isConstructora = profile?.role === "constructora";
+
+  const myEmail = String(authUser?.email || "").toLowerCase();
+  const myBloques = useMemo(
+    () => bloques.filter((b) => (b.assignedEmails || []).some((email) => String(email || "").toLowerCase() === myEmail)),
+    [bloques, myEmail]
+  );
+  const visibleHouses = useMemo(() => {
+    if (isSupervisora || !bloques.length || !myBloques.length) return houses;
+    const allowedIds = new Set(myBloques.flatMap((b) => b.houseIds || []));
+    return houses.filter((house) => allowedIds.has(house.id));
+  }, [houses, isSupervisora, bloques.length, myBloques]);
+
   const filteredHouses = useMemo(() => {
-    return houses.filter((house) => {
+    return visibleHouses.filter((house) => {
       const q = queryText.trim().toLowerCase();
       if (!q) return true;
       return (
@@ -1122,14 +1181,16 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
         String(house.block || "").toLowerCase().includes(q)
       );
     });
-  }, [houses, queryText]);
+  }, [visibleHouses, queryText]);
 
-  const selectedHouse = houses.find((h) => h.id === selectedHouseId) || null;
+  useEffect(() => {
+    if (!visibleHouses.length) return;
+    if (!visibleHouses.some((house) => house.id === selectedHouseId)) setSelectedHouseId(visibleHouses[0].id);
+  }, [visibleHouses, selectedHouseId]);
+
+  const selectedHouse = visibleHouses.find((h) => h.id === selectedHouseId) || null;
   const selectedPartida =
     selectedHouse?.partidas?.find((p) => p.id === selectedPartidaId) || selectedHouse?.partidas?.[0] || null;
-
-  const isSupervisora = ["supervisora", "master"].includes(profile?.role);
-  const isConstructora = profile?.role === "constructora";
   const currentUserMentionHandle = userMentionHandle({ id: authUser?.uid, uid: authUser?.uid, name: profile?.name, email: authUser?.email });
   const allMentionUsers = useMemo(
     () => mergeMentionUsers(users, {
@@ -1948,6 +2009,11 @@ const reviewBlockMessage =
                 <span style={{ position: "absolute", top: -8, right: -8, background: c.danger, color: "#fff", borderRadius: 999, padding: "2px 7px", fontSize: 11, fontWeight: 900 }}>{myOpenMentions.length}</span>
               ) : null}
             </button>
+            {isSupervisora ? (
+              <button onClick={() => setBloquesManagerOpen(true)} style={buttonStyle("secondary")}>
+                Bloques y equipos
+              </button>
+            ) : null}
             <div
               style={{
                 display: "flex",
@@ -2013,24 +2079,33 @@ const reviewBlockMessage =
             gap: 20,
           }}
         >
+          {!isMobile || mobileStep === "unidad" ? (
           <div style={{ ...cardStyle(), padding: 18 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: c.text, marginBottom: 14 }}>Casas</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: c.text, marginBottom: 4 }}>{isMobile ? "Paso 1 de 3 · ¿Qué casa vas a revisar?" : "Casas"}</div>
+            {isMobile && isConstructora && myBloques.length ? (
+              <div style={{ color: c.muted, fontSize: 13, marginBottom: 10 }}>Tu bloque asignado: <b style={{ color: c.text }}>{myBloques.map((b) => b.name).join(", ")}</b></div>
+            ) : null}
 
             <input
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
               placeholder="Buscar por número o bloque"
-              style={inputStyle({ marginBottom: 16 })}
+              style={inputStyle({ marginBottom: 16, marginTop: isMobile ? 10 : 0 })}
             />
 
-            <div style={{ maxHeight: 660, overflow: "auto", paddingRight: 4 }}>
+            {isMobile && isConstructora && bloques.length > 0 && myBloques.length === 0 ? (
+              <div style={{ padding: 16, borderRadius: 16, background: c.warnBg, color: c.warnText, fontWeight: 700, fontSize: 14 }}>
+                Todavía no tienes un bloque asignado. Pide a tu supervisor que te agregue a un bloque en "Bloques y equipos".
+              </div>
+            ) : (
+            <div style={{ maxHeight: isMobile ? "none" : 660, overflow: isMobile ? "visible" : "auto", paddingRight: 4 }}>
               {filteredHouses.length === 0 ? (
                 <div style={{ color: c.muted, fontSize: 14 }}>No hay casas cargadas todavía.</div>
               ) : (
                 filteredHouses.map((house) => (
                   <button
                     key={house.id}
-                    onClick={() => setSelectedHouseId(house.id)}
+                    onClick={() => { setSelectedHouseId(house.id); if (isMobile) setMobileStep("partidas"); }}
                     style={{
                       ...cardStyle(selectedHouseId === house.id),
                       width: "100%",
@@ -2042,8 +2117,9 @@ const reviewBlockMessage =
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                      <div style={{ fontWeight: 800, color: c.text }}>{house.name}</div>
+                      <div style={{ fontWeight: 800, color: c.text, fontSize: isMobile ? 17 : 14 }}>{house.name}</div>
                       <span style={badgeStyle("Pendiente")}>Bloque {house.block || "-"}</span>
+                      {isMobile ? <span style={{ fontSize: 22, color: c.muted }}>›</span> : null}
                     </div>
                     <div style={{ color: c.muted, fontSize: 12, marginTop: 10, marginBottom: 6 }}>
                       Avance {getHouseProgress(house)}%
@@ -2053,13 +2129,20 @@ const reviewBlockMessage =
                 ))
               )}
             </div>
+            )}
           </div>
+          ) : null}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {(!isMobile || mobileStep === "partidas") && selectedHouse ? (
             <div style={{ ...cardStyle(), padding: 20 }}>
+              {isMobile ? (
+                <button onClick={() => setMobileStep("unidad")} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Cambiar casa</button>
+              ) : null}
+              <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, display: isMobile ? "block" : "none" }}>Paso 2 de 3</div>
               <div style={{ fontSize: 24, fontWeight: 900, color: c.text }}>{selectedHouse?.name || "Selecciona una casa"}</div>
               <div style={{ color: c.muted, marginTop: 4 }}>
-                Bloque {selectedHouse?.block || "-"} · Avance {selectedHouse ? getHouseProgress(selectedHouse) : 0}%
+                Bloque {selectedHouse?.block || "-"} · Avance {selectedHouse ? getHouseProgress(selectedHouse) : 0}%{isMobile ? " · Toca una partida. Las pendientes aparecen primero." : ""}
               </div>
 
               <div
@@ -2070,20 +2153,24 @@ const reviewBlockMessage =
                   marginTop: 18,
                 }}
               >
-                {(selectedHouse?.partidas || []).map((partida) => (
+                {[...(selectedHouse?.partidas || [])].sort((a, b) => {
+                  const rank = (p) => (p.status === "Aprobada" ? 2 : ["Lista para revisión", "En revisión"].includes(p.status) ? 1 : 0);
+                  return rank(a) - rank(b);
+                }).map((partida) => (
                   <button
                     key={partida.id}
-                    onClick={() => setSelectedPartidaId(partida.id)}
+                    onClick={() => { setSelectedPartidaId(partida.id); if (isMobile) setMobileStep("detalle"); }}
                     style={{
                       ...cardStyle(selectedPartidaId === partida.id),
                       textAlign: "left",
                       padding: 16,
                       cursor: "pointer",
+                      borderLeft: isMobile ? `6px solid ${partida.status === "Aprobada" ? c.successText : partida.status === "Rechazada" ? c.dangerText : c.warnText}` : cardStyle(selectedPartidaId === partida.id).border,
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
                       <div>
-                        <div style={{ fontWeight: 800, color: c.text }}>{partida.name}</div>
+                        <div style={{ fontWeight: 800, color: c.text, fontSize: isMobile ? 16 : 14 }}>{isMobile ? (partida.status === "Aprobada" ? "✅ " : "🕓 ") : ""}{partida.name}</div>
                         <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>Peso {partida.weight}%</div>
                       </div>
                       <span style={badgeStyle(partida.status)}>{partida.status}</span>
@@ -2095,10 +2182,17 @@ const reviewBlockMessage =
                 ))}
               </div>
             </div>
+            ) : null}
 
-            {selectedPartida ? (
+            {(!isMobile || mobileStep === "detalle") && selectedPartida ? (
               <>
                 <div style={{ ...cardStyle(), padding: 20 }}>
+                  {isMobile ? (
+                    <>
+                      <button onClick={() => setMobileStep("partidas")} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Otra partida</button>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, marginBottom: 4 }}>Paso 3 de 3 · {selectedHouse?.name}</div>
+                    </>
+                  ) : null}
                   <div
                     style={{
                       display: "flex",
@@ -2390,8 +2484,33 @@ const reviewBlockMessage =
 
                     {tab === "checklist" ? (
   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-    {(selectedPartida.checklist || []).map((item) => (
-      <div key={item.id} style={{ ...cardStyle(), padding: 16 }}>
+    {(selectedPartida.checklist || []).map((item) => {
+      const resultColors = {
+        cumple: { text: c.successText, bg: c.successBg, label: "✅ Cumple" },
+        observacion: { text: c.warnText, bg: c.warnBg, label: "⚠️ Observación" },
+        no_cumple: { text: c.dangerText, bg: c.dangerBg, label: "❌ No cumple" },
+        na: { text: c.idleText, bg: c.idleBg, label: "➖ No aplica" },
+      };
+      const resultInfo = resultColors[item.resultado] || { text: c.muted, bg: "#fff", label: "🕓 Pendiente de evaluar" };
+      const scopeProgress = scopeProgressForItem(item);
+      const simplePhotosNeeded = !scopeProgress.total && item.requiresPhotos !== false ? Math.max(0, Number(item.evidenceRequired || 0) - (item.photos?.length || 0)) : 0;
+      return (
+      <div key={item.id} style={{ ...cardStyle(), padding: 16, borderLeft: isMobile ? `6px solid ${resultInfo.text}` : cardStyle().border }}>
+        {isMobile ? (
+          <div style={{ display: "inline-flex", padding: "6px 12px", borderRadius: 999, background: resultInfo.bg, color: resultInfo.text, fontWeight: 900, fontSize: 13, marginBottom: 10 }}>
+            {resultInfo.label}
+          </div>
+        ) : null}
+        {isMobile && simplePhotosNeeded > 0 ? (
+          <div style={{ padding: "10px 14px", borderRadius: 12, background: c.warnBg, color: c.warnText, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+            📸 Faltan {simplePhotosNeeded} foto(s) para este punto
+          </div>
+        ) : null}
+        {isMobile && !simplePhotosNeeded && !scopeProgress.total && item.requiresPhotos !== false && Number(item.evidenceRequired || 0) > 0 ? (
+          <div style={{ padding: "10px 14px", borderRadius: 12, background: c.successBg, color: c.successText, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+            📸 Evidencia fotográfica completa
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
@@ -2416,8 +2535,30 @@ const reviewBlockMessage =
               }}
             >
               <span style={{ fontSize: 20 }}>{item.checked ? "✅" : "⬜"}</span>
-              <span style={{ fontWeight: 800, color: c.text }}>{item.code} · {item.label}</span>
-              {isSupervisora ? (
+              <span style={{ fontWeight: 800, color: c.text, fontSize: isMobile ? 16 : 14 }}>{item.code} · {item.label}</span>
+            </button>
+            {isSupervisora && isMobile ? (
+  <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+    {[["cumple", "✅ Cumple"], ["observacion", "⚠️ Observación"], ["no_cumple", "❌ No cumple"], ["na", "➖ No aplica"]].map(([value, label]) => (
+      <button
+        key={value}
+        type="button"
+        onClick={() => updateChecklistItem(item.id, { resultado: value })}
+        style={{
+          padding: "12px 10px",
+          borderRadius: 12,
+          border: item.resultado === value ? `2px solid ${c.primary}` : `1px solid ${c.border}`,
+          background: item.resultado === value ? c.primarySoft : "#fff",
+          fontWeight: 800,
+          fontSize: 13,
+          cursor: "pointer",
+        }}
+      >
+        {label}
+      </button>
+    ))}
+  </div>
+) : isSupervisora ? (
   <div style={{ marginTop: 10, maxWidth: 280 }}>
     <select
       value={item.resultado || ""}
@@ -2436,7 +2577,6 @@ const reviewBlockMessage =
     Resultado: {item.resultado || "Pendiente de evaluar"}
   </div>
 )}
-            </button>
 
             <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>
               {item.photos?.length || 0} foto(s) · {item.checked ? "Punto atendido" : "Pendiente"} · Hito {item.stagePercent || 100}%
@@ -2725,7 +2865,8 @@ const reviewBlockMessage =
           ) : null}
         </div>
       </div>
-    ))}
+      );
+    })}
   </div>
 ) : null}
 
@@ -2915,6 +3056,94 @@ const reviewBlockMessage =
           </div>
         </div>
       </div>
+
+      {bloquesManagerOpen ? (
+        <div
+          onClick={() => { setBloquesManagerOpen(false); setBloqueForm(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1100 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ ...cardStyle(), width: "100%", maxWidth: 700, maxHeight: "88vh", overflow: "auto", padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>Bloques y equipos</div>
+              <button onClick={() => { setBloquesManagerOpen(false); setBloqueForm(null); }} style={buttonStyle("secondary", { padding: "8px 12px" })}>Cerrar</button>
+            </div>
+            <div style={{ color: c.muted, fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
+              Divide las casas de esta obra en bloques (por ejemplo, Bloque A = casas 1 a 4) y asigna el correo de cada residente de obra de la constructora. Cada persona solo verá y trabajará las casas de su bloque; supervisión siempre ve todas las casas.
+            </div>
+
+            {!bloqueForm ? (
+              <>
+                <button onClick={() => setBloqueForm({ name: "", houseIds: [], emailsText: "" })} style={buttonStyle("primary", { marginBottom: 18 })}>+ Nuevo bloque</button>
+                {bloques.length === 0 ? (
+                  <div style={{ border: `1px dashed ${c.border}`, borderRadius: 16, padding: 16, color: c.muted, fontSize: 13 }}>
+                    Todavía no hay bloques en esta obra. Sin bloques, cualquier persona con rol de constructora puede ver todas las casas.
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {bloques.map((b) => (
+                      <div key={b.id} style={{ border: `1px solid ${c.border}`, borderRadius: 16, padding: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontWeight: 900, color: c.text }}>{b.name}</div>
+                            <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>{(b.houseIds || []).length} casa(s) · {(b.assignedEmails || []).length} persona(s) en el equipo</div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={() => setBloqueForm({ ...b, emailsText: (b.assignedEmails || []).join(", ") })} style={buttonStyle("secondary", { padding: "8px 12px", fontSize: 12 })}>Editar</button>
+                            <button onClick={() => deleteBloque(b.id)} style={buttonStyle("danger", { padding: "8px 12px", fontSize: 12 })}>Eliminar</button>
+                          </div>
+                        </div>
+                        {(b.assignedEmails || []).length ? (
+                          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {b.assignedEmails.map((email) => <span key={email} style={badgeStyle("Pendiente")}>{email}</span>)}
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: 8, color: c.warnText, fontSize: 12, fontWeight: 700 }}>Sin nadie asignado todavía.</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: c.text }}>Nombre del bloque</div>
+                  <input value={bloqueForm.name} onChange={(e) => setBloqueForm({ ...bloqueForm, name: e.target.value })} placeholder="Bloque A" style={inputStyle()} />
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: c.text }}>Casas de este bloque</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, maxHeight: 220, overflow: "auto", border: `1px solid ${c.border}`, borderRadius: 14, padding: 10 }}>
+                    {houses.length === 0 ? <div style={{ color: c.muted, fontSize: 13 }}>Esta obra todavía no tiene casas.</div> : houses.map((h) => {
+                      const checked = (bloqueForm.houseIds || []).includes(h.id);
+                      return (
+                        <label key={h.id} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${checked ? c.primary : c.border}`, borderRadius: 10, padding: "6px 8px", cursor: "pointer", background: checked ? c.primarySoft : "#fff", fontSize: 12, fontWeight: 700, color: c.text }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked ? [...(bloqueForm.houseIds || []), h.id] : (bloqueForm.houseIds || []).filter((id) => id !== h.id);
+                              setBloqueForm({ ...bloqueForm, houseIds: next });
+                            }}
+                          />
+                          {h.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: c.text }}>Equipo asignado (correos separados por coma)</div>
+                  <textarea value={bloqueForm.emailsText} onChange={(e) => setBloqueForm({ ...bloqueForm, emailsText: e.target.value })} placeholder="residente1@constructora.com, residente2@constructora.com" style={inputStyle({ minHeight: 70 })} />
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button onClick={saveBloqueForm} style={buttonStyle("primary")}>Guardar bloque</button>
+                  <button onClick={() => setBloqueForm(null)} style={buttonStyle("secondary")}>Cancelar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {notificationPanelOpen ? (
         <div
