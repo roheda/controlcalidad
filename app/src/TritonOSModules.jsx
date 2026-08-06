@@ -951,6 +951,18 @@ export default function TritonOSModules() {
       };
     });
   }
+  function deleteRecord(collectionName, id) {
+    const now = todayIso();
+    setData((prev) => {
+      const before = (prev[collectionName] || []).find((item) => item.id === id);
+      if (!before) return prev;
+      return {
+        ...prev,
+        [collectionName]: (prev[collectionName] || []).filter((item) => item.id !== id),
+        auditTrail: [{ id: uid("audit"), module: collectionName, itemId: id, action: "Eliminar registro", user: firebaseAuth.currentUser?.email || "sistema", date: now, comment: before.concept || before.name || before.tradeName || `Registro ${id} eliminado` }, ...(prev.auditTrail || [])].slice(0, 200),
+      };
+    });
+  }
   function resetDemo() {
     if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v44"); localStorage.removeItem("triton_os_v43"); localStorage.removeItem("triton_os_v37"); localStorage.removeItem("triton_os_v36"); localStorage.removeItem("triton_os_v35"); localStorage.removeItem("triton_os_v34"); setData(initialData); }
   }
@@ -982,7 +994,7 @@ export default function TritonOSModules() {
         {active === "presupuestos" && <Budgets data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "contratos_financieros" && <FinanceContracts data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "pagos_recurrentes" && <RecurringPayments data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
-        {active === "cxp" && <Payables data={data} projectMap={projectMap} categoryMap={categoryMap} rows={filteredPayables} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
+        {active === "cxp" && <Payables data={data} projectMap={projectMap} categoryMap={categoryMap} rows={filteredPayables} addRecord={addRecord} updateRecord={updateRecord} deleteRecord={deleteRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "autorizaciones" && <Authorizations data={data} projectMap={projectMap} categoryMap={categoryMap} updateRecord={updateRecord} />}
         {active === "pagos_programados" && <ScheduledPayments data={data} projectMap={projectMap} categoryMap={categoryMap} updateRecord={updateRecord} addRecord={addRecord} />}
         {active === "pagos_realizados" && <PaidPayments data={data} projectMap={projectMap} categoryMap={categoryMap} />}
@@ -1569,23 +1581,67 @@ function RecurringPayments({ data, projectMap, categoryMap, addRecord, updateRec
   </div>;
 }
 
-function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord, showForm, setShowForm, form, setForm }) {
+const lockedDeleteStatuses = new Set(["Pagado", "Conciliado"]);
+const resolvedPayableStatuses = new Set(["Pagado", "Conciliado", "Rechazado", "Cancelado"]);
+function paymentAging(row) {
+  if (resolvedPayableStatuses.has(row.status)) return { label: "—", tone: "idle" };
+  const overdueDays = daysBetweenDates(row.requiredDate, todayIso());
+  if (overdueDays > 0) return { label: `Vencido ${overdueDays}d`, tone: "danger" };
+  if (overdueDays === 0) return { label: "Vence hoy", tone: "warn" };
+  return { label: `Faltan ${Math.abs(overdueDays)}d`, tone: "ok" };
+}
+function filterBySearch(rows, query, getText) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((row) => getText(row).toLowerCase().includes(q));
+}
+
+function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord, deleteRecord, showForm, setShowForm, form, setForm }) {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [search, setSearch] = useState("");
   const [reviewDraft, setReviewDraft] = useState(null);
   const currentUser = currentFinanceUser();
-  const displayedRows = filterByStatus(rows, statusFilter);
+  const statusFiltered = filterByStatus(rows, statusFilter);
+  const displayedRows = filterBySearch(statusFiltered, search, (r) => `${supplierDisplayName(r, data)} ${r.concept} ${data.suppliers.find((s) => s.id === r.supplierId)?.rfc || ""}`);
   const canAdminOperate = canFinanceAction("adminReview");
-  const { prompt } = usePrompt();
+  const lastProjectId = data.payables[0]?.projectId || "arenna";
+  const { prompt, confirm } = usePrompt();
   async function justifyOverspend(row) {
     const reason = await prompt({ title: "Justificar sobregiro", label: "Motivo administrativo del sobregiro / excepción", defaultValue: row.overspendReason || "", multiline: true });
     if (reason !== null) updateRecord("payables", row.id, { overspendApprovedByAdmin: true, overspendReason: reason, adminComment: reason });
   }
+  async function removePayable(row) {
+    if (lockedDeleteStatuses.has(row.status)) { alert(`No se puede eliminar: este pago ya está "${row.status}". Para corregirlo, usa una nota de crédito o ajuste contable.`); return; }
+    const advanced = ["Autorizado", "Programado"].includes(row.status);
+    const ok = await confirm({
+      title: "Eliminar solicitud de pago",
+      message: advanced
+        ? `Esta solicitud ya fue "${row.status}". Eliminarla borra el movimiento por completo y no se puede deshacer. ¿Continuar?`
+        : `Se eliminará la solicitud "${row.concept}" por ${money(payableTotal(row))}. Esta acción no se puede deshacer. ¿Continuar?`,
+      confirmLabel: "Eliminar",
+      tone: "danger",
+    });
+    if (ok) deleteRecord("payables", row.id);
+  }
+  function pickSupplier(s) {
+    const tax = form.amount ? calcTaxValues(form.amount, s, "base") : {};
+    const lastForSupplier = data.payables.find((p) => p.supplierId === s.id);
+    setForm({
+      ...form,
+      supplierId: s.id,
+      categoryId: lastForSupplier?.categoryId || s.categoryId || form.categoryId,
+      contractId: lastForSupplier?.contractId || "",
+      paymentStage: lastForSupplier?.paymentStage || form.paymentStage,
+      taxpayerType: s.taxpayerType || "Persona moral",
+      ...tax,
+    });
+  }
   const supplier = data.suppliers.find((s) => s.id === (form.supplierId || data.suppliers[0]?.id));
   const activeContracts = (data.financeContracts || []).filter((ct) => !form.supplierId || ct.supplierId === form.supplierId);
-  const previewRow = { projectId: form.projectId || "arenna", categoryId: form.categoryId || supplier?.categoryId || "construccion", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), contractId: form.contractId || "" };
+  const previewRow = { projectId: form.projectId || lastProjectId, categoryId: form.categoryId || supplier?.categoryId || "construccion", amount: Number(form.amount || 0), iva: Number(form.iva || 0), retention: Number(form.retention || 0), contractId: form.contractId || "" };
   const previewBudget = budgetCheck(data, previewRow);
   const previewContract = contractCheck(data, previewRow);
   const taxValues = calcTaxValues(form.amount || 0, supplier, "base");
@@ -1606,7 +1662,7 @@ function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord
     if (!selected) { alert("Selecciona un proveedor."); return null; }
     const anexos = normalizeAttachments(form.attachments);
     const payload = {
-      projectId: form.projectId || "arenna",
+      projectId: form.projectId || lastProjectId,
       supplierId: selected.id,
       supplier: selected.tradeName,
       concept: form.concept || "Solicitud de pago",
@@ -1655,8 +1711,8 @@ function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord
     <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Nueva solicitud" helper="Busca proveedor por nombre/RFC. Puedes capturar base o total; IVA y retenciones se calculan según persona física/moral del proveedor." /><Button onClick={() => setShowForm(showForm === "payable" ? null : "payable")}>Nueva solicitud</Button></div>
       {showForm === "payable" ? <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
-          <Field label="Proyecto"><select style={inputStyle()} value={form.projectId || "arenna"} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-          <Field label="Proveedor"><SearchableSupplierSelect data={data} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={(s) => { const tax = form.amount ? calcTaxValues(form.amount, s, "base") : {}; setForm({ ...form, supplierId: s.id, categoryId: s.categoryId || form.categoryId, taxpayerType: s.taxpayerType || "Persona moral", ...tax }); }} /></Field>
+          <Field label="Proyecto"><select style={inputStyle()} value={form.projectId || lastProjectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+          <Field label="Proveedor"><SearchableSupplierSelect data={data} value={form.supplierId || data.suppliers[0]?.id || ""} onChange={pickSupplier} /></Field>
           <Field label="Categoría / partida"><select style={inputStyle()} value={form.categoryId || supplier?.categoryId || "construccion"} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{data.categories.filter((cat) => cat.budgetable).map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select></Field>
           <Field label="Contrato ligado"><select style={inputStyle()} value={form.contractId || ""} onChange={(e) => setForm({ ...form, contractId: e.target.value })}><option value="">Sin contrato</option>{activeContracts.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</select></Field>
           <Field label="Etapa de pago"><select style={inputStyle()} value={form.paymentStage || "Pago parcial"} onChange={(e) => setForm({ ...form, paymentStage: e.target.value })}><option>Anticipo</option><option>Pago parcial</option><option>Estimación</option><option>Saldo</option><option>Recurrente</option><option>Reembolso</option><option>Reposición caja chica</option></select></Field>
@@ -1682,7 +1738,8 @@ function Payables({ data, projectMap, categoryMap, rows, addRecord, updateRecord
     </Card>
     <Card><SectionTitle title="Solicitudes" helper="Administración debe revisar, justificar sobregiro y dejar expediente completo antes de enviar a autorización." />
       <StatusFilter value={statusFilter} onChange={setStatusFilter} options={rows.map((r) => r.status)} total={rows.length} shown={displayedRows.length} />
-      <MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "requestedBy", label: "Solicitó", render: (r) => <div><b>{r.requestedByName || r.requestedBy || "—"}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.requestedBy || "sin usuario"}</div></div> }, { key: "supplier", label: "Proveedor", render: (r) => { const s = data.suppliers.find((x) => x.id === r.supplierId); return <EntityLink onClick={() => setSelectedSupplier(s)}>{supplierDisplayName(r, data)}</EntityLink>; } }, { key: "concept", label: "Concepto", render: (r) => <EntityLink onClick={() => setSelectedPayment(r)}>{r.concept}</EntityLink> }, { key: "paymentStage", label: "Etapa" }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", sortValue: (r) => payableTotal(r), render: (r) => money(payableTotal(r)) }, { key: "budget", label: "Presupuesto", render: (r) => { const b = budgetCheck(data, r); return <Pill tone={!b.hasBudget || (b.over && !r.overspendApprovedByAdmin) ? "danger" : "ok"}>{!b.hasBudget ? "Sin presupuesto" : b.over ? `Sobregiro ${money(b.overspend)}` : `Disp. ${money(b.available)}`}</Pill>; } }, { key: "docs", label: "Anexos", render: (r) => <AttachmentViewer value={r.attachments} /> }, { key: "status", label: "Estado", render: (r) => <div style={{ minWidth: 170 }}><Pill tone={statusTone(r.status)}>{r.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 5 }}>Automático por flujo</div></div> }, { key: "context", label: "Expediente", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedPayment(r)}>Revisar</Button>{canFinanceAction("edit") ? <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingPayment(r)}>Editar</Button> : null}</ActionCell> }, { key: "adminActions", label: "Revisión admin", sortable: false, render: (r) => { const check = canSendToAuthorization(data, r); if (!canAdminOperate) return <Pill tone="idle">Solo consulta</Pill>; return <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const b = budgetCheck(data, r); updateRecord("payables", r.id, { adminReviewed: true, status: b.over && !r.overspendApprovedByAdmin ? "Observado" : "En revisión", adminReviewedAt: todayIso(), adminReviewedBy: currentUser.email }); }}>Revisar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => justifyOverspend(r)}>Justificar sobregiro</Button><Button variant="success" style={{ padding: "7px 9px", fontSize: 12 }} disabled={!check.ok} onClick={() => updateRecord("payables", r.id, { status: "Listo para autorización", readyForApprovalAt: todayIso() })}>Enviar a Autorización</Button></ActionCell>; } }]} rows={displayedRows} />
+      <div style={{ marginTop: -6, marginBottom: 12 }}><input style={inputStyle({ maxWidth: 340 })} placeholder="Buscar por proveedor, RFC o concepto…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+      <MiniTable columns={[{ key: "projectId", label: "Proyecto", render: (r) => projectMap[r.projectId]?.name }, { key: "requestedBy", label: "Solicitó", render: (r) => <div><b>{r.requestedByName || r.requestedBy || "—"}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.requestedBy || "sin usuario"}</div></div> }, { key: "supplier", label: "Proveedor", render: (r) => { const s = data.suppliers.find((x) => x.id === r.supplierId); return <EntityLink onClick={() => setSelectedSupplier(s)}>{supplierDisplayName(r, data)}</EntityLink>; } }, { key: "concept", label: "Concepto", render: (r) => <EntityLink onClick={() => setSelectedPayment(r)}>{r.concept}</EntityLink> }, { key: "paymentStage", label: "Etapa" }, { key: "categoryId", label: "Partida", render: (r) => categoryMap[r.categoryId]?.name }, { key: "amount", label: "Total", sortValue: (r) => payableTotal(r), render: (r) => money(payableTotal(r)) }, { key: "budget", label: "Presupuesto", render: (r) => { const b = budgetCheck(data, r); return <Pill tone={!b.hasBudget || (b.over && !r.overspendApprovedByAdmin) ? "danger" : "ok"}>{!b.hasBudget ? "Sin presupuesto" : b.over ? `Sobregiro ${money(b.overspend)}` : `Disp. ${money(b.available)}`}</Pill>; } }, { key: "aging", label: "Vencimiento", sortValue: (r) => daysBetweenDates(r.requiredDate, todayIso()), render: (r) => { const aging = paymentAging(r); return <Pill tone={aging.tone}>{aging.label}</Pill>; } }, { key: "docs", label: "Anexos", render: (r) => <AttachmentViewer value={r.attachments} /> }, { key: "status", label: "Estado", render: (r) => <div style={{ minWidth: 170 }}><Pill tone={statusTone(r.status)}>{r.status}</Pill><div style={{ color: c.muted, fontSize: 11, marginTop: 5 }}>Automático por flujo</div></div> }, { key: "context", label: "Expediente", sortable: false, render: (r) => <ActionCell><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedPayment(r)}>Revisar</Button>{canFinanceAction("edit") ? <Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingPayment(r)}>Editar</Button> : null}{canFinanceAction("edit") ? <Button variant="danger" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => removePayable(r)}>Eliminar</Button> : null}</ActionCell> }, { key: "adminActions", label: "Revisión admin", sortable: false, render: (r) => { const check = canSendToAuthorization(data, r); if (!canAdminOperate) return <Pill tone="idle">Solo consulta</Pill>; return <ActionCell><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => { const b = budgetCheck(data, r); updateRecord("payables", r.id, { adminReviewed: true, status: b.over && !r.overspendApprovedByAdmin ? "Observado" : "En revisión", adminReviewedAt: todayIso(), adminReviewedBy: currentUser.email }); }}>Revisar</Button><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => justifyOverspend(r)}>Justificar sobregiro</Button><Button variant="success" style={{ padding: "7px 9px", fontSize: 12 }} disabled={!check.ok} onClick={() => updateRecord("payables", r.id, { status: "Listo para autorización", readyForApprovalAt: todayIso() })}>Enviar a Autorización</Button></ActionCell>; } }]} rows={displayedRows} />
     </Card>
     <PayableReviewModal row={reviewDraft} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setReviewDraft(null)} onConfirm={confirmPayable} />
     <PaymentContextModal row={selectedPayment} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedPayment(null)} />
@@ -2081,8 +2138,21 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [search, setSearch] = useState("");
+  const { confirm } = usePrompt();
   const statuses = ["Pendiente revisión", "Activo", "Bloqueado", "Inactivo"];
-  function createSupplier() {
+  const rfcInput = String(form.rfc || "").trim().toUpperCase();
+  const duplicateSupplier = rfcInput ? (data.suppliers || []).find((s) => String(s.rfc || "").trim().toUpperCase() === rfcInput) : null;
+  async function createSupplier() {
+    if (duplicateSupplier) {
+      const proceed = await confirm({
+        title: "RFC ya registrado",
+        message: `"${duplicateSupplier.tradeName}" ya tiene este RFC (${duplicateSupplier.rfc}). ¿Deseas crear un proveedor nuevo de todas formas?`,
+        confirmLabel: "Crear de todas formas",
+        tone: "danger",
+      });
+      if (!proceed) return;
+    }
     addRecord("suppliers", {
       tradeName: form.tradeName || "Proveedor",
       legalName: form.legalName || form.tradeName || "Razón social",
@@ -2118,7 +2188,8 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
     });
   }
   const allRows = data.suppliers || [];
-  const rows = filterByStatus(allRows, statusFilter);
+  const statusFilteredRows = filterByStatus(allRows, statusFilter);
+  const rows = filterBySearch(statusFilteredRows, search, (r) => `${r.tradeName} ${r.legalName} ${r.rfc} ${r.contact}`);
   return <div style={{ display: "grid", gap: 16 }}>
     <Card><SectionTitle title="Proveedores" helper="Ficha 360: alta, edición, datos fiscales, bancos, documentos, canales de aviso, historial y pagos ligados." />
       <ProgressLine items={[{ label: "Alta", done: true }, { label: "Documentos" }, { label: "Validación fiscal" }, { label: "Validación bancaria" }, { label: "Activo" }]} />
@@ -2140,12 +2211,13 @@ function Suppliers({ data, projectMap, categoryMap, addRecord, updateRecord, sho
           <Field label="CLABE"><input style={inputStyle()} value={form.clabe || ""} onChange={(e) => setForm({ ...form, clabe: e.target.value })} /></Field>
           <Field label="Beneficiario"><input style={inputStyle()} value={form.accountHolder || ""} onChange={(e) => setForm({ ...form, accountHolder: e.target.value })} /></Field>
         </div>
+        {duplicateSupplier ? <div style={{ padding: "10px 14px", borderRadius: 14, background: c.orangeSoft, color: "#9a5a00", fontSize: 13, fontWeight: 850 }}>Ya existe "{duplicateSupplier.tradeName}" con el RFC {duplicateSupplier.rfc}. Verifica antes de crear un duplicado.</div> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}><Field label="Avisar por correo"><select style={inputStyle()} value={form.notifyEmail || "Sí"} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })}><option>Sí</option><option>No</option></select></Field><Field label="Avisar por WhatsApp"><select style={inputStyle()} value={form.notifyWhatsapp || "No"} onChange={(e) => setForm({ ...form, notifyWhatsapp: e.target.value })}><option>No</option><option>Sí</option></select></Field></div>
         <AttachmentUploader label="Subir documentos iniciales" value={form.documents} folder="finanzas/proveedores" onChange={(documents) => setForm({ ...form, documents })} helper="Constancia fiscal, carátula bancaria, opinión de cumplimiento, contrato marco u otros soportes." />
         <Button onClick={createSupplier}>Guardar proveedor</Button>
       </div> : null}
     </Card>
-    <Card><SectionTitle title="Validación administrativa" helper="Da clic en el nombre para consultar histórico. Usa Editar para cambiar datos, agregar documentos o configurar avisos por correo/WhatsApp." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={allRows.map((r) => r.status)} total={allRows.length} shown={rows.length} /><MiniTable columns={[{ key: "tradeName", label: "Proveedor", render: (r) => <EntityLink onClick={() => setSelectedSupplier(r)}>{r.tradeName}</EntityLink> }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "contact", label: "Contacto", render: (r) => <div><b>{r.contact || "—"}</b><div style={{ color: c.muted, fontSize: 12 }}>{r.email || "sin correo"}{r.whatsapp ? ` · WA ${r.whatsapp}` : ""}</div></div> }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal", render: (r) => <select value={r.fiscalStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { fiscalStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "bankStatus", label: "Banco", render: (r) => <select value={r.bankStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { bankStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "documents", label: "Docs", render: (r) => <Pill tone={attachmentCount(r.documents) ? "ok" : "warn"}>{attachmentCount(r.documents)}</Pill> }, { key: "ready", label: "Listo", render: (r) => <Pill tone={supplierReady(r) ? "ok" : "warn"}>{supplierReady(r) ? "Pagable" : "Bloquea pago"}</Pill> }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value, reviewedBy: "admin@tritondesarrollos.com" })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedSupplier(r)}>Ficha</Button><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingSupplier(r)}>Editar</Button></div> }]} rows={rows} /></Card>
+    <Card><SectionTitle title="Validación administrativa" helper="Da clic en el nombre para consultar histórico. Usa Editar para cambiar datos, agregar documentos o configurar avisos por correo/WhatsApp." /><StatusFilter value={statusFilter} onChange={setStatusFilter} options={allRows.map((r) => r.status)} total={allRows.length} shown={rows.length} /><div style={{ marginTop: -6, marginBottom: 12 }}><input style={inputStyle({ maxWidth: 340 })} placeholder="Buscar por nombre, RFC o contacto…" value={search} onChange={(e) => setSearch(e.target.value)} /></div><MiniTable columns={[{ key: "tradeName", label: "Proveedor", render: (r) => <EntityLink onClick={() => setSelectedSupplier(r)}>{r.tradeName}</EntityLink> }, { key: "rfc", label: "RFC" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "contact", label: "Contacto", render: (r) => <div><b>{r.contact || "—"}</b><div style={{ color: c.muted, fontSize: 12 }}>{r.email || "sin correo"}{r.whatsapp ? ` · WA ${r.whatsapp}` : ""}</div></div> }, { key: "categoryId", label: "Categoría", render: (r) => categoryMap[r.categoryId]?.name }, { key: "fiscalStatus", label: "Fiscal", render: (r) => <select value={r.fiscalStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { fiscalStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "bankStatus", label: "Banco", render: (r) => <select value={r.bankStatus || "Pendiente"} onChange={(e) => updateRecord("suppliers", r.id, { bankStatus: e.target.value })} style={inputStyle({ padding: 8, minWidth: 125 })}>{["Pendiente", "Validado", "Observado", "No aplica"].map((x) => <option key={x}>{x}</option>)}</select> }, { key: "documents", label: "Docs", render: (r) => <Pill tone={attachmentCount(r.documents) ? "ok" : "warn"}>{attachmentCount(r.documents)}</Pill> }, { key: "ready", label: "Listo", render: (r) => <Pill tone={supplierReady(r) ? "ok" : "warn"}>{supplierReady(r) ? "Pagable" : "Bloquea pago"}</Pill> }, { key: "status", label: "Estatus", render: (r) => <select value={r.status} onChange={(e) => updateRecord("suppliers", r.id, { status: e.target.value, reviewedBy: "admin@tritondesarrollos.com" })} style={inputStyle({ padding: 8, minWidth: 150 })}>{statuses.map((s) => <option key={s}>{s}</option>)}</select> }, { key: "actions", label: "Acción", render: (r) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Button variant="secondary" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setSelectedSupplier(r)}>Ficha</Button><Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setEditingSupplier(r)}>Editar</Button></div> }]} rows={rows} /></Card>
     <SupplierContextModal supplier={selectedSupplier} data={data} projectMap={projectMap} categoryMap={categoryMap} onClose={() => setSelectedSupplier(null)} onEdit={(s) => { setSelectedSupplier(null); setEditingSupplier(s); }} />
     <SupplierEditModal supplier={editingSupplier} data={data} categoryMap={categoryMap} onClose={() => setEditingSupplier(null)} onSave={(patch) => { updateRecord("suppliers", editingSupplier.id, patch); setSelectedSupplier(patch); setEditingSupplier(null); }} />
   </div>;
