@@ -669,7 +669,7 @@ function MentionTextarea({ value, onChange, users = [], placeholder, rows = 4, s
                   <span style={{ color: c.muted, marginLeft: 8 }}>@{handle}</span>
                 </span>
                 <span style={{ ...badgeStyle(user.role || "usuario"), fontSize: 10, padding: "3px 7px" }}>
-                  {user.isSample ? "Ejemplo" : user.role || "usuario"}
+                  {user.isSample ? "Ejemplo" : roleLabel(user.role)}
                 </span>
               </button>
             );
@@ -713,7 +713,7 @@ function CommentThread({ comments, onPreview, onStatusChange, canValidate = fals
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
             <div style={{ fontWeight: 800, color: c.text }}>
               {comment.authorName || "Usuario"}
-              <span style={{ color: c.muted, fontWeight: 600 }}> · {comment.authorRole || "rol"}</span>
+              {comment.authorRole ? <span style={{ color: c.muted, fontWeight: 600 }}> · {roleLabel(comment.authorRole)}</span> : null}
             </div>
             <div style={{ fontSize: 12, color: c.muted }}>
               {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}
@@ -2540,7 +2540,7 @@ const reviewBlockMessage =
                           </div>
                           <div>
                             <span style={{ display: "inline-flex", borderRadius: 999, padding: "6px 10px", background: statusMap.bg, color: statusMap.color, fontWeight: 900, fontSize: 12 }}>{statusMap.label}</span>
-                            {result.updatedBy ? <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>Actualizó: {result.updatedBy} · {result.updatedByRole || "rol"}</div> : null}
+                            {result.updatedBy ? <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>Actualizó: {result.updatedBy}{result.updatedByRole ? ` · ${roleLabel(result.updatedByRole)}` : ""}</div> : null}
                             {item.requiresPhotos === false ? (
                               <div style={{ fontSize: 11, color: c.muted, marginTop: 4 }}>Fotos no obligatorias en este punto.</div>
                             ) : item.evidenceLevel === "punto" ? (

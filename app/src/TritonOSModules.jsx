@@ -1396,7 +1396,6 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
     <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="La constructora captura avance por casa. El sistema bloquea la captura si el checklist de calidad de esa partida en esa casa no está liberado por supervisión." />{catalog.supplier ? <Pill tone="primary"><span style={{ display: "inline-block", maxWidth: "60vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>{catalog.supplier}</span></Pill> : null}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
         <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => { setProjectId(e.target.value); setHouseId(""); setSectionId(""); }}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label="Casa / unidad" help="Se lee en vivo desde el módulo de Calidad. Cada casa tiene su propio checklist y liberación."><select style={inputStyle()} value={selectedHouseId} onChange={(e) => setHouseId(e.target.value)} disabled={!houses.length}>{houses.length ? houses.map((h) => <option key={h.id} value={h.id}>{h.nombre || h.name || h.id}</option>) : <option value="">Sin casas disponibles</option>}</select></Field>
         <Field label="Partida"><select style={inputStyle()} value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!catalog.sections.length}>{catalog.sections.length ? catalog.sections.map((s) => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>) : <option value="">Sin partidas en el catálogo</option>}</select></Field>
         <Field label="Buscar concepto"><input style={inputStyle()} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Clave, descripción, unidad" /></Field>
       </div>
@@ -1405,11 +1404,25 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
     {!project.firestoreObraId ? <EmptyState title="Esta obra no está vinculada a Calidad" description="Vincula el proyecto con su obra real en Firestore desde Configurar obra. Sin ese vínculo no se puede validar el checklist de calidad por casa y la captura de avance queda bloqueada." /> : null}
     {project.firestoreObraId && obraQuality.loading ? <Card><div style={{ color: c.muted }}>Cargando checklist de Calidad en vivo...</div></Card> : null}
     {project.firestoreObraId && !obraQuality.loading && !houses.length ? <EmptyState title="Sin casas registradas en Calidad" description="La obra vinculada todavía no tiene unidades/casas dadas de alta en el módulo de Calidad." /> : null}
+    {houses.length ? <Card>
+      <SectionTitle title="¿Qué casa/unidad estás estimando?" helper="Cada casa tiene su propio checklist de calidad y su propio avance de estimación. Da clic para cambiar de casa." />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {houses.map((h) => {
+          const isActive = h.id === selectedHouseId;
+          return <button key={h.id} type="button" onClick={() => setHouseId(h.id)} style={{ border: isActive ? `2px solid ${c.primary}` : `1px solid ${c.border}`, borderRadius: 999, background: isActive ? c.primarySoft : "white", padding: "9px 18px", cursor: "pointer", fontWeight: 850, fontSize: 13, color: c.text, whiteSpace: "nowrap" }}>{h.nombre || h.name || h.id}</button>;
+        })}
+      </div>
+    </Card> : null}
     {selectedHouse && catalog.concepts.length ? <>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 16px", borderRadius: 16, background: c.primarySoft, border: `1px solid ${c.border}` }}>
+        <span style={{ fontWeight: 950, color: c.text, fontSize: 15 }}>Estás capturando avance de:</span>
+        <Pill tone="primary">Casa {selectedHouse.nombre || selectedHouse.name || selectedHouseId}</Pill>
+        <span style={{ color: c.muted }}>·</span>
+        <Pill>{selectedSection?.id} · {selectedSection?.name}</Pill>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
         <MetricCard label={`Total catálogo ${catalog.name}`} value={money(catalog.total)} tone="primary" />
-        <MetricCard label="Casa seleccionada" value={selectedHouse.nombre || selectedHouse.name || selectedHouseId} tone="idle" />
-        <MetricCard label="Estimado capturado (partida)" value={money(capturedAmount)} tone="warn" />
+        <MetricCard label="Estimado capturado (esta casa y partida)" value={money(capturedAmount)} tone="warn" />
         <MetricCard label="Checklist de calidad" value={qualityInfo.label} tone={canCaptureProgress ? "ok" : "danger"} />
       </div>
       <Card><SectionTitle title="Qué falta para liberar esta partida en esta casa" helper="Estatus real tomado del checklist de supervisión de Calidad (evidencias, puntos críticos y bitácora), no editable desde Estimaciones." />
