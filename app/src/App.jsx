@@ -1134,7 +1134,6 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   const [checklistCommentUploading, setChecklistCommentUploading] = useState({});
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || null;
   const obraId = selectedObraId || selectedObra?.id || "";
-  const tritonOsOpenedRef = useRef(false);
   const seededSpecsObrasRef = useRef(new Set());
 
   useEffect(() => {
@@ -1142,14 +1141,6 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     window.addEventListener("afterprint", handler);
     return () => window.removeEventListener("afterprint", handler);
   }, []);
-
-  useEffect(() => {
-    if (!authUser || loadingAuth || tritonOsOpenedRef.current) return;
-    tritonOsOpenedRef.current = true;
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("triton-open-os-module", { detail: { module: "reportes_os" } }));
-    }, 120);
-  }, [authUser, loadingAuth]);
 
   useEffect(() => {
     const onResize = () => {

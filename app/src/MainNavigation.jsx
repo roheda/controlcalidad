@@ -1,4 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { initializeApp, getApps } from "firebase/app";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBzk_jZfpv4j7PxroeTISwx11LffEB3TWQ",
+  authDomain: "control-de-calidad-triton.firebaseapp.com",
+  projectId: "control-de-calidad-triton",
+  storageBucket: "control-de-calidad-triton.firebasestorage.app",
+  messagingSenderId: "41329486719",
+  appId: "1:41329486719:web:1bf7ff827d3b60227f084a",
+};
+const firebaseApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const firebaseAuth = getAuth(firebaseApp);
 
 const desktopBreakpoint = 901;
 
@@ -96,14 +109,20 @@ function closeAllModuleScreens() {
 
 export default function MainNavigation() {
   const isDesktop = useIsDesktop();
+  const [authUser, setAuthUser] = useState(undefined);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeModule, setActiveModule] = useState("reportes_os");
   const [hovered, setHovered] = useState(null);
   const [pinned, setPinned] = useState(null);
   const [mobileGroups, setMobileGroups] = useState({ reportes: true, operacion: false, finanzas_group: false, tramites_group: false, arrendamientos: false, config: false });
-  const sidebarWidth = isDesktop ? 86 : 0;
+  const sidebarWidth = isDesktop && authUser ? 86 : 0;
   const flyoutGroup = groups.find((g) => g.id === (pinned || hovered));
-  const showFlyout = isDesktop && flyoutGroup?.children?.length;
+  const showFlyout = isDesktop && authUser && flyoutGroup?.children?.length;
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(firebaseAuth, (user) => setAuthUser(user));
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--triton-shell-offset", `${sidebarWidth}px`);
@@ -111,9 +130,10 @@ export default function MainNavigation() {
   }, [sidebarWidth]);
 
   useEffect(() => {
+    if (!authUser) return;
     const timer = window.setTimeout(() => window.dispatchEvent(new CustomEvent("triton-open-os-module", { detail: { module: "reportes_os" } })), 250);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [authUser]);
 
   const styleTag = useMemo(() => `
     .triton-desktop-sidebar, .triton-mobile-est-menu, button[aria-label='Abrir menú']:not(.triton-shell-menu-button) { display: none !important; }
@@ -121,6 +141,8 @@ export default function MainNavigation() {
     @media (max-width: ${desktopBreakpoint - 1}px) { .triton-shell-sidebar { display: none !important; } .triton-shell-menu-button { display: inline-flex !important; } }
     @media (min-width: ${desktopBreakpoint}px) { .triton-shell-menu-button { display: none !important; } }
   `, []);
+
+  if (!authUser) return null;
 
   function goTo(moduleId, isOs = true) {
     setActiveModule(moduleId);

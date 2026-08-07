@@ -3,7 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, doc, setDoc, deleteDoc, serverTimestamp, collection, getDocs, onSnapshot } from "firebase/firestore";
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+import { getAuth, onAuthStateChanged, sendPasswordResetEmail } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { importedInmuebles, importedPropertyOwners, importedDepositAccounts, importedInmueblesVersion } from "./importedInmuebles";
 import { arennaThEstimateCatalogMeta, arennaThEstimateSections, arennaThEstimateConcepts } from "./estimateCatalogArennaTH";
@@ -888,7 +888,8 @@ async function sendPasswordReset(email) {
 
 
 export default function TritonOSModules() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(undefined);
   const [active, setActive] = useState("reportes_os");
   const [data, setData] = useState(readData);
   const [projectFilter, setProjectFilter] = useState("todos");
@@ -904,6 +905,10 @@ export default function TritonOSModules() {
     const timer = window.setTimeout(() => createSystemBackup(data, "Respaldo automático programado"), 1400);
     return () => window.clearTimeout(timer);
   }, [data.operationSettings?.backupsEveryHours]);
+  useEffect(() => {
+    const unsub = onAuthStateChanged(firebaseAuth, (user) => { setAuthUser(user); if (!user) setOpen(false); });
+    return () => unsub();
+  }, []);
   useEffect(() => {
     const openHandler = (event) => { setActive(event.detail?.module || "reportes_os"); setOpen(true); };
     const closeHandler = () => setOpen(false);
@@ -981,7 +986,7 @@ export default function TritonOSModules() {
     if (window.confirm("¿Restablecer datos demo de TRITON OS?")) { localStorage.removeItem("triton_os_v44"); localStorage.removeItem("triton_os_v43"); localStorage.removeItem("triton_os_v37"); localStorage.removeItem("triton_os_v36"); localStorage.removeItem("triton_os_v35"); localStorage.removeItem("triton_os_v34"); setData(initialData); }
   }
 
-  if (!open) return null;
+  if (!open || !authUser) return null;
   const meta = moduleMeta[active] || moduleMeta.dashboard;
 
   return <PromptProvider><div style={{ position: "fixed", inset: 0, zIndex: 2147483600, pointerEvents: "none" }}>
