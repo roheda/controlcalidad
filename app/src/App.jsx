@@ -909,111 +909,158 @@ function LoginScreen() {
   );
 }
 
-function ZonaResultButtons({ item, onSetResultado }) {
-  const options = [
-    { value: "cumple", label: "✅ Cumple", bg: c.successBg, text: c.successText },
-    { value: "observacion", label: "⚠️ Observación", bg: c.warnBg, text: c.warnText },
-    { value: "no_cumple", label: "❌ No cumple", bg: c.dangerBg, text: c.dangerText },
-  ];
+function ZonaChecklistItemCard({
+  item, uploading, isMobile, detailOpen, onToggleDetail,
+  onToggleChecked, onSetResultado, onUploadPhoto, onDeletePhoto, onPreviewPhoto,
+  commentDraft, onCommentDraftChange, commentPhotoDrafts, onPickCommentPhotos, onRemoveDraftCommentPhoto, onAddComment, commentUploading,
+}) {
+  const resultColors = {
+    cumple: { text: c.successText, bg: c.successBg, label: "✅ Cumple" },
+    observacion: { text: c.warnText, bg: c.warnBg, label: "⚠️ Observación" },
+    no_cumple: { text: c.dangerText, bg: c.dangerBg, label: "❌ No cumple" },
+    na: { text: c.idleText, bg: c.idleBg, label: "➖ No aplica" },
+  };
+  const resultInfo = resultColors[item.resultado] || { text: c.muted, bg: "#fff", label: "🕓 Pendiente de evaluar" };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-      {options.map((opt) => {
-        const active = item.resultado === opt.value;
-        return (
+    <div style={{ ...cardStyle(), padding: 16, borderLeft: isMobile ? `6px solid ${resultInfo.text}` : cardStyle().border }}>
+      {isMobile ? (
+        <div style={{ display: "inline-flex", padding: "6px 12px", borderRadius: 999, background: resultInfo.bg, color: resultInfo.text, fontWeight: 900, fontSize: 13, marginBottom: 10 }}>
+          {resultInfo.label}
+        </div>
+      ) : null}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
           <button
-            key={opt.value}
-            type="button"
-            onClick={() => onSetResultado(item.id, opt.value)}
-            style={{
-              ...buttonStyle("secondary", { padding: "12px 8px", fontSize: 13, fontWeight: 800 }),
-              background: active ? opt.bg : "#fff",
-              color: active ? opt.text : c.text,
-              border: active ? `2px solid ${opt.text}` : `1px solid ${c.border}`,
-            }}
+            onClick={() => onToggleChecked(item.id)}
+            style={{ display: "flex", alignItems: "center", gap: 10, border: "none", background: "transparent", padding: 0, cursor: "pointer", textAlign: "left" }}
           >
-            {opt.label}
+            <span style={{ fontSize: 20 }}>{item.checked ? "✅" : "⬜"}</span>
+            <span style={{ fontWeight: 800, color: c.text, fontSize: isMobile ? 16 : 14 }}>{item.code} · {item.label}</span>
           </button>
-        );
-      })}
-    </div>
-  );
-}
 
-function ZonaChecklistItemCard({ item, uploading, onSetResultado, onNoteChange, onUploadPhoto, onDeletePhoto, onPreviewPhoto }) {
-  const requiredPhotos = Number(item.evidenceRequired || 0);
-  const photosNeeded = Math.max(0, requiredPhotos - (item.photos?.length || 0));
-  const statusColor = item.resultado === "cumple" ? c.successText : item.resultado === "no_cumple" ? c.dangerText : item.resultado === "observacion" ? c.warnText : c.muted;
-  return (
-    <div style={{ ...cardStyle(), padding: 16, borderLeft: `6px solid ${statusColor}` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div style={{ fontWeight: 800, color: c.text, fontSize: 15 }}>{item.code} · {item.label}</div>
-        {item.resultado ? <span style={badgeStyle(item.resultado === "cumple" ? "Aprobada" : item.resultado === "no_cumple" ? "Rechazada" : "Pendiente")}>{item.resultado === "cumple" ? "Cumple" : item.resultado === "no_cumple" ? "No cumple" : "Observación"}</span> : <span style={badgeStyle("Pendiente")}>Pendiente</span>}
+          <div style={{ marginTop: 10, maxWidth: 280 }}>
+            <select value={item.resultado || ""} onChange={(e) => onSetResultado(item.id, e.target.value)} style={inputStyle()}>
+              <option value="">Pendiente de evaluar</option>
+              <option value="cumple">Cumple</option>
+              <option value="observacion">Cumple con observación</option>
+              <option value="no_cumple">No cumple</option>
+              <option value="na">No aplica</option>
+            </select>
+          </div>
+
+          <div style={{ color: c.muted, fontSize: 12, marginTop: 8 }}>
+            {item.photos?.length || 0} foto(s) · {item.checked ? "Punto atendido" : "Pendiente"} · Hito {item.stagePercent || 100}%
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onToggleDetail(item.id)}
+            style={{ ...buttonStyle("secondary", { marginTop: 10, padding: "8px 12px", fontSize: 12 }) }}
+          >
+            {detailOpen ? "Ocultar detalle" : "Ver detalle del criterio"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center" })}>
+            {uploading ? "Subiendo..." : "Tomar foto del punto"}
+            <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { onUploadPhoto(item.id, e.target.files); e.target.value = ""; }} />
+          </label>
+          <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center" })}>
+            {uploading ? "Subiendo..." : "Subir fotos del punto"}
+            <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { onUploadPhoto(item.id, e.target.files); e.target.value = ""; }} />
+          </label>
+        </div>
       </div>
 
-      {item.criterioAceptacion ? (
-        <div style={{ marginTop: 10, padding: 12, borderRadius: 14, background: c.panelSoft, color: c.text, fontSize: 13.5, lineHeight: 1.5 }}>
-          {item.criterioAceptacion}
+      {detailOpen ? (
+        <div style={{ marginTop: 14, border: `1px solid ${c.border}`, borderRadius: 18, padding: 14, background: "#fff" }}>
+          <div style={{ fontWeight: 900, color: c.text, marginBottom: 8 }}>Detalle técnico del punto</div>
+          {item.criterioAceptacion ? <div style={{ marginBottom: 8 }}><strong>Criterio de aceptación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.criterioAceptacion}</div></div> : null}
+          {item.formaVerificacion ? <div style={{ marginBottom: 8 }}><strong>Forma de verificación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.formaVerificacion}</div></div> : null}
+          {item.imagenCorrecto || item.imagenIncorrecto ? (
+            <button
+              type="button"
+              onClick={() => onPreviewPhoto(
+                { id: `${item.id}-ref`, url: item.imagenCorrecto || item.imagenIncorrecto, fileName: `${item.code} · Imagen de referencia`, uploadedByName: "Manual de calidad" },
+                [{ id: `${item.id}-ref`, url: item.imagenCorrecto || item.imagenIncorrecto, fileName: `${item.code} · Imagen de referencia`, uploadedByName: "Manual de calidad" }]
+              )}
+              title="Haz clic para ampliar la imagen"
+              style={{ border: 0, background: "transparent", padding: 0, margin: "12px 0 0", textAlign: "left", cursor: "zoom-in", display: "block", width: "100%" }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 900, color: c.text, marginBottom: 6 }}>Imagen de referencia del criterio</div>
+              <img src={item.imagenCorrecto || item.imagenIncorrecto} alt="Imagen de referencia del criterio" style={{ width: "100%", maxHeight: 480, objectFit: "contain", borderRadius: 14, border: `1px solid ${c.border}`, display: "block", background: "#fff" }} />
+              <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
+            </button>
+          ) : null}
         </div>
       ) : null}
 
-      {item.formaVerificacion ? (
-        <details style={{ marginTop: 8 }}>
-          <summary style={{ cursor: "pointer", color: c.primaryText, fontWeight: 700, fontSize: 13 }}>¿Cómo revisar este punto?</summary>
-          <div style={{ marginTop: 6, color: c.muted, fontSize: 13, lineHeight: 1.5 }}>{item.formaVerificacion}</div>
-        </details>
+      <div style={{ marginTop: 14 }}>
+        <CommentThread comments={item.comments || []} onPreview={onPreviewPhoto} />
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <textarea
+          rows={3}
+          value={commentDraft || ""}
+          onChange={(e) => onCommentDraftChange(item.id, e.target.value)}
+          placeholder="Escribe una observación oficial de este punto"
+          style={inputStyle({ minHeight: 90, resize: "vertical", lineHeight: 1.5 })}
+        />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center" })}>
+              Adjuntar fotos
+              <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => onPickCommentPhotos(item.id, e.target.files)} />
+            </label>
+            <button
+              onClick={() => onAddComment(item.id)}
+              disabled={commentUploading}
+              style={buttonStyle("primary", { opacity: commentUploading ? 0.6 : 1, cursor: commentUploading ? "not-allowed" : "pointer" })}
+            >
+              {commentUploading ? "Guardando..." : "Agregar comentario"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {(commentPhotoDrafts || []).length > 0 ? (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 12, color: c.muted, marginBottom: 8 }}>Fotos por publicar (se suben al dar clic en “Agregar comentario”)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))", gap: 8 }}>
+            {(commentPhotoDrafts || []).map((draftPhoto) => (
+              <div key={draftPhoto.id} style={{ border: `1px solid ${c.border}`, borderRadius: 12, padding: 6, background: "#fff" }}>
+                <img src={draftPhoto.previewUrl} alt={draftPhoto.fileName} style={{ width: "100%", height: 84, objectFit: "cover", borderRadius: 8, display: "block" }} />
+                <button onClick={() => onRemoveDraftCommentPhoto(item.id, draftPhoto.id)} style={buttonStyle("danger", { marginTop: 6, width: "100%", padding: "6px 8px", fontSize: 12 })}>Quitar</button>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
 
-      {item.imagenCorrecto || item.imagenIncorrecto ? (
-        <button
-          type="button"
-          onClick={() => onPreviewPhoto(
-            { id: `${item.id}-ref`, url: item.imagenCorrecto || item.imagenIncorrecto, fileName: `${item.code} · Imagen de referencia`, uploadedByName: "Manual de calidad" },
-            [{ id: `${item.id}-ref`, url: item.imagenCorrecto || item.imagenIncorrecto, fileName: `${item.code} · Imagen de referencia`, uploadedByName: "Manual de calidad" }]
-          )}
-          title="Haz clic para ampliar la imagen"
-          style={{ border: 0, background: "transparent", padding: 0, margin: "12px 0 0", textAlign: "left", cursor: "zoom-in", display: "block", width: "100%" }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 900, color: c.text, marginBottom: 6 }}>Imagen de referencia del criterio</div>
-          <img src={item.imagenCorrecto || item.imagenIncorrecto} alt="Imagen de referencia del criterio" style={{ width: "100%", maxHeight: 480, objectFit: "contain", borderRadius: 14, border: `1px solid ${c.border}`, display: "block", background: "#fff" }} />
-          <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
-        </button>
-      ) : null}
-
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 14 }}>
         <ChecklistPhotoGrid photos={item.photos || []} onPreview={onPreviewPhoto} />
         {(item.photos || []).length > 0 ? (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
             {(item.photos || []).map((photo) => (
-              <button key={`del-${photo.id}`} onClick={() => onDeletePhoto(item.id, photo.id)} style={buttonStyle("danger", { padding: "6px 10px", fontSize: 11 })}>
+              <button key={`del-${photo.id}`} onClick={() => onDeletePhoto(item.id, photo.id)} style={buttonStyle("danger", { padding: "8px 12px", fontSize: 12 })}>
                 Borrar {photo.fileName || "foto"}
               </button>
             ))}
           </div>
         ) : null}
-        <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center", marginTop: 8 })}>
-          {uploading ? "Subiendo..." : photosNeeded > 0 ? `Agregar foto (faltan ${photosNeeded})` : "Agregar foto"}
-          <input type="file" accept="image/*" multiple style={{ display: "none" }} disabled={uploading} onChange={(e) => { onUploadPhoto(item.id, e.target.files); e.target.value = ""; }} />
-        </label>
-        {photosNeeded > 0 ? (
-          <div style={{ fontSize: 11, color: c.warnText, marginTop: 6 }}>Este punto requiere {requiredPhotos} foto(s) de evidencia.</div>
-        ) : null}
       </div>
-
-      <div style={{ marginTop: 12 }}>
-        <ZonaResultButtons item={item} onSetResultado={onSetResultado} />
-      </div>
-
-      <textarea
-        value={item.note || ""}
-        onChange={(e) => onNoteChange(item.id, e.target.value)}
-        placeholder="Observaciones (opcional)"
-        style={inputStyle({ marginTop: 10, minHeight: 56, resize: "vertical" })}
-      />
     </div>
   );
 }
 
-function ZonaDetailPanel({ isMobile, selectedHouse, zona, onBack, showCompletedItems, setShowCompletedItems, onSetResultado, onNoteChange, onUploadPhoto, onDeletePhoto, uploading, onPreviewPhoto }) {
+function ZonaDetailPanel({
+  isMobile, selectedHouse, zona, onBack, showCompletedItems, setShowCompletedItems,
+  onToggleChecked, onSetResultado, onUploadPhoto, onDeletePhoto, uploading, onPreviewPhoto,
+  detailOpenMap, onToggleDetail,
+  commentDrafts, onCommentDraftChange, commentPhotoDrafts, onPickCommentPhotos, onRemoveDraftCommentPhoto, onAddComment, commentUploadingMap,
+}) {
   const evaluacion = evaluarPartida(zona);
   const checklist = zona.checklist || [];
   const pending = checklist.filter((item) => item.resultado !== "cumple");
@@ -1037,7 +1084,7 @@ function ZonaDetailPanel({ isMobile, selectedHouse, zona, onBack, showCompletedI
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 24, fontWeight: 900, color: c.text }}>{zona.name}</div>
-          <div style={{ color: c.muted, marginTop: 4 }}>Revisión de entrega por zona · fotos de evidencia obligatorias por punto</div>
+          <div style={{ color: c.muted, marginTop: 4 }}>Revisión de entrega por zona · checklist con notas y fotos por punto de control</div>
           <div style={{ marginTop: 10, fontWeight: 800, color: c.text }}>
             Calificación: {evaluacion.score.toFixed(0)}% · {checklist.length - checklist.filter((i) => !i.resultado).length}/{checklist.length} puntos revisados
           </div>
@@ -1059,12 +1106,22 @@ function ZonaDetailPanel({ isMobile, selectedHouse, zona, onBack, showCompletedI
             <ZonaChecklistItemCard
               key={item.id}
               item={item}
+              isMobile={isMobile}
               uploading={uploading[item.id]}
+              detailOpen={Boolean(detailOpenMap[item.id])}
+              onToggleDetail={onToggleDetail}
+              onToggleChecked={onToggleChecked}
               onSetResultado={onSetResultado}
-              onNoteChange={onNoteChange}
               onUploadPhoto={onUploadPhoto}
               onDeletePhoto={onDeletePhoto}
               onPreviewPhoto={onPreviewPhoto}
+              commentDraft={commentDrafts[item.id]}
+              onCommentDraftChange={onCommentDraftChange}
+              commentPhotoDrafts={commentPhotoDrafts[item.id]}
+              onPickCommentPhotos={onPickCommentPhotos}
+              onRemoveDraftCommentPhoto={onRemoveDraftCommentPhoto}
+              onAddComment={onAddComment}
+              commentUploading={Boolean(commentUploadingMap[item.id])}
             />
           ))
         )}
@@ -1110,6 +1167,10 @@ export default function App() {
   const [showCompletedStages, setShowCompletedStages] = useState(false);
   const [showCompletedItems, setShowCompletedItems] = useState(false);
   const [zonaUploading, setZonaUploading] = useState({});
+  const [zonaDetailOpen, setZonaDetailOpen] = useState({});
+  const [zonaCommentDrafts, setZonaCommentDrafts] = useState({});
+  const [zonaCommentPhotoDrafts, setZonaCommentPhotoDrafts] = useState({});
+  const [zonaCommentUploading, setZonaCommentUploading] = useState({});
   const [specsManagerOpen, setSpecsManagerOpen] = useState(false);
   const [specForm, setSpecForm] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -1659,6 +1720,12 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     await updateZona({ checklist: nextChecklist, status: zonaStatusFromChecklist(nextChecklist) });
   }
 
+  async function toggleChecklistItemZona(itemId) {
+    const item = selectedZona?.checklist?.find((entry) => entry.id === itemId);
+    if (!item) return;
+    await updateChecklistItemZona(itemId, { checked: !item.checked });
+  }
+
   async function handleZonaChecklistPhotoUpload(itemId, files) {
     if (!files?.length || !selectedHouse || !selectedZona) return;
     setZonaUploading((prev) => ({ ...prev, [itemId]: true }));
@@ -1706,6 +1773,71 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     }
     const nextPhotos = (checklistItem.photos || []).filter((p) => p.id !== photoId);
     await updateChecklistItemZona(itemId, { photos: nextPhotos });
+  }
+
+  async function addZonaComment(itemId) {
+    const draft = (zonaCommentDrafts[itemId] || "").trim();
+    if (!draft) return;
+    const checklistItem = (selectedZona?.checklist || []).find((item) => item.id === itemId);
+    if (!checklistItem) return;
+    const draftPhotos = zonaCommentPhotoDrafts[itemId] || [];
+    const commentId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    setZonaCommentUploading((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const uploadedPhotos = [];
+      for (const draftPhoto of draftPhotos) {
+        const file = draftPhoto.file;
+        if (!file) continue;
+        const filePath = `obras/${obraId}/${selectedHouse.id}/entrega/${selectedZona.id}/checklist-comments/${itemId}/${commentId}/${Date.now()}-${file.name}`;
+        const storageRef = ref(storage, filePath);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        uploadedPhotos.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          url,
+          fileName: file.name,
+          size: file.size,
+          storagePath: filePath,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: authUser?.uid || null,
+          uploadedByName: profile?.name || authUser?.email || "Usuario",
+        });
+      }
+      const nextComments = [
+        ...(checklistItem.comments || []),
+        buildNewComment(draft, { id: commentId, photos: uploadedPhotos }),
+      ];
+      const nextPhotos = [...(checklistItem.photos || []), ...uploadedPhotos];
+      await updateChecklistItemZona(itemId, { comments: nextComments, photos: nextPhotos });
+      draftPhotos.forEach((photo) => {
+        if (photo.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(photo.previewUrl);
+      });
+      setZonaCommentPhotoDrafts((prev) => ({ ...prev, [itemId]: [] }));
+    } finally {
+      setZonaCommentUploading((prev) => ({ ...prev, [itemId]: false }));
+    }
+    setZonaCommentDrafts((prev) => ({ ...prev, [itemId]: "" }));
+  }
+
+  function onPickZonaCommentPhotos(itemId, fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const previews = files.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      file,
+      fileName: file.name,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setZonaCommentPhotoDrafts((prev) => ({ ...prev, [itemId]: [...(prev[itemId] || []), ...previews] }));
+  }
+
+  function removeDraftZonaCommentPhoto(itemId, draftPhotoId) {
+    setZonaCommentPhotoDrafts((prev) => {
+      const draftPhotos = prev[itemId] || [];
+      const target = draftPhotos.find((photo) => photo.id === draftPhotoId);
+      if (target?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(target.previewUrl);
+      return { ...prev, [itemId]: draftPhotos.filter((photo) => photo.id !== draftPhotoId) };
+    });
   }
 
   function scopesForChecklistItem(item) {
@@ -3602,12 +3734,21 @@ const reviewBlockMessage =
                 onBack={() => (isMobile ? setMobileStep("partidas") : setDesktopStageOpened(false))}
                 showCompletedItems={showCompletedItems}
                 setShowCompletedItems={setShowCompletedItems}
+                onToggleChecked={toggleChecklistItemZona}
                 onSetResultado={(itemId, resultado) => updateChecklistItemZona(itemId, { resultado })}
-                onNoteChange={(itemId, note) => updateChecklistItemZona(itemId, { note })}
                 onUploadPhoto={handleZonaChecklistPhotoUpload}
                 onDeletePhoto={deleteZonaChecklistPhoto}
                 uploading={zonaUploading}
                 onPreviewPhoto={openPhotoPreview}
+                detailOpenMap={zonaDetailOpen}
+                onToggleDetail={(itemId) => setZonaDetailOpen((prev) => ({ ...prev, [itemId]: !prev[itemId] }))}
+                commentDrafts={zonaCommentDrafts}
+                onCommentDraftChange={(itemId, value) => setZonaCommentDrafts((prev) => ({ ...prev, [itemId]: value }))}
+                commentPhotoDrafts={zonaCommentPhotoDrafts}
+                onPickCommentPhotos={onPickZonaCommentPhotos}
+                onRemoveDraftCommentPhoto={removeDraftZonaCommentPhoto}
+                onAddComment={addZonaComment}
+                commentUploadingMap={zonaCommentUploading}
               />
             ) : null}
           </div>
