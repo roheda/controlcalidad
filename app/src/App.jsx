@@ -2301,8 +2301,7 @@ const reviewBlockMessage =
     ? "Debes subir al menos una foto en cada punto del checklist antes de enviar a revisión."
     : "";
   return (
-    <div style={{ minHeight: "100vh", background: c.bg, padding: 24 }}>
-      <div style={{ maxWidth: 1480, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: c.bg, padding: 22 }}>
         <div
           style={{
             display: "flex",
@@ -2325,7 +2324,7 @@ const reviewBlockMessage =
                 lineHeight: 1.1,
               }}
             >
-              TRITON OS
+              Checklist / Calidad
             </div>
             <div
               style={{
@@ -2335,7 +2334,7 @@ const reviewBlockMessage =
                 lineHeight: 1.35,
               }}
             >
-              Operación integral · Calidad, estimaciones, finanzas, trámites y arrendamientos
+              Liberaciones, evidencias y bitácora de obra
             </div>
             </div>
           </div>
@@ -3525,7 +3524,6 @@ const reviewBlockMessage =
             ) : null}
           </div>
         </div>
-      </div>
 
       {bloquesManagerOpen ? (
         <div
