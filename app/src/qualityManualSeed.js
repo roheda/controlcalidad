@@ -6,6 +6,23 @@
 // Las imagenes de referencia viven en /public/quality-base/<manual>/<clave>.jpg
 // (paginas del manual renderizadas), con su manifest.json correspondiente.
 
+export const partidaTemplates = [
+  { id: "preliminares", name: "Preliminares", weight: 5 },
+  { id: "excavacion", name: "Excavación", weight: 5 },
+  { id: "cimentacion", name: "Cimentación", weight: 10 },
+  { id: "colado", name: "Colado", weight: 5 },
+  { id: "estructura", name: "Estructura", weight: 10 },
+  { id: "losa", name: "Losa", weight: 5 },
+  { id: "albanileria", name: "Albañilería", weight: 10 },
+  { id: "hidraulicas", name: "Hidráulicas", weight: 5 },
+  { id: "electricas", name: "Eléctricas", weight: 5 },
+  { id: "aplanados", name: "Aplanados", weight: 5 },
+  { id: "pisos", name: "Pisos", weight: 10 },
+  { id: "impermeabilizante", name: "Impermeabilizante", weight: 5 },
+  { id: "canceleria", name: "Cancelería", weight: 5 },
+  { id: "general", name: "General", weight: 5 },
+];
+
 export const zonaTemplates = [
   { id: "fachada", name: "Fachada", weight: 1 },
   { id: "patio", name: "Patio / Exterior", weight: 1 },

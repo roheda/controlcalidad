@@ -7,6 +7,7 @@ import { getAuth, onAuthStateChanged, sendPasswordResetEmail } from "firebase/au
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { importedInmuebles, importedPropertyOwners, importedDepositAccounts, importedInmueblesVersion } from "./importedInmuebles";
 import { arennaThEstimateCatalogMeta, arennaThEstimateSections, arennaThEstimateConcepts } from "./estimateCatalogArennaTH";
+import { partidaTemplates, zonaTemplates, zonaAliases } from "./qualityManualSeed";
 import { Button as UiButton, Card as UiCard, Badge as UiBadge, PromptProvider, usePrompt, Tooltip, HelpIcon, EmptyState } from "./ui/index.js";
 
 const money = (value) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -1087,6 +1088,205 @@ function OperationHub({ data, projectMap, categoryMap, setActive }) {
 }
 
 
+const qualityPartidaAliases = { PL: "preliminares", EX: "excavacion", CI: "cimentacion", CO: "colado", ES: "estructura", LO: "losa", AL: "albanileria", IH: "hidraulicas", IE: "electricas", AP: "aplanados", PI: "pisos", IM: "impermeabilizante", CA: "canceleria", GE: "general" };
+function qualitySpecAreaId(spec) {
+  const codePrefix = String(spec.clave || "").split("-")[1];
+  if (spec.checklistType === "entrega") return spec.partidaId || zonaAliases[codePrefix] || "general";
+  return spec.partidaId || qualityPartidaAliases[codePrefix] || "general";
+}
+
+function BloquesEquiposConfig({ obraId }) {
+  const casas = useObraSubcollection(obraId, "casas");
+  const bloques = useObraSubcollection(obraId, "bloques");
+  const [bloqueForm, setBloqueForm] = useState(null);
+  async function saveBloque() {
+    const name = String(bloqueForm.name || "").trim();
+    if (!name) { alert("Captura el nombre del bloque."); return; }
+    if (!(bloqueForm.houseIds || []).length) { alert("Selecciona al menos una casa para este bloque."); return; }
+    let id = bloqueForm.id;
+    if (!id) {
+      const existingIds = new Set(bloques.items.map((b) => b.id));
+      const base = slugifyObraId(name);
+      id = base; let n = 2;
+      while (existingIds.has(id)) { id = `${base}-${n}`; n += 1; }
+    }
+    const assignedEmails = String(bloqueForm.emailsText || "").split(",").map((email) => email.trim()).filter(Boolean);
+    await setDoc(doc(firestore, "obras", obraId, "bloques", id), { id, name, houseIds: bloqueForm.houseIds || [], assignedEmails, updatedAt: serverTimestamp() }, { merge: true });
+    setBloqueForm(null);
+  }
+  async function removeBloque(bloqueId) {
+    if (!window.confirm("¿Eliminar este bloque? Las casas quedarán sin bloque asignado hasta que crees otro.")) return;
+    await deleteDoc(doc(firestore, "obras", obraId, "bloques", bloqueId));
+  }
+  return <Card><SectionTitle title="Bloques y equipos" helper="Divide las casas en bloques (ej. Bloque A = casas 1 a 4) y asigna el correo de cada residente de obra. Cada persona solo verá y trabajará las casas de su bloque; supervisión siempre ve todas." />
+    {!bloqueForm ? <>
+      <Button style={{ marginBottom: 14 }} onClick={() => setBloqueForm({ name: "", houseIds: [], emailsText: "" })}>+ Nuevo bloque</Button>
+      {bloques.items.length === 0 ? <EmptyState title="Todavía no hay bloques en esta obra" description="Sin bloques, cualquier persona con rol de constructora puede ver todas las casas." /> : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {bloques.items.map((b) => (
+            <div key={b.id} style={{ border: `1px solid ${c.border}`, borderRadius: 16, padding: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <div>
+                  <b style={{ color: c.text }}>{b.name}</b>
+                  <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>{(b.houseIds || []).length} casa(s) · {(b.assignedEmails || []).length} persona(s) en el equipo</div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Button variant="secondary" style={{ padding: "7px 10px", fontSize: 12 }} onClick={() => setBloqueForm({ ...b, emailsText: (b.assignedEmails || []).join(", ") })}>Editar</Button>
+                  <Button variant="secondary" style={{ padding: "7px 10px", fontSize: 12 }} onClick={() => removeBloque(b.id)}>Eliminar</Button>
+                </div>
+              </div>
+              {(b.assignedEmails || []).length ? <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>{b.assignedEmails.map((email) => <Pill key={email}>{email}</Pill>)}</div> : <div style={{ marginTop: 8, color: c.red, fontSize: 12, fontWeight: 700 }}>Sin nadie asignado todavía.</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </> : (
+      <div>
+        <Field label="Nombre del bloque"><input style={inputStyle()} placeholder="Bloque A" value={bloqueForm.name} onChange={(e) => setBloqueForm({ ...bloqueForm, name: e.target.value })} /></Field>
+        <Field label="Casas de este bloque">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 8, maxHeight: 220, overflow: "auto", border: `1px solid ${c.border}`, borderRadius: 14, padding: 10 }}>
+            {casas.items.length === 0 ? <div style={{ color: c.muted, fontSize: 13 }}>Esta obra todavía no tiene casas.</div> : casas.items.map((h) => {
+              const checked = (bloqueForm.houseIds || []).includes(h.id);
+              return (
+                <label key={h.id} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${checked ? c.primary : c.border}`, borderRadius: 10, padding: "6px 8px", cursor: "pointer", background: checked ? c.primarySoft : "#fff", fontSize: 12, fontWeight: 700, color: c.text }}>
+                  <input type="checkbox" checked={checked} onChange={(e) => {
+                    const next = e.target.checked ? [...(bloqueForm.houseIds || []), h.id] : (bloqueForm.houseIds || []).filter((id) => id !== h.id);
+                    setBloqueForm({ ...bloqueForm, houseIds: next });
+                  }} />
+                  {h.name || h.id}
+                </label>
+              );
+            })}
+          </div>
+        </Field>
+        <Field label="Equipo asignado (correos separados por coma)"><textarea style={inputStyle({ minHeight: 70 })} placeholder="residente1@constructora.com, residente2@constructora.com" value={bloqueForm.emailsText} onChange={(e) => setBloqueForm({ ...bloqueForm, emailsText: e.target.value })} /></Field>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={saveBloque}>Guardar bloque</Button><Button variant="secondary" onClick={() => setBloqueForm(null)}>Cancelar</Button></div>
+      </div>
+    )}
+  </Card>;
+}
+
+function ChecklistCatalogConfig({ obraId }) {
+  const specsState = useObraSubcollection(obraId, "qualitySpecs");
+  const specs = specsState.items;
+  const [specForm, setSpecForm] = useState(null);
+  async function saveSpec() {
+    const clave = String(specForm.clave || "").trim().toUpperCase();
+    const concepto = String(specForm.concepto || "").trim();
+    if (!clave || !concepto) { alert("Captura al menos el código y el punto de verificación."); return; }
+    const payload = {
+      checklistType: specForm.checklistType,
+      partidaId: specForm.partidaId,
+      clave,
+      concepto,
+      criterioAceptacion: String(specForm.criterioAceptacion || "").trim(),
+      formaVerificacion: String(specForm.formaVerificacion || "").trim(),
+      puntosAceptables: String(specForm.puntosAceptables || "").trim(),
+      puntosNoAceptables: String(specForm.puntosNoAceptables || "").trim(),
+      evidenceRequired: Math.max(0, Number(specForm.evidenceRequired ?? 1)),
+      clasificacion: specForm.clasificacion || "menor",
+      peso: Math.max(1, Number(specForm.peso ?? 1)),
+      active: true,
+    };
+    await setDoc(doc(firestore, "obras", obraId, "qualitySpecs", specForm.id || clave), payload, { merge: true });
+    setSpecForm(null);
+  }
+  async function removeSpec(specId) {
+    if (!window.confirm("¿Eliminar este punto del checklist? Ya no aparecerá para las casas de esta obra.")) return;
+    await deleteDoc(doc(firestore, "obras", obraId, "qualitySpecs", specId));
+  }
+  return <Card><SectionTitle title="Checklist de calidad (catálogo base)" helper="Puntos de Aseguramiento (39, por etapa, manual TR-AC-M01) y Control de Calidad para Entrega (36, por zona, manual TR-CC-M01) que verán las casas de esta obra. Edítalos aquí antes de que arranque la obra." />
+    {!specForm ? <>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <Button style={{ fontSize: 12 }} onClick={() => setSpecForm({ checklistType: "aseguramiento", partidaId: partidaTemplates[0].id, clave: "", concepto: "", criterioAceptacion: "", formaVerificacion: "", evidenceRequired: 1, clasificacion: "menor", peso: 1 })}>+ Punto de Aseguramiento</Button>
+        <Button style={{ fontSize: 12 }} onClick={() => setSpecForm({ checklistType: "entrega", partidaId: zonaTemplates[0].id, clave: "", concepto: "", criterioAceptacion: "", formaVerificacion: "", evidenceRequired: 1, clasificacion: "menor", peso: 1 })}>+ Punto de Entrega</Button>
+      </div>
+      {specsState.loading ? <div style={{ color: c.muted }}>Cargando checklist...</div> : (
+        <>
+          <div style={{ fontWeight: 900, color: c.text, marginBottom: 8 }}>🔧 Aseguramiento (por etapa)</div>
+          {partidaTemplates.map((template) => {
+            const items = specs.filter((s) => s.checklistType !== "entrega" && qualitySpecAreaId(s) === template.id);
+            if (!items.length) return null;
+            return (
+              <details key={template.id} style={{ marginBottom: 8, border: `1px solid ${c.border}`, borderRadius: 14, padding: "8px 12px" }}>
+                <summary style={{ cursor: "pointer", fontWeight: 800, color: c.text }}>{template.name} <span style={{ color: c.muted, fontWeight: 600 }}>({items.length})</span></summary>
+                <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                  {items.map((spec) => (
+                    <div key={spec.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", padding: 10, border: `1px solid ${c.border}`, borderRadius: 12, background: "#fafafa" }}>
+                      <div><div style={{ fontWeight: 800, fontSize: 13, color: c.text }}>{spec.clave} · {spec.concepto}</div>{spec.criterioAceptacion ? <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>{spec.criterioAceptacion}</div> : null}</div>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <Button variant="secondary" style={{ padding: "6px 10px", fontSize: 11 }} onClick={() => setSpecForm({ ...spec })}>Editar</Button>
+                        <Button variant="secondary" style={{ padding: "6px 10px", fontSize: 11 }} onClick={() => removeSpec(spec.id)}>Eliminar</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+          <div style={{ fontWeight: 900, color: c.text, marginTop: 20, marginBottom: 8 }}>🏁 Control de Calidad · Entrega (por zona)</div>
+          {zonaTemplates.map((zona) => {
+            const items = specs.filter((s) => s.checklistType === "entrega" && qualitySpecAreaId(s) === zona.id);
+            if (!items.length) return null;
+            return (
+              <details key={zona.id} style={{ marginBottom: 8, border: `1px solid ${c.border}`, borderRadius: 14, padding: "8px 12px" }}>
+                <summary style={{ cursor: "pointer", fontWeight: 800, color: c.text }}>{zona.name} <span style={{ color: c.muted, fontWeight: 600 }}>({items.length})</span></summary>
+                <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                  {items.map((spec) => (
+                    <div key={spec.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", padding: 10, border: `1px solid ${c.border}`, borderRadius: 12, background: "#fafafa" }}>
+                      <div><div style={{ fontWeight: 800, fontSize: 13, color: c.text }}>{spec.clave} · {spec.concepto}</div>{spec.criterioAceptacion ? <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>{spec.criterioAceptacion}</div> : null}</div>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <Button variant="secondary" style={{ padding: "6px 10px", fontSize: 11 }} onClick={() => setSpecForm({ ...spec })}>Editar</Button>
+                        <Button variant="secondary" style={{ padding: "6px 10px", fontSize: 11 }} onClick={() => removeSpec(spec.id)}>Eliminar</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+          {specs.length === 0 ? <EmptyState title="Todavía no hay puntos de checklist" description="Se cargan automáticamente desde los manuales la primera vez que alguien abra el módulo Checklist / Calidad de esta obra." /> : null}
+        </>
+      )}
+    </> : (
+      <div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
+          <Field label="Tipo de checklist">
+            <select style={inputStyle()} value={specForm.checklistType} onChange={(e) => { const checklistType = e.target.value; setSpecForm({ ...specForm, checklistType, partidaId: checklistType === "entrega" ? zonaTemplates[0].id : partidaTemplates[0].id }); }}>
+              <option value="aseguramiento">Aseguramiento (obra en proceso)</option>
+              <option value="entrega">Control de Calidad (entrega)</option>
+            </select>
+          </Field>
+          <Field label={specForm.checklistType === "entrega" ? "Zona" : "Etapa"}>
+            <select style={inputStyle()} value={specForm.partidaId} onChange={(e) => setSpecForm({ ...specForm, partidaId: e.target.value })}>
+              {(specForm.checklistType === "entrega" ? zonaTemplates : partidaTemplates).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </Field>
+        </div>
+        <Field label="Código (ej. AC-CI-01 o CC-BA-01)"><input style={inputStyle()} value={specForm.clave} onChange={(e) => setSpecForm({ ...specForm, clave: e.target.value })} /></Field>
+        <Field label="Punto de verificación (título corto)"><input style={inputStyle()} value={specForm.concepto} onChange={(e) => setSpecForm({ ...specForm, concepto: e.target.value })} /></Field>
+        <Field label="Criterio de aceptación"><textarea style={inputStyle({ minHeight: 80 })} value={specForm.criterioAceptacion} onChange={(e) => setSpecForm({ ...specForm, criterioAceptacion: e.target.value })} /></Field>
+        <Field label="Forma de verificación (cómo revisarlo)"><textarea style={inputStyle({ minHeight: 80 })} value={specForm.formaVerificacion} onChange={(e) => setSpecForm({ ...specForm, formaVerificacion: e.target.value })} /></Field>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
+          <Field label="Puntos aceptables (opcional)"><textarea style={inputStyle({ minHeight: 70 })} value={specForm.puntosAceptables || ""} onChange={(e) => setSpecForm({ ...specForm, puntosAceptables: e.target.value })} /></Field>
+          <Field label="Puntos no aceptables (opcional)"><textarea style={inputStyle({ minHeight: 70 })} value={specForm.puntosNoAceptables || ""} onChange={(e) => setSpecForm({ ...specForm, puntosNoAceptables: e.target.value })} /></Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>
+          <Field label="Fotos requeridas"><input type="number" min={0} style={inputStyle()} value={specForm.evidenceRequired} onChange={(e) => setSpecForm({ ...specForm, evidenceRequired: e.target.value })} /></Field>
+          <Field label="Clasificación">
+            <select style={inputStyle()} value={specForm.clasificacion} onChange={(e) => setSpecForm({ ...specForm, clasificacion: e.target.value })}>
+              <option value="menor">Menor</option>
+              <option value="critico">Crítico</option>
+            </select>
+          </Field>
+          <Field label="Peso"><input type="number" min={1} style={inputStyle()} value={specForm.peso} onChange={(e) => setSpecForm({ ...specForm, peso: e.target.value })} /></Field>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={saveSpec}>Guardar punto</Button><Button variant="secondary" onClick={() => setSpecForm(null)}>Cancelar</Button></div>
+      </div>
+    )}
+  </Card>;
+}
+
 function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setData, showForm, setShowForm, form, setForm }) {
   const [selectedId, setSelectedId] = useState(data.projects[0]?.id || "");
   const selected = data.projects.find((p) => p.id === selectedId) || data.projects[0] || {};
@@ -1200,9 +1400,11 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
           <Info label="Catálogo estimación" value={data.estimateCatalogs.find((cat) => cat.id === selected.estimateCatalogId)?.name || "Sin catálogo"} />
           <Info label="Obra vinculada en Calidad" value={selected.firestoreObraId ? (obrasList.obras.find((o) => o.id === selected.firestoreObraId)?.nombre || obrasList.obras.find((o) => o.id === selected.firestoreObraId)?.name || selected.firestoreObraId) : "Sin vincular"} />
         </div>
-        {!selected.firestoreObraId ? <div style={{ marginTop: 10 }}><ValidationList checks={[{ label: "Sin vínculo con obra de Calidad: no se podrá bloquear estimación por checklist real hasta vincularla en Editar obra.", ok: false, fix: "Vincular obra" }]} /></div> : null}
+        {!selected.firestoreObraId ? <div style={{ marginTop: 10 }}><ValidationList checks={[{ label: "Sin vínculo con obra de Calidad: no habrá checklist, bloques ni equipos hasta vincularla en Editar obra.", ok: false, fix: "Vincular obra" }]} /></div> : null}
       </Card>
     </div>
+    {selected.firestoreObraId ? <ChecklistCatalogConfig obraId={selected.firestoreObraId} /> : null}
+    {selected.firestoreObraId ? <BloquesEquiposConfig obraId={selected.firestoreObraId} /> : null}
     {showForm === "operationProject" ? <Card><SectionTitle title={form.id ? "Editar obra existente" : "Nueva obra"} helper="Campos limpios. No se carga matriz automática hasta que elijas una plantilla o catálogo." />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 10 }}>
         <Field label="Nombre de obra"><input style={inputStyle()} value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
@@ -1772,6 +1974,22 @@ async function createFirestoreObra({ name, totalUnits, location, retentionPct, a
     createdBy: firebaseAuth.currentUser?.email || "sistema",
   }, { merge: true }), 15000, "Tiempo de espera agotado creando la obra en Calidad. Revisa tu conexión e intenta de nuevo.");
   return id;
+}
+
+// Lee en vivo una subcoleccion de una obra de Calidad (bloques, casas, qualitySpecs, etc.)
+function useObraSubcollection(obraId, path) {
+  const [state, setState] = useState({ loading: !!obraId, items: [], error: "" });
+  useEffect(() => {
+    if (!obraId) { setState({ loading: false, items: [], error: "" }); return; }
+    setState((prev) => ({ ...prev, loading: true, error: "" }));
+    const unsub = onSnapshot(
+      collection(firestore, "obras", obraId, path),
+      (snap) => setState({ loading: false, items: snap.docs.map((d) => ({ id: d.id, ...d.data() })), error: "" }),
+      (err) => setState({ loading: false, items: [], error: err?.message || "No se pudo leer la información." })
+    );
+    return () => unsub();
+  }, [obraId, path]);
+  return state;
 }
 
 function cleanCsvText(text = "") {

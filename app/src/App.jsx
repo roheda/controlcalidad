@@ -16,7 +16,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { zonaTemplates, zonaAliases, aseguramientoManualSpecs, entregaManualSpecs } from "./qualityManualSeed";
+import { partidaTemplates, zonaTemplates, zonaAliases, aseguramientoManualSpecs, entregaManualSpecs } from "./qualityManualSeed";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBzk_jZfpv4j7PxroeTISwx11LffEB3TWQ",
@@ -46,23 +46,6 @@ const systemProfileByEmail = {
   "supervision@tritondesarrollos.com": { name: "Supervisión Calidad y Obra", role: "supervisora", permissions: "obra_calidad" },
 };
 
-
-const partidaTemplates = [
-  { id: "preliminares", name: "Preliminares", weight: 5 },
-  { id: "excavacion", name: "Excavación", weight: 5 },
-  { id: "cimentacion", name: "Cimentación", weight: 10 },
-  { id: "colado", name: "Colado", weight: 5 },
-  { id: "estructura", name: "Estructura", weight: 10 },
-  { id: "losa", name: "Losa", weight: 5 },
-  { id: "albanileria", name: "Albañilería", weight: 10 },
-  { id: "hidraulicas", name: "Hidráulicas", weight: 5 },
-  { id: "electricas", name: "Eléctricas", weight: 5 },
-  { id: "aplanados", name: "Aplanados", weight: 5 },
-  { id: "pisos", name: "Pisos", weight: 10 },
-  { id: "impermeabilizante", name: "Impermeabilizante", weight: 5 },
-  { id: "canceleria", name: "Cancelería", weight: 5 },
-  { id: "general", name: "General", weight: 5 },
-];
 
 const partidaOrderIndex = Object.fromEntries(partidaTemplates.map((t, i) => [t.id, i]));
 const zonaOrderIndex = Object.fromEntries(zonaTemplates.map((t, i) => [t.id, i]));
@@ -978,6 +961,10 @@ function ZonaChecklistItemCard({
           <div style={{ fontWeight: 900, color: c.text, marginBottom: 8 }}>Detalle técnico del punto</div>
           {item.criterioAceptacion ? <div style={{ marginBottom: 8 }}><strong>Criterio de aceptación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.criterioAceptacion}</div></div> : null}
           {item.formaVerificacion ? <div style={{ marginBottom: 8 }}><strong>Forma de verificación:</strong><div style={{ color: c.muted, marginTop: 4 }}>{item.formaVerificacion}</div></div> : null}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+            {item.puntosAceptables ? <div style={{ border: "1px solid #c7eed8", borderRadius: 14, padding: 12, background: "#f0fff6" }}><strong style={{ color: c.successText }}>Aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosAceptables}</div></div> : null}
+            {item.puntosNoAceptables ? <div style={{ border: "1px solid #ffd2d2", borderRadius: 14, padding: 12, background: "#fff5f5" }}><strong style={{ color: c.dangerText }}>No aceptable</strong><div style={{ color: c.text, marginTop: 6 }}>{item.puntosNoAceptables}</div></div> : null}
+          </div>
           {item.imagenCorrecto || item.imagenIncorrecto ? (
             <button
               type="button"
@@ -1154,8 +1141,6 @@ export default function App() {
   const [qualitySpecs, setQualitySpecs] = useState([]);
   const [qualityScopes, setQualityScopes] = useState([]);
   const [bloques, setBloques] = useState([]);
-  const [bloquesManagerOpen, setBloquesManagerOpen] = useState(false);
-  const [bloqueForm, setBloqueForm] = useState(null);
   const [mobileStep, setMobileStep] = useState("unidad");
   const [desktopHouseOpened, setDesktopHouseOpened] = useState(false);
   const [desktopStageOpened, setDesktopStageOpened] = useState(false);
@@ -1171,8 +1156,6 @@ export default function App() {
   const [zonaCommentDrafts, setZonaCommentDrafts] = useState({});
   const [zonaCommentPhotoDrafts, setZonaCommentPhotoDrafts] = useState({});
   const [zonaCommentUploading, setZonaCommentUploading] = useState({});
-  const [specsManagerOpen, setSpecsManagerOpen] = useState(false);
-  const [specForm, setSpecForm] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportSelection, setReportSelection] = useState({ aseguramiento: true, entrega: false, scope: "all", houseIds: [] });
   const [printReport, setPrintReport] = useState(null);
@@ -1385,62 +1368,6 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     } finally {
       setQualityInitializing(false);
     }
-  }
-
-  async function saveBloqueForm() {
-    if (!bloqueForm || !obraId) return;
-    const name = String(bloqueForm.name || "").trim();
-    if (!name) { alert("Captura el nombre del bloque."); return; }
-    if (!(bloqueForm.houseIds || []).length) { alert("Selecciona al menos una casa para este bloque."); return; }
-    let id = bloqueForm.id;
-    if (!id) {
-      const existingIds = new Set(bloques.map((b) => b.id));
-      const base = slugify(name) || "bloque";
-      id = base;
-      let n = 2;
-      while (existingIds.has(id)) { id = `${base}-${n}`; n += 1; }
-    }
-    const assignedEmails = String(bloqueForm.emailsText || "").split(",").map((email) => email.trim()).filter(Boolean);
-    await setDoc(doc(db, "obras", obraId, "bloques", id), {
-      id,
-      name,
-      houseIds: bloqueForm.houseIds || [],
-      assignedEmails,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-    setBloqueForm(null);
-  }
-
-  async function deleteBloque(bloqueId) {
-    if (!obraId || !window.confirm("¿Eliminar este bloque? Las casas quedarán sin bloque asignado hasta que crees otro.")) return;
-    await deleteDoc(doc(db, "obras", obraId, "bloques", bloqueId));
-  }
-
-  async function saveSpecForm() {
-    if (!specForm || !obraId) return;
-    const clave = String(specForm.clave || "").trim().toUpperCase();
-    const concepto = String(specForm.concepto || "").trim();
-    if (!clave || !concepto) { alert("Captura al menos el código y el punto de verificación."); return; }
-    const payload = {
-      checklistType: specForm.checklistType,
-      partidaId: specForm.partidaId,
-      clave,
-      concepto,
-      criterioAceptacion: String(specForm.criterioAceptacion || "").trim(),
-      formaVerificacion: String(specForm.formaVerificacion || "").trim(),
-      evidenceRequired: Math.max(0, Number(specForm.evidenceRequired ?? 1)),
-      clasificacion: specForm.clasificacion || "menor",
-      peso: Math.max(1, Number(specForm.peso ?? 1)),
-      active: true,
-    };
-    const docId = specForm.id || clave;
-    await setDoc(doc(db, "obras", obraId, "qualitySpecs", docId), payload, { merge: true });
-    setSpecForm(null);
-  }
-
-  async function deleteSpec(specId) {
-    if (!obraId || !window.confirm("¿Eliminar este punto del checklist? Ya no aparecerá para las casas de esta obra.")) return;
-    await deleteDoc(doc(db, "obras", obraId, "qualitySpecs", specId));
   }
 
   function generateQualityReport() {
@@ -2528,16 +2455,6 @@ const reviewBlockMessage =
                 <span style={{ position: "absolute", top: -8, right: -8, background: c.danger, color: "#fff", borderRadius: 999, padding: "2px 7px", fontSize: 11, fontWeight: 900 }}>{myOpenMentions.length}</span>
               ) : null}
             </button>
-            {isSupervisora ? (
-              <button onClick={() => setBloquesManagerOpen(true)} style={buttonStyle("secondary")}>
-                Bloques y equipos
-              </button>
-            ) : null}
-            {isSupervisora ? (
-              <button onClick={() => setSpecsManagerOpen(true)} style={buttonStyle("secondary")}>
-                Configurar checklist
-              </button>
-            ) : null}
             <button onClick={() => setReportModalOpen(true)} style={buttonStyle("secondary")}>
               Generar reporte PDF
             </button>
@@ -2622,7 +2539,7 @@ const reviewBlockMessage =
 
             {isMobile && isConstructora && bloques.length > 0 && myBloques.length === 0 ? (
               <div style={{ padding: 16, borderRadius: 16, background: c.warnBg, color: c.warnText, fontWeight: 700, fontSize: 14 }}>
-                Todavía no tienes un bloque asignado. Pide a tu supervisor que te agregue a un bloque en "Bloques y equipos".
+                Todavía no tienes un bloque asignado. Pide a tu supervisor que te agregue a un bloque desde Configurar obra (Operación).
               </div>
             ) : (
             <div
@@ -3753,230 +3670,6 @@ const reviewBlockMessage =
             ) : null}
           </div>
         </div>
-
-      {bloquesManagerOpen ? (
-        <div
-          onClick={() => { setBloquesManagerOpen(false); setBloqueForm(null); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1100 }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ ...cardStyle(), width: "100%", maxWidth: 700, maxHeight: "88vh", overflow: "auto", padding: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
-              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>Bloques y equipos</div>
-              <button onClick={() => { setBloquesManagerOpen(false); setBloqueForm(null); }} style={buttonStyle("secondary", { padding: "8px 12px" })}>Cerrar</button>
-            </div>
-            <div style={{ color: c.muted, fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
-              Divide las casas de esta obra en bloques (por ejemplo, Bloque A = casas 1 a 4) y asigna el correo de cada residente de obra de la constructora. Cada persona solo verá y trabajará las casas de su bloque; supervisión siempre ve todas las casas.
-            </div>
-
-            {!bloqueForm ? (
-              <>
-                <button onClick={() => setBloqueForm({ name: "", houseIds: [], emailsText: "" })} style={buttonStyle("primary", { marginBottom: 18 })}>+ Nuevo bloque</button>
-                {bloques.length === 0 ? (
-                  <div style={{ border: `1px dashed ${c.border}`, borderRadius: 16, padding: 16, color: c.muted, fontSize: 13 }}>
-                    Todavía no hay bloques en esta obra. Sin bloques, cualquier persona con rol de constructora puede ver todas las casas.
-                  </div>
-                ) : (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {bloques.map((b) => (
-                      <div key={b.id} style={{ border: `1px solid ${c.border}`, borderRadius: 16, padding: 14 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <div>
-                            <div style={{ fontWeight: 900, color: c.text }}>{b.name}</div>
-                            <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>{(b.houseIds || []).length} casa(s) · {(b.assignedEmails || []).length} persona(s) en el equipo</div>
-                          </div>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button onClick={() => setBloqueForm({ ...b, emailsText: (b.assignedEmails || []).join(", ") })} style={buttonStyle("secondary", { padding: "8px 12px", fontSize: 12 })}>Editar</button>
-                            <button onClick={() => deleteBloque(b.id)} style={buttonStyle("danger", { padding: "8px 12px", fontSize: 12 })}>Eliminar</button>
-                          </div>
-                        </div>
-                        {(b.assignedEmails || []).length ? (
-                          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {b.assignedEmails.map((email) => <span key={email} style={badgeStyle("Pendiente")}>{email}</span>)}
-                          </div>
-                        ) : (
-                          <div style={{ marginTop: 8, color: c.warnText, fontSize: 12, fontWeight: 700 }}>Sin nadie asignado todavía.</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div>
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: c.text }}>Nombre del bloque</div>
-                  <input value={bloqueForm.name} onChange={(e) => setBloqueForm({ ...bloqueForm, name: e.target.value })} placeholder="Bloque A" style={inputStyle()} />
-                </div>
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: c.text }}>Casas de este bloque</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, maxHeight: 220, overflow: "auto", border: `1px solid ${c.border}`, borderRadius: 14, padding: 10 }}>
-                    {houses.length === 0 ? <div style={{ color: c.muted, fontSize: 13 }}>Esta obra todavía no tiene casas.</div> : houses.map((h) => {
-                      const checked = (bloqueForm.houseIds || []).includes(h.id);
-                      return (
-                        <label key={h.id} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${checked ? c.primary : c.border}`, borderRadius: 10, padding: "6px 8px", cursor: "pointer", background: checked ? c.primarySoft : "#fff", fontSize: 12, fontWeight: 700, color: c.text }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              const next = e.target.checked ? [...(bloqueForm.houseIds || []), h.id] : (bloqueForm.houseIds || []).filter((id) => id !== h.id);
-                              setBloqueForm({ ...bloqueForm, houseIds: next });
-                            }}
-                          />
-                          {h.name}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: c.text }}>Equipo asignado (correos separados por coma)</div>
-                  <textarea value={bloqueForm.emailsText} onChange={(e) => setBloqueForm({ ...bloqueForm, emailsText: e.target.value })} placeholder="residente1@constructora.com, residente2@constructora.com" style={inputStyle({ minHeight: 70 })} />
-                </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button onClick={saveBloqueForm} style={buttonStyle("primary")}>Guardar bloque</button>
-                  <button onClick={() => setBloqueForm(null)} style={buttonStyle("secondary")}>Cancelar</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {specsManagerOpen ? (
-        <div
-          onClick={() => { setSpecsManagerOpen(false); setSpecForm(null); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1100 }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ ...cardStyle(), width: "100%", maxWidth: 820, maxHeight: "88vh", overflow: "auto", padding: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
-              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>Configurar checklist de calidad</div>
-              <button onClick={() => { setSpecsManagerOpen(false); setSpecForm(null); }} style={buttonStyle("secondary", { padding: "8px 12px" })}>Cerrar</button>
-            </div>
-            <div style={{ color: c.muted, fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
-              Estos son los puntos que verá cada casa de esta obra: los 39 puntos de Aseguramiento (por etapa, manual TR-AC-M01) y los 36 de Control de Calidad para Entrega (por zona, manual TR-CC-M01). Puedes editar el texto, agregar puntos nuevos o quitar los que no apliquen a este proyecto.
-            </div>
-
-            {!specForm ? (
-              <>
-                <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-                  <button onClick={() => setSpecForm({ checklistType: "aseguramiento", partidaId: partidaTemplates[0].id, clave: "", concepto: "", criterioAceptacion: "", formaVerificacion: "", evidenceRequired: 1, clasificacion: "menor", peso: 1 })} style={buttonStyle("primary", { fontSize: 13 })}>+ Punto de Aseguramiento</button>
-                  <button onClick={() => setSpecForm({ checklistType: "entrega", partidaId: zonaTemplates[0].id, clave: "", concepto: "", criterioAceptacion: "", formaVerificacion: "", evidenceRequired: 1, clasificacion: "menor", peso: 1 })} style={buttonStyle("primary", { fontSize: 13 })}>+ Punto de Entrega</button>
-                </div>
-
-                <div style={{ fontSize: 16, fontWeight: 900, color: c.text, marginBottom: 8 }}>🔧 Aseguramiento (por etapa)</div>
-                {partidaTemplates.map((template) => {
-                  const items = qualitySpecs.filter((s) => s.checklistType !== "entrega" && (s.partidaId || qualityPartidaIdFromSpec(s)) === template.id);
-                  if (!items.length) return null;
-                  return (
-                    <details key={template.id} style={{ marginBottom: 8, border: `1px solid ${c.border}`, borderRadius: 14, padding: "8px 12px" }}>
-                      <summary style={{ cursor: "pointer", fontWeight: 800, color: c.text }}>{template.name} <span style={{ color: c.muted, fontWeight: 600 }}>({items.length})</span></summary>
-                      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                        {items.map((spec) => (
-                          <div key={spec.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", padding: 10, border: `1px solid ${c.border}`, borderRadius: 12, background: c.panelSoft }}>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: 13, color: c.text }}>{spec.clave} · {spec.concepto}</div>
-                              {spec.criterioAceptacion ? <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>{spec.criterioAceptacion}</div> : null}
-                            </div>
-                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                              <button onClick={() => setSpecForm({ ...spec })} style={buttonStyle("secondary", { padding: "6px 10px", fontSize: 11 })}>Editar</button>
-                              <button onClick={() => deleteSpec(spec.id)} style={buttonStyle("danger", { padding: "6px 10px", fontSize: 11 })}>Eliminar</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  );
-                })}
-
-                <div style={{ fontSize: 16, fontWeight: 900, color: c.text, marginTop: 20, marginBottom: 8 }}>🏁 Control de Calidad · Entrega (por zona)</div>
-                {zonaTemplates.map((zona) => {
-                  const items = qualitySpecs.filter((s) => s.checklistType === "entrega" && (s.partidaId || qualityPartidaIdFromSpec(s)) === zona.id);
-                  if (!items.length) return null;
-                  return (
-                    <details key={zona.id} style={{ marginBottom: 8, border: `1px solid ${c.border}`, borderRadius: 14, padding: "8px 12px" }}>
-                      <summary style={{ cursor: "pointer", fontWeight: 800, color: c.text }}>{zona.name} <span style={{ color: c.muted, fontWeight: 600 }}>({items.length})</span></summary>
-                      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                        {items.map((spec) => (
-                          <div key={spec.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", padding: 10, border: `1px solid ${c.border}`, borderRadius: 12, background: c.panelSoft }}>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: 13, color: c.text }}>{spec.clave} · {spec.concepto}</div>
-                              {spec.criterioAceptacion ? <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>{spec.criterioAceptacion}</div> : null}
-                            </div>
-                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                              <button onClick={() => setSpecForm({ ...spec })} style={buttonStyle("secondary", { padding: "6px 10px", fontSize: 11 })}>Editar</button>
-                              <button onClick={() => deleteSpec(spec.id)} style={buttonStyle("danger", { padding: "6px 10px", fontSize: 11 })}>Eliminar</button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  );
-                })}
-                {qualitySpecs.length === 0 ? (
-                  <div style={{ border: `1px dashed ${c.border}`, borderRadius: 16, padding: 16, color: c.muted, fontSize: 13 }}>
-                    Cargando el checklist de los manuales por primera vez… si esto no cambia en unos segundos, recarga la página.
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 14 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Tipo de checklist</div>
-                    <select value={specForm.checklistType} onChange={(e) => { const checklistType = e.target.value; setSpecForm({ ...specForm, checklistType, partidaId: checklistType === "entrega" ? zonaTemplates[0].id : partidaTemplates[0].id }); }} style={inputStyle()}>
-                      <option value="aseguramiento">Aseguramiento (obra en proceso)</option>
-                      <option value="entrega">Control de Calidad (entrega)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>{specForm.checklistType === "entrega" ? "Zona" : "Etapa"}</div>
-                    <select value={specForm.partidaId} onChange={(e) => setSpecForm({ ...specForm, partidaId: e.target.value })} style={inputStyle()}>
-                      {(specForm.checklistType === "entrega" ? zonaTemplates : partidaTemplates).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Código (ej. AC-CI-01 o CC-BA-01)</div>
-                  <input value={specForm.clave} onChange={(e) => setSpecForm({ ...specForm, clave: e.target.value })} style={inputStyle()} />
-                </div>
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Punto de verificación (título corto)</div>
-                  <input value={specForm.concepto} onChange={(e) => setSpecForm({ ...specForm, concepto: e.target.value })} style={inputStyle()} />
-                </div>
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Criterio de aceptación</div>
-                  <textarea value={specForm.criterioAceptacion} onChange={(e) => setSpecForm({ ...specForm, criterioAceptacion: e.target.value })} style={inputStyle({ minHeight: 80 })} />
-                </div>
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Forma de verificación (cómo revisarlo)</div>
-                  <textarea value={specForm.formaVerificacion} onChange={(e) => setSpecForm({ ...specForm, formaVerificacion: e.target.value })} style={inputStyle({ minHeight: 80 })} />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 14, marginBottom: 18 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Fotos requeridas</div>
-                    <input type="number" min={0} value={specForm.evidenceRequired} onChange={(e) => setSpecForm({ ...specForm, evidenceRequired: e.target.value })} style={inputStyle()} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Clasificación</div>
-                    <select value={specForm.clasificacion} onChange={(e) => setSpecForm({ ...specForm, clasificacion: e.target.value })} style={inputStyle()}>
-                      <option value="menor">Menor</option>
-                      <option value="critico">Crítico</option>
-                    </select>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Peso</div>
-                    <input type="number" min={1} value={specForm.peso} onChange={(e) => setSpecForm({ ...specForm, peso: e.target.value })} style={inputStyle()} />
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button onClick={saveSpecForm} style={buttonStyle("primary")}>Guardar punto</button>
-                  <button onClick={() => setSpecForm(null)} style={buttonStyle("secondary")}>Cancelar</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
 
       {reportModalOpen ? (
         <div
