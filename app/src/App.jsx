@@ -64,6 +64,9 @@ const partidaTemplates = [
   { id: "general", name: "General", weight: 5 },
 ];
 
+const partidaOrderIndex = Object.fromEntries(partidaTemplates.map((t, i) => [t.id, i]));
+const zonaOrderIndex = Object.fromEntries(zonaTemplates.map((t, i) => [t.id, i]));
+
 const checklistByPartida = {
   preliminares: [
     { code: "AC-PL-01", label: "El trazo coincide con planos autorizados." },
@@ -960,6 +963,22 @@ function ZonaChecklistItemCard({ item, uploading, onSetResultado, onNoteChange, 
         </details>
       ) : null}
 
+      {item.imagenCorrecto || item.imagenIncorrecto ? (
+        <button
+          type="button"
+          onClick={() => onPreviewPhoto(
+            { id: `${item.id}-ref`, url: item.imagenCorrecto || item.imagenIncorrecto, fileName: `${item.code} · Imagen de referencia`, uploadedByName: "Manual de calidad" },
+            [{ id: `${item.id}-ref`, url: item.imagenCorrecto || item.imagenIncorrecto, fileName: `${item.code} · Imagen de referencia`, uploadedByName: "Manual de calidad" }]
+          )}
+          title="Haz clic para ampliar la imagen"
+          style={{ border: 0, background: "transparent", padding: 0, margin: "12px 0 0", textAlign: "left", cursor: "zoom-in", display: "block", width: "100%" }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 900, color: c.text, marginBottom: 6 }}>Imagen de referencia del criterio</div>
+          <img src={item.imagenCorrecto || item.imagenIncorrecto} alt="Imagen de referencia del criterio" style={{ width: "100%", maxHeight: 480, objectFit: "contain", borderRadius: 14, border: `1px solid ${c.border}`, display: "block", background: "#fff" }} />
+          <div style={{ fontSize: 11, color: c.muted, marginTop: 6 }}>Clic para ampliar</div>
+        </button>
+      ) : null}
+
       <div style={{ marginTop: 12 }}>
         <ChecklistPhotoGrid photos={item.photos || []} onPreview={onPreviewPhoto} />
         {(item.photos || []).length > 0 ? (
@@ -1217,14 +1236,28 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     const unsub = onSnapshot(specsRef, async (snapshot) => {
       const specs = snapshot.docs.map((item) => ({ id: item.id, ...item.data(), partidaId: item.data().partidaId || qualityPartidaIdFromSpec(item.data()) }));
       setQualitySpecs(specs);
-      if (snapshot.empty && !seededSpecsObrasRef.current.has(obraId)) {
-        seededSpecsObrasRef.current.add(obraId);
+      const seedKey = `${obraId}`;
+      if (snapshot.empty && !seededSpecsObrasRef.current.has(seedKey)) {
+        seededSpecsObrasRef.current.add(seedKey);
         try {
           for (const spec of [...aseguramientoManualSpecs, ...entregaManualSpecs]) {
             await setDoc(doc(db, "obras", obraId, "qualitySpecs", spec.clave), spec, { merge: true });
           }
         } catch (error) {
           console.error("No se pudo precargar el checklist de calidad desde los manuales.", error);
+        }
+      } else if (!snapshot.empty && !seededSpecsObrasRef.current.has(`${seedKey}-images`)) {
+        seededSpecsObrasRef.current.add(`${seedKey}-images`);
+        const byClave = Object.fromEntries([...aseguramientoManualSpecs, ...entregaManualSpecs].map((s) => [s.clave, s]));
+        try {
+          for (const existing of specs) {
+            const seedSpec = byClave[existing.clave];
+            if (seedSpec?.imagenCorrecto && !existing.imagenCorrecto) {
+              await setDoc(doc(db, "obras", obraId, "qualitySpecs", existing.id), { imagenCorrecto: seedSpec.imagenCorrecto }, { merge: true });
+            }
+          }
+        } catch (error) {
+          console.error("No se pudieron completar las imágenes de referencia del checklist.", error);
         }
       }
     });
@@ -2611,10 +2644,8 @@ const reviewBlockMessage =
               >
                 {[...(selectedHouse?.partidas || [])]
                   .filter((partida) => showCompletedStages || partida.status !== "Aprobada")
-                  .sort((a, b) => {
-                    const rank = (p) => (p.status === "Aprobada" ? 2 : ["Lista para revisión", "En revisión"].includes(p.status) ? 1 : 0);
-                    return rank(a) - rank(b);
-                  }).map((partida) => {
+                  .sort((a, b) => (partidaOrderIndex[a.id] ?? 999) - (partidaOrderIndex[b.id] ?? 999))
+                  .map((partida) => {
                   const isSelected = selectedPartidaId === partida.id;
                   const isOpen = isSelected && (isMobile || desktopStageOpened);
                   return (
@@ -2662,10 +2693,8 @@ const reviewBlockMessage =
               >
                 {[...(selectedHouse?.entregas || [])]
                   .filter((zona) => showCompletedStages || zona.status !== "Aprobada")
-                  .sort((a, b) => {
-                    const rank = (z) => (z.status === "Aprobada" ? 2 : z.status === "En proceso" || z.status === "Con observaciones" ? 1 : 0);
-                    return rank(a) - rank(b);
-                  }).map((zona) => {
+                  .sort((a, b) => (zonaOrderIndex[a.id] ?? 999) - (zonaOrderIndex[b.id] ?? 999))
+                  .map((zona) => {
                   const isSelected = selectedZonaId === zona.id;
                   const isOpen = isSelected && (isMobile || desktopStageOpened);
                   return (
