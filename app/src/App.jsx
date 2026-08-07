@@ -1280,8 +1280,14 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
             const existing = existingByClave[seedSpec.clave];
             if (!existing) {
               await setDoc(doc(db, "obras", obraId, "qualitySpecs", seedSpec.clave), seedSpec, { merge: true });
-            } else if (seedSpec.imagenCorrecto && !existing.imagenCorrecto) {
-              await setDoc(doc(db, "obras", obraId, "qualitySpecs", existing.id), { imagenCorrecto: seedSpec.imagenCorrecto }, { merge: true });
+            } else {
+              const patch = {};
+              if (seedSpec.imagenCorrecto && !existing.imagenCorrecto) patch.imagenCorrecto = seedSpec.imagenCorrecto;
+              if (seedSpec.puntosAceptables && !existing.puntosAceptables) patch.puntosAceptables = seedSpec.puntosAceptables;
+              if (seedSpec.puntosNoAceptables && !existing.puntosNoAceptables) patch.puntosNoAceptables = seedSpec.puntosNoAceptables;
+              if (Object.keys(patch).length > 0) {
+                await setDoc(doc(db, "obras", obraId, "qualitySpecs", existing.id), patch, { merge: true });
+              }
             }
           }
         } catch (error) {
