@@ -1002,7 +1002,7 @@ export default function TritonOSModules() {
       </header>
       <main style={{ overflow: "auto", padding: 22 }}>
         {active === "dashboard" && <Reports totals={totals} data={data} projectMap={projectMap} categoryMap={categoryMap} active="general" />}
-        {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
+        {active === "proyectos" && <Projects data={data} addRecord={addRecord} deleteRecord={deleteRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "operacion_os" && <OperationHub data={data} projectMap={projectMap} categoryMap={categoryMap} setActive={setActive} />}
         {active === "obras" && <OperationWorksConfig data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} setData={setData} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "estimaciones" && <OperationEstimations data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} setData={setData} />}
@@ -1649,8 +1649,14 @@ function OperationTechnical({ data, projectMap, addRecord, updateRecord, showFor
 }
 
 
-function Projects({ data, addRecord, showForm, setShowForm, form, setForm }) {
-  return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><SectionTitle title="Proyectos" helper="Cada módulo debe cruzarse por proyecto para tener estado de resultados, trámites, pagos y cobranza." /><Button onClick={() => setShowForm(showForm === "project" ? null : "project")}>Nuevo proyecto</Button></div>{showForm === "project" ? <SimpleForm fields={["name", "type", "status", "budget", "incomeTarget"]} labels={{ name: "Nombre", type: "Tipo", status: "Estatus", budget: "Presupuesto", incomeTarget: "Ingresos proyectados" }} form={form} setForm={setForm} onSubmit={() => addRecord("projects", { ...form, budget: Number(form.budget || 0), incomeTarget: Number(form.incomeTarget || 0), owner: "TRITON" })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "incomeTarget", label: "Ingresos proyectados", render: (r) => money(r.incomeTarget) }]} rows={data.projects} /></Card></div>;
+function Projects({ data, addRecord, deleteRecord, showForm, setShowForm, form, setForm }) {
+  function removeProject(project) {
+    const warning = project.firestoreObraId
+      ? `"${project.name}" está vinculado a una obra de Calidad. Se eliminará solo este registro de Proyectos (presupuesto, trámites, pagos); la obra, sus casas y su checklist en Calidad no se borran, y volverá a aparecer aquí automáticamente la próxima vez que se sincronice.`
+      : `¿Eliminar el proyecto "${project.name}"? Esto no se puede deshacer.`;
+    if (window.confirm(warning)) deleteRecord("projects", project.id);
+  }
+  return <div style={{ display: "grid", gap: 16 }}><Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}><SectionTitle title="Proyectos" helper="Cada módulo debe cruzarse por proyecto para tener estado de resultados, trámites, pagos y cobranza." /><Button onClick={() => setShowForm(showForm === "project" ? null : "project")}>Nuevo proyecto</Button></div>{showForm === "project" ? <SimpleForm fields={["name", "type", "status", "budget", "incomeTarget"]} labels={{ name: "Nombre", type: "Tipo", status: "Estatus", budget: "Presupuesto", incomeTarget: "Ingresos proyectados" }} form={form} setForm={setForm} onSubmit={() => addRecord("projects", { ...form, budget: Number(form.budget || 0), incomeTarget: Number(form.incomeTarget || 0), owner: "TRITON" })} /> : null}</Card><Card><MiniTable columns={[{ key: "name", label: "Proyecto" }, { key: "type", label: "Tipo", render: (r) => <div><b>{r.type}</b><div style={{ color: c.muted, fontSize: 11 }}>{r.taxpayerType || "Persona moral"}</div></div> }, { key: "status", label: "Estatus", render: (r) => <Pill tone="primary">{r.status}</Pill> }, { key: "budget", label: "Presupuesto", render: (r) => money(r.budget) }, { key: "incomeTarget", label: "Ingresos proyectados", render: (r) => money(r.incomeTarget) }, { key: "actions", label: "Acciones", sortable: false, render: (r) => <Button variant="danger" style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => removeProject(r)}>Eliminar</Button> }]} rows={data.projects} /></Card></div>;
 }
 
 function payableTotal(row) {
