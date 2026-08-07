@@ -748,7 +748,6 @@ const moduleMeta = {
   dashboard: { title: "Reportes", subtitle: "Reportes ejecutivos, obra, finanzas, ingresos, egresos e IA", icon: "▤" },
   proyectos: { title: "Proyectos", subtitle: "Base para cruzar obra, pagos, rentas y trámites", icon: "⌂" },
   operacion_os: { title: "Operación", subtitle: "Obra, calidad, estimaciones, equipo de construcción y consulta técnica", icon: "✓" },
-  calidad: { title: "Resumen de calidad", subtitle: "Avance real de liberación por partida, tomado en vivo del checklist que llena supervisión en campo", icon: "✓" },
   obras: { title: "Configurar obra", subtitle: "Alta y edición de obras, unidades, modelos, alcance y parámetros operativos", icon: "⌂" },
   estimaciones: { title: "Estimaciones", subtitle: "Catálogo de conceptos, checklist de liberación, avance de constructora y solicitudes de pago", icon: "▥" },
   consulta_tecnica: { title: "Consulta técnica", subtitle: "Dudas, criterios, documentos y respuestas de supervisión", icon: "?" },
@@ -1004,7 +1003,6 @@ export default function TritonOSModules() {
         {active === "dashboard" && <Reports totals={totals} data={data} projectMap={projectMap} categoryMap={categoryMap} active="general" />}
         {active === "proyectos" && <Projects data={data} addRecord={addRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "operacion_os" && <OperationHub data={data} projectMap={projectMap} categoryMap={categoryMap} setActive={setActive} />}
-        {active === "calidad" && <OperationQuality data={data} projectMap={projectMap} setActive={setActive} updateRecord={updateRecord} />}
         {active === "obras" && <OperationWorksConfig data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} setData={setData} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
         {active === "estimaciones" && <OperationEstimations data={data} projectMap={projectMap} categoryMap={categoryMap} addRecord={addRecord} updateRecord={updateRecord} setData={setData} />}
         {active === "consulta_tecnica" && <OperationTechnical data={data} projectMap={projectMap} addRecord={addRecord} updateRecord={updateRecord} showForm={showForm} setShowForm={setShowForm} form={form} setForm={setForm} />}
@@ -1064,7 +1062,6 @@ function OperationHub({ data, projectMap, categoryMap, setActive }) {
   const openPermits = (data.permits || []).filter((t) => !["Aprobado", "Cerrado", "Finalizado"].includes(t.status));
   const team = data.constructionTeam || [];
   const actionCards = [
-    { label: "Resumen de calidad", helper: "Avance real de liberación por partida, en vivo. El checklist se llena desde el módulo Checklist / Calidad del menú.", action: () => setActive("calidad") },
     { label: "Configurar obra", helper: "Alta/edición simple de obras, unidades, modelos, alcance y parámetros.", action: () => setActive("obras") },
     { label: "Estimaciones", helper: "Catálogo de conceptos, avance de constructora, checklist y solicitud de pago.", action: () => setActive("estimaciones") },
     { label: "Equipo construcción", helper: "Alta/baja de constructoras, responsables por obra y accesos operativos.", action: () => setActive("equipo_obra") },
@@ -1284,61 +1281,6 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
   </div>;
 }
 
-function OperationQuality({ data, projectMap, setActive }) {
-  const [projectId, setProjectId] = useState(data.projects[0]?.id || "arenna");
-  const project = data.projects.find((p) => p.id === projectId) || data.projects[0] || {};
-  const obraQuality = useObraQuality(project.firestoreObraId || "");
-  const houses = obraQuality.houses;
-  const partidaRows = QUALITY_PARTIDA_TEMPLATES.map((template) => {
-    let withPartida = 0;
-    let liberadas = 0;
-    let scoreSum = 0;
-    houses.forEach((house) => {
-      const partida = (house.partidas || []).find((p) => p.id === template.id);
-      if (!partida) return;
-      withPartida++;
-      const ev = evaluarPartidaCalidad(partida);
-      scoreSum += ev.score;
-      if (qualityStatusInfo[ev.status]?.unlocksPayment) liberadas++;
-    });
-    const pct = withPartida ? Math.round((liberadas / withPartida) * 100) : 0;
-    return { id: template.id, name: template.name, withPartida, liberadas, pct, avgScore: withPartida ? Math.round(scoreSum / withPartida) : 0 };
-  });
-  const totalCasas = houses.length;
-  const partidasCompletas = partidaRows.filter((r) => r.withPartida > 0 && r.pct === 100).length;
-  const promedioScore = partidaRows.filter((r) => r.withPartida > 0).length
-    ? Math.round(partidaRows.filter((r) => r.withPartida > 0).reduce((sum, r) => sum + r.avgScore, 0) / partidaRows.filter((r) => r.withPartida > 0).length)
-    : 0;
-  return <div style={{ display: "grid", gap: 16 }}>
-    <Card><SectionTitle title="Resumen de calidad por partida" helper="Datos en vivo desde el módulo Checklist / Calidad (menú Operación), donde supervisión llena el checklist con evidencias en campo. Este estatus es el que bloquea o libera la estimación." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
-        <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => setProjectId(e.target.value)}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-      </div>
-    </Card>
-    {!project.firestoreObraId ? <EmptyState title="Esta obra no está vinculada a Calidad" description="Vincula el proyecto con su obra real en Firestore desde Configurar obra para ver el avance real de checklist por casa." action={<Button onClick={() => setActive("obras")}>Ir a Configurar obra</Button>} /> : null}
-    {project.firestoreObraId && obraQuality.loading ? <Card><div style={{ color: c.muted }}>Cargando checklist de Calidad en vivo...</div></Card> : null}
-    {project.firestoreObraId && obraQuality.error ? <Card><ValidationList checks={[{ label: obraQuality.error, ok: false, fix: "Reintentar" }]} /><div style={{ marginTop: 10 }}><Button variant="secondary" onClick={obraQuality.refresh}>Reintentar</Button></div></Card> : null}
-    {project.firestoreObraId && !obraQuality.loading && !obraQuality.error && !totalCasas ? <EmptyState title="Sin casas registradas en Calidad" description="La obra vinculada todavía no tiene unidades/casas dadas de alta en el módulo de Calidad." /> : null}
-    {project.firestoreObraId && totalCasas > 0 ? <>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-        <MetricCard label="Casas en obra" value={totalCasas} tone="primary" />
-        <MetricCard label="Partidas 100% liberadas" value={`${partidasCompletas}/${QUALITY_PARTIDA_TEMPLATES.length}`} tone="ok" />
-        <MetricCard label="Score promedio de calidad" value={`${promedioScore}%`} tone={promedioScore >= 90 ? "ok" : "warn"} />
-        <MetricCard label="Última lectura" value={obraQuality.loadedAt ? obraQuality.loadedAt.toLocaleTimeString() : "-"} tone="idle" />
-      </div>
-      <Card><div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><Button variant="secondary" onClick={obraQuality.refresh}>Actualizar</Button></div><MiniTable columns={[
-        { key: "id", label: "Clave" },
-        { key: "name", label: "Partida" },
-        { key: "withPartida", label: "Casas con checklist", render: (r) => `${r.withPartida}/${totalCasas}` },
-        { key: "liberadas", label: "Casas liberadas", render: (r) => `${r.liberadas}/${r.withPartida || 0}` },
-        { key: "pct", label: "% liberado", render: (r) => <Pill tone={r.withPartida === 0 ? "idle" : r.pct === 100 ? "ok" : "warn"}>{r.withPartida ? `${r.pct}%` : "Sin datos"}</Pill> },
-        { key: "avgScore", label: "Score promedio", render: (r) => (r.withPartida ? `${r.avgScore}%` : "-") },
-        { key: "actions", label: "Acción", render: () => <Button style={{ padding: "7px 9px", fontSize: 12 }} onClick={() => setActive("estimaciones")}>Ir a estimar</Button> },
-      ]} rows={partidaRows} /></Card>
-    </> : null}
-  </div>;
-}
-
 function OperationEstimations({ data, projectMap, categoryMap, addRecord, updateRecord, setData }) {
   const [projectId, setProjectId] = useState(data.projects[0]?.id || "arenna");
   const [sectionId, setSectionId] = useState("");
@@ -1346,18 +1288,14 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
   const [search, setSearch] = useState("");
   const project = data.projects.find((p) => p.id === projectId) || data.projects[0] || {};
   const catalog = data.estimateCatalogs.find((cat) => cat.id === project.estimateCatalogId) || data.estimateCatalogs[0] || { id: "", name: "Sin catálogo", supplier: "", total: 0, sections: [], concepts: [] };
-  const obraQuality = useObraQuality(project.firestoreObraId || "");
-  const houses = obraQuality.houses;
+  const houses = Array.from({ length: Number(project.totalUnits || 0) }, (_, i) => {
+    const n = String(i + 1).padStart(2, "0");
+    return { id: `unidad_${n}`, name: `Unidad ${n}` };
+  });
   const selectedHouseId = (houseId && houses.find((h) => h.id === houseId)?.id) || houses[0]?.id || "";
   const selectedHouse = houses.find((h) => h.id === selectedHouseId) || null;
   const progress = data.estimateProgress || {};
   const selectedSection = catalog.sections.find((s) => s.id === sectionId) || catalog.sections[0];
-  const partidaId = mapSectionToPartidaId(selectedSection?.name || "");
-  const partida = selectedHouse?.partidas?.find((p) => p.id === partidaId) || null;
-  const qualityEval = partida ? evaluarPartidaCalidad(partida) : null;
-  const qualityStatusKey = !project.firestoreObraId ? "sin_vinculo" : !selectedHouse ? "sin_vinculo" : !partida ? "sin_partida" : qualityEval.status;
-  const qualityInfo = qualityStatusInfo[qualityStatusKey] || qualityStatusInfo.sin_partida;
-  const canCaptureProgress = qualityInfo.unlocksPayment;
   const sectionConcepts = catalog.concepts.filter((cpt) => cpt.sectionId === selectedSection?.id);
   const progressKey = (conceptId) => `${selectedHouseId}::${conceptId}`;
   const rows = sectionConcepts.filter((cpt) => [cpt.id, cpt.description, cpt.unit, cpt.sectionName].join(" ").toLowerCase().includes(search.toLowerCase())).map((cpt) => {
@@ -1365,17 +1303,15 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
     const pct = Math.min(100, Math.max(0, Number(p.progressPct || 0)));
     const estimateQuantity = Number(p.estimateQuantity || 0);
     const requestedAmount = estimateQuantity > 0 ? estimateQuantity * Number(cpt.unitPrice || 0) : Number(cpt.total || 0) * pct / 100;
-    return { ...cpt, ...p, progressPct: pct, estimateQuantity, requestedAmount, status: p.sentToPayable ? "Solicitado" : !canCaptureProgress ? "Bloqueado por calidad" : pct > 0 ? "Listo para solicitar" : "Sin avance" };
+    return { ...cpt, ...p, progressPct: pct, estimateQuantity, requestedAmount, status: p.sentToPayable ? "Solicitado" : pct > 0 ? "Listo para solicitar" : "Sin avance" };
   });
   const capturedAmount = rows.reduce((sum, r) => sum + Number(r.requestedAmount || 0), 0);
   function patchConcept(id, patch) {
     if (!selectedHouseId) { alert("Selecciona primero la casa/unidad."); return; }
-    if (!canCaptureProgress) { alert(`No se puede capturar avance: ${qualityInfo.label}. ${qualityReasonText(qualityEval)}`); return; }
     const key = progressKey(id);
     setData((prev) => ({ ...prev, estimateProgress: { ...(prev.estimateProgress || {}), [key]: { ...(prev.estimateProgress?.[key] || {}), ...patch, houseId: selectedHouseId, conceptId: id, updatedAt: new Date().toISOString(), updatedBy: firebaseAuth.currentUser?.email || "sistema" } } }));
   }
   function requestEstimatePayment() {
-    if (!canCaptureProgress) { alert(`No se puede solicitar pago: ${qualityInfo.label}. ${qualityReasonText(qualityEval)}`); return; }
     const readyRows = rows.filter((r) => Number(r.requestedAmount || 0) > 0 && !r.sentToPayable);
     const amount = readyRows.reduce((sum, r) => sum + Number(r.requestedAmount || 0), 0);
     if (!readyRows.length || amount <= 0) { alert("No hay conceptos con avance capturado para solicitar."); return; }
@@ -1385,7 +1321,7 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
       projectId,
       supplierId: supplier?.id || "",
       supplier: supplier?.tradeName || "Constructora",
-      concept: `Estimación ${selectedSection.id} · ${selectedSection.name} · Casa ${selectedHouse?.nombre || selectedHouse?.name || selectedHouseId}`,
+      concept: `Estimación ${selectedSection.id} · ${selectedSection.name} · Casa ${selectedHouse?.name || selectedHouseId}`,
       categoryId: "construccion",
       amount: roundMoney(amount),
       iva: 0,
@@ -1394,8 +1330,7 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
       requiredDate: todayIso(),
       status: "Solicitado",
       priority: "Alta",
-      documentStatus: "Checklist calidad liberado",
-      notes: `${readyRows.length} concepto(s) desde catálogo ${catalog.name}. Casa ${selectedHouse?.nombre || selectedHouse?.name || selectedHouseId}. Checklist de calidad: ${qualityInfo.label}. Conceptos: ${readyRows.slice(0, 8).map((r) => r.id).join(", ")}${readyRows.length > 8 ? "..." : ""}`,
+      notes: `${readyRows.length} concepto(s) desde catálogo ${catalog.name}. Casa ${selectedHouse?.name || selectedHouseId}. Conceptos: ${readyRows.slice(0, 8).map((r) => r.id).join(", ")}${readyRows.length > 8 ? "..." : ""}`,
       attachments: [],
       estimationCatalogId: catalog.id,
       estimationSectionId: selectedSection.id,
@@ -1408,7 +1343,7 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
     });
   }
   return <div style={{ display: "grid", gap: 16 }}>
-    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="La constructora captura avance por casa. El sistema bloquea la captura si el checklist de calidad de esa partida en esa casa no está liberado por supervisión." />{catalog.supplier ? <Pill tone="primary"><span style={{ display: "inline-block", maxWidth: "60vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>{catalog.supplier}</span></Pill> : null}</div>
+    <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title="Estimaciones por catálogo de conceptos" helper="La constructora captura avance por casa y solicita el pago correspondiente." />{catalog.supplier ? <Pill tone="primary"><span style={{ display: "inline-block", maxWidth: "60vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}>{catalog.supplier}</span></Pill> : null}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
         <Field label="Proyecto"><select style={inputStyle()} value={projectId} onChange={(e) => { setProjectId(e.target.value); setHouseId(""); setSectionId(""); }}>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
         <Field label="Partida"><select style={inputStyle()} value={sectionId} onChange={(e) => setSectionId(e.target.value)} disabled={!catalog.sections.length}>{catalog.sections.length ? catalog.sections.map((s) => <option key={s.id} value={s.id}>{s.id} · {s.name}</option>) : <option value="">Sin partidas en el catálogo</option>}</select></Field>
@@ -1416,45 +1351,35 @@ function OperationEstimations({ data, projectMap, categoryMap, addRecord, update
       </div>
     </Card>
     {!project.estimateCatalogId || !catalog.concepts.length ? <EmptyState title="Este proyecto no tiene catálogo de conceptos" description="Asigna o crea un catálogo de estimación en Configurar obra para poder capturar avance." /> : null}
-    {!project.firestoreObraId ? <EmptyState title="Esta obra no está vinculada a Calidad" description="Vincula el proyecto con su obra real en Firestore desde Configurar obra. Sin ese vínculo no se puede validar el checklist de calidad por casa y la captura de avance queda bloqueada." /> : null}
-    {project.firestoreObraId && obraQuality.loading ? <Card><div style={{ color: c.muted }}>Cargando checklist de Calidad en vivo...</div></Card> : null}
-    {project.firestoreObraId && !obraQuality.loading && !houses.length ? <EmptyState title="Sin casas registradas en Calidad" description="La obra vinculada todavía no tiene unidades/casas dadas de alta en el módulo de Calidad." /> : null}
+    {!houses.length ? <EmptyState title="Esta obra no tiene unidades capturadas" description="Captura las unidades totales del proyecto en Configurar obra para poder elegir la casa a estimar." /> : null}
     {houses.length ? <Card>
-      <SectionTitle title="¿Qué casa/unidad estás estimando?" helper="Cada casa tiene su propio checklist de calidad y su propio avance de estimación. Da clic para cambiar de casa." />
+      <SectionTitle title="¿Qué casa/unidad estás estimando?" helper="Cada casa tiene su propio avance de estimación. Da clic para cambiar de casa." />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {houses.map((h) => {
           const isActive = h.id === selectedHouseId;
-          return <button key={h.id} type="button" onClick={() => setHouseId(h.id)} style={{ border: isActive ? `2px solid ${c.primary}` : `1px solid ${c.border}`, borderRadius: 999, background: isActive ? c.primarySoft : "white", padding: "9px 18px", cursor: "pointer", fontWeight: 850, fontSize: 13, color: c.text, whiteSpace: "nowrap" }}>{h.nombre || h.name || h.id}</button>;
+          return <button key={h.id} type="button" onClick={() => setHouseId(h.id)} style={{ border: isActive ? `2px solid ${c.primary}` : `1px solid ${c.border}`, borderRadius: 999, background: isActive ? c.primarySoft : "white", padding: "9px 18px", cursor: "pointer", fontWeight: 850, fontSize: 13, color: c.text, whiteSpace: "nowrap" }}>{h.name}</button>;
         })}
       </div>
     </Card> : null}
     {selectedHouse && catalog.concepts.length ? <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 16px", borderRadius: 16, background: c.primarySoft, border: `1px solid ${c.border}` }}>
         <span style={{ fontWeight: 950, color: c.text, fontSize: 15 }}>Estás capturando avance de:</span>
-        <Pill tone="primary">Casa {selectedHouse.nombre || selectedHouse.name || selectedHouseId}</Pill>
+        <Pill tone="primary">Casa {selectedHouse.name}</Pill>
         <span style={{ color: c.muted }}>·</span>
         <Pill>{selectedSection?.id} · {selectedSection?.name}</Pill>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
         <MetricCard label={`Total catálogo ${catalog.name}`} value={money(catalog.total)} tone="primary" />
         <MetricCard label="Estimado capturado (esta casa y partida)" value={money(capturedAmount)} tone="warn" />
-        <MetricCard label="Checklist de calidad" value={qualityInfo.label} tone={canCaptureProgress ? "ok" : "danger"} />
       </div>
-      <Card><SectionTitle title="Qué falta para liberar esta partida en esta casa" helper="Estatus real tomado del checklist de supervisión de Calidad (evidencias, puntos críticos y bitácora), no editable desde Estimaciones." />
-        <ValidationList checks={[{ label: qualityInfo.label, ok: canCaptureProgress, fix: qualityEval ? qualityReasonText(qualityEval) : (partidaId ? "Sin checklist capturado en Calidad" : "Vincula la obra en Calidad") }]} />
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-          <Button variant="secondary" help="Vuelve a leer el checklist de Calidad en vivo desde Firestore por si el supervisor acaba de actualizarlo." onClick={obraQuality.refresh}>Actualizar checklist</Button>
-          <Button help="Crea una solicitud de pago con el importe capturado para esta casa y partida. Solo disponible si el checklist de calidad está liberado." disabled={!canCaptureProgress} onClick={requestEstimatePayment}>Enviar estimación a pagos</Button>
-        </div>
-      </Card>
-      <Card><div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><ExportCsvButton filename="estimacion-conceptos.csv" rows={rows.map((r) => ({ Casa: selectedHouse.nombre || selectedHouse.name || selectedHouseId, Clave: r.id, Concepto: r.description, Unidad: r.unit, CantidadContrato: r.quantity, PrecioUnitario: r.unitPrice, AvancePct: r.progressPct, CantidadEstimar: r.estimateQuantity, ImporteEstimado: r.requestedAmount, ChecklistCalidad: qualityInfo.label, Estado: r.status }))} /></div><MiniTable columns={[
+      <Card><div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10, gap: 8, flexWrap: "wrap" }}><Button onClick={requestEstimatePayment}>Enviar estimación a pagos</Button><ExportCsvButton filename="estimacion-conceptos.csv" rows={rows.map((r) => ({ Casa: selectedHouse.name, Clave: r.id, Concepto: r.description, Unidad: r.unit, CantidadContrato: r.quantity, PrecioUnitario: r.unitPrice, AvancePct: r.progressPct, CantidadEstimar: r.estimateQuantity, ImporteEstimado: r.requestedAmount, Estado: r.status }))} /></div><MiniTable columns={[
         { key: "id", label: "Clave" },
         { key: "description", label: "Concepto", render: (r) => <div style={{ maxWidth: 440, lineHeight: 1.35 }}>{r.description}</div> },
         { key: "unit", label: "Unidad" },
         { key: "quantity", label: "Cant. contrato", render: (r) => numberFmt(r.quantity) },
         { key: "unitPrice", label: "PU", render: (r) => money(r.unitPrice) },
-        { key: "progressPct", label: "Avance %", render: (r) => <input type="number" min="0" max="100" disabled={!canCaptureProgress} style={inputStyle({ width: 92, padding: "7px 8px" })} value={r.progressPct || ""} onChange={(e) => patchConcept(r.id, { progressPct: Number(e.target.value || 0) })} /> },
-        { key: "estimateQuantity", label: "Cant. a estimar", render: (r) => <input type="number" min="0" disabled={!canCaptureProgress} style={inputStyle({ width: 110, padding: "7px 8px" })} value={r.estimateQuantity || ""} onChange={(e) => patchConcept(r.id, { estimateQuantity: Number(e.target.value || 0) })} /> },
+        { key: "progressPct", label: "Avance %", render: (r) => <input type="number" min="0" max="100" style={inputStyle({ width: 92, padding: "7px 8px" })} value={r.progressPct || ""} onChange={(e) => patchConcept(r.id, { progressPct: Number(e.target.value || 0) })} /> },
+        { key: "estimateQuantity", label: "Cant. a estimar", render: (r) => <input type="number" min="0" style={inputStyle({ width: 110, padding: "7px 8px" })} value={r.estimateQuantity || ""} onChange={(e) => patchConcept(r.id, { estimateQuantity: Number(e.target.value || 0) })} /> },
         { key: "requestedAmount", label: "Importe estimado", render: (r) => money(r.requestedAmount) },
         { key: "status", label: "Estado", render: (r) => <Pill tone={r.status === "Solicitado" ? "ok" : r.status === "Listo para solicitar" ? "primary" : "warn"}>{r.status}</Pill> },
       ]} rows={rows} /></Card>
@@ -1817,82 +1742,6 @@ function clabeLooksValid(clabe) {
   return /^\d{18}$/.test(String(clabe || "").trim());
 }
 
-// Misma logica de src/App.jsx (modulo Calidad) para que un checklist se evalue igual
-// sin importar desde donde se consulte.
-function evaluarPartidaCalidad(partida) {
-  let totalPeso = 0;
-  let puntos = 0;
-  let pendientes = 0;
-  let criticosNC = 0;
-  let criticosObs = 0;
-  let faltanFotos = 0;
-
-  (partida?.checklist || []).forEach((item) => {
-    if (!item.resultado) { pendientes++; return; }
-    if (item.resultado === "na") return;
-    const factor = { cumple: 1, observacion: 0.7, no_cumple: 0 }[item.resultado] ?? 0;
-    const peso = item.peso || 1;
-    const clasificacion = item.clasificacion || "menor";
-    totalPeso += peso;
-    puntos += peso * factor;
-    if (clasificacion === "critico") {
-      if (item.resultado === "no_cumple") criticosNC++;
-      if (item.resultado === "observacion") criticosObs++;
-    }
-    const requiredPhotos = item.requiresPhotos === false ? 0 : Number(item.evidenceRequired || 0);
-    if (requiredPhotos > 0 && (item.photos?.length || 0) < requiredPhotos) faltanFotos++;
-  });
-
-  const score = totalPeso > 0 ? (puntos / totalPeso) * 100 : 0;
-  if (criticosNC > 0) return { status: "bloqueada", score, pendientes, criticosNC, criticosObs, faltanFotos };
-  if (pendientes > 0) return { status: "pendiente_revision", score, pendientes, criticosNC, criticosObs, faltanFotos };
-  if (faltanFotos > 0) return { status: "pendiente_evidencia", score, pendientes, criticosNC, criticosObs, faltanFotos };
-  if (criticosObs > 0) return { status: "condicionada", score, pendientes, criticosNC, criticosObs, faltanFotos };
-  if (score >= 95) return { status: "liberada", score, pendientes, criticosNC, criticosObs, faltanFotos };
-  if (score >= 90) return { status: "liberada_condicionada", score, pendientes, criticosNC, criticosObs, faltanFotos };
-  return { status: "no_liberada", score, pendientes, criticosNC, criticosObs, faltanFotos };
-}
-
-const qualityStatusInfo = {
-  bloqueada: { label: "Bloqueada: punto crítico no cumplido", tone: "danger", unlocksPayment: false },
-  pendiente_revision: { label: "Pendiente de revisión", tone: "warn", unlocksPayment: false },
-  pendiente_evidencia: { label: "Faltan fotos obligatorias", tone: "warn", unlocksPayment: false },
-  condicionada: { label: "Liberada con observación", tone: "warn", unlocksPayment: true },
-  liberada: { label: "Liberada por supervisión", tone: "ok", unlocksPayment: true },
-  liberada_condicionada: { label: "Liberada (condicionada)", tone: "ok", unlocksPayment: true },
-  no_liberada: { label: "Avance insuficiente", tone: "warn", unlocksPayment: false },
-  sin_partida: { label: "Sin checklist en Calidad", tone: "idle", unlocksPayment: false },
-  sin_vinculo: { label: "Obra no vinculada a Calidad", tone: "idle", unlocksPayment: false },
-};
-
-const QUALITY_PARTIDA_TEMPLATES = [
-  { id: "preliminares", name: "Preliminares" },
-  { id: "excavacion", name: "Excavación" },
-  { id: "cimentacion", name: "Cimentación" },
-  { id: "colado", name: "Colado" },
-  { id: "estructura", name: "Estructura" },
-  { id: "losa", name: "Losa" },
-  { id: "albanileria", name: "Albañilería" },
-  { id: "hidraulicas", name: "Hidráulicas" },
-  { id: "electricas", name: "Eléctricas" },
-  { id: "aplanados", name: "Aplanados" },
-  { id: "pisos", name: "Pisos" },
-  { id: "impermeabilizante", name: "Impermeabilizante" },
-  { id: "canceleria", name: "Cancelería" },
-  { id: "general", name: "General" },
-];
-
-function qualityReasonText(qualityEval) {
-  if (!qualityEval) return "";
-  const parts = [];
-  if (qualityEval.criticosNC > 0) parts.push(`${qualityEval.criticosNC} punto(s) crítico(s) no cumplen`);
-  if (qualityEval.pendientes > 0) parts.push(`${qualityEval.pendientes} punto(s) sin revisar`);
-  if (qualityEval.faltanFotos > 0) parts.push(`${qualityEval.faltanFotos} evidencia(s) fotográfica(s) faltante(s)`);
-  if (qualityEval.criticosObs > 0) parts.push(`${qualityEval.criticosObs} punto(s) crítico(s) con observación`);
-  if (!parts.length) parts.push(`Score de calidad: ${Math.round(qualityEval.score)}%`);
-  return parts.join(" · ");
-}
-
 function slugifyObraId(text) {
   return String(text || "")
     .toLowerCase()
@@ -1993,30 +1842,6 @@ function rowsToEstimateCatalog(rows) {
   return { sections, concepts };
 }
 
-function normalizeQualityText(text) {
-  return String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-// Traduce el nombre de una seccion del catalogo de estimacion (ej. "INST. HIDROSANITARIA")
-// a la partida de Calidad correspondiente (ej. "hidraulicas"), para poder cruzar ambos sistemas.
-function mapSectionToPartidaId(sectionName) {
-  const t = normalizeQualityText(sectionName);
-  if (t.includes("preliminar")) return "preliminares";
-  if (t.includes("excavacion")) return "excavacion";
-  if (t.includes("ciment")) return "cimentacion";
-  if (t.includes("colado")) return "colado";
-  if (t.includes("estructura") || t.includes("escalera")) return "estructura";
-  if (t.includes("losa")) return "losa";
-  if (t.includes("albanileria") || t.includes("muro perimetral") || t.includes("tabique")) return "albanileria";
-  if (t.includes("hidrosanitaria") || t.includes("hidraulica") || t.includes("sanitaria")) return "hidraulicas";
-  if (t.includes("electrica") || t.includes("luminaria")) return "electricas";
-  if (t.includes("aplanado") || t.includes("plafon")) return "aplanados";
-  if (t.includes("piso") || t.includes("marmol")) return "pisos";
-  if (t.includes("cubierta") || t.includes("azotea") || t.includes("impermeabiliz")) return "impermeabilizante";
-  if (t.includes("canceleria")) return "canceleria";
-  return "general";
-}
-
 function withTimeout(promise, ms, message) {
   return Promise.race([
     promise,
@@ -2042,37 +1867,6 @@ function useObrasList() {
       .then((obras) => setState({ loading: false, obras, error: "" }))
       .catch((err) => setState({ loading: false, obras: [], error: err?.message || "No se pudo leer la lista de obras." }));
   }, []);
-  return { ...state, refresh };
-}
-
-async function fetchObraQualityData(obraId) {
-  if (!obraId) return [];
-  const timeoutMsg = "Tiempo de espera agotado leyendo checklist de Calidad. Revisa tu conexión e intenta de nuevo.";
-  const casasSnap = await withTimeout(getDocs(collection(firestore, "obras", obraId, "casas")), 15000, timeoutMsg);
-  const houses = await withTimeout(Promise.all(casasSnap.docs.map(async (houseDoc) => {
-    const partidasSnap = await getDocs(collection(firestore, "obras", obraId, "casas", houseDoc.id, "partidas"));
-    const partidas = partidasSnap.docs.map((p) => ({ id: p.id, ...p.data() }));
-    return { id: houseDoc.id, ...houseDoc.data(), partidas };
-  })), 20000, timeoutMsg);
-  return houses.sort((a, b) => Number(a.number || 0) - Number(b.number || 0));
-}
-
-function useObraQuality(obraId) {
-  const [state, setState] = useState({ loading: !!obraId, houses: [], error: "", loadedAt: null });
-  const refresh = useCallback(() => {
-    if (!obraId) { setState({ loading: false, houses: [], error: "", loadedAt: null }); return; }
-    setState((prev) => ({ ...prev, loading: true, error: "" }));
-    fetchObraQualityData(obraId)
-      .then((houses) => setState({ loading: false, houses, error: "", loadedAt: new Date() }))
-      .catch((err) => setState({ loading: false, houses: [], error: err?.message || "No se pudo leer Calidad.", loadedAt: null }));
-  }, [obraId]);
-  useEffect(() => {
-    if (!obraId) return;
-    fetchObraQualityData(obraId)
-      .then((houses) => setState({ loading: false, houses, error: "", loadedAt: new Date() }))
-      .catch((err) => setState({ loading: false, houses: [], error: err?.message || "No se pudo leer Calidad.", loadedAt: null }));
-  }, [obraId]);
-  if (!obraId) return { loading: false, houses: [], error: "", loadedAt: null, refresh };
   return { ...state, refresh };
 }
 
