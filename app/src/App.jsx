@@ -1228,27 +1228,20 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
       const specs = snapshot.docs.map((item) => ({ id: item.id, ...item.data(), partidaId: item.data().partidaId || qualityPartidaIdFromSpec(item.data()) }));
       setQualitySpecs(specs);
       const seedKey = `${obraId}`;
-      if (snapshot.empty && !seededSpecsObrasRef.current.has(seedKey)) {
+      if (!seededSpecsObrasRef.current.has(seedKey)) {
         seededSpecsObrasRef.current.add(seedKey);
+        const existingByClave = Object.fromEntries(specs.map((s) => [s.clave, s]));
         try {
-          for (const spec of [...aseguramientoManualSpecs, ...entregaManualSpecs]) {
-            await setDoc(doc(db, "obras", obraId, "qualitySpecs", spec.clave), spec, { merge: true });
-          }
-        } catch (error) {
-          console.error("No se pudo precargar el checklist de calidad desde los manuales.", error);
-        }
-      } else if (!snapshot.empty && !seededSpecsObrasRef.current.has(`${seedKey}-images`)) {
-        seededSpecsObrasRef.current.add(`${seedKey}-images`);
-        const byClave = Object.fromEntries([...aseguramientoManualSpecs, ...entregaManualSpecs].map((s) => [s.clave, s]));
-        try {
-          for (const existing of specs) {
-            const seedSpec = byClave[existing.clave];
-            if (seedSpec?.imagenCorrecto && !existing.imagenCorrecto) {
+          for (const seedSpec of [...aseguramientoManualSpecs, ...entregaManualSpecs]) {
+            const existing = existingByClave[seedSpec.clave];
+            if (!existing) {
+              await setDoc(doc(db, "obras", obraId, "qualitySpecs", seedSpec.clave), seedSpec, { merge: true });
+            } else if (seedSpec.imagenCorrecto && !existing.imagenCorrecto) {
               await setDoc(doc(db, "obras", obraId, "qualitySpecs", existing.id), { imagenCorrecto: seedSpec.imagenCorrecto }, { merge: true });
             }
           }
         } catch (error) {
-          console.error("No se pudieron completar las imágenes de referencia del checklist.", error);
+          console.error("No se pudo completar el checklist de calidad desde los manuales.", error);
         }
       }
     });
