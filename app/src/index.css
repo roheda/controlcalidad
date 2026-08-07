@@ -305,6 +305,36 @@ div[style*='display: flex'][style*='margin-bottom: 16px'] {
   }
 }
 
+.print-only {
+  display: none;
+}
+
+@media print {
+  #root {
+    visibility: hidden;
+  }
+  .print-only,
+  .print-only * {
+    visibility: visible;
+  }
+  .print-only {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  .print-page {
+    page-break-after: always;
+  }
+  .print-page:last-child {
+    page-break-after: auto;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -1093,6 +1093,9 @@ export default function App() {
   const [zonaUploading, setZonaUploading] = useState({});
   const [specsManagerOpen, setSpecsManagerOpen] = useState(false);
   const [specForm, setSpecForm] = useState(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportSelection, setReportSelection] = useState({ aseguramiento: true, entrega: false, scope: "all", houseIds: [] });
+  const [printReport, setPrintReport] = useState(null);
   const [tab, setTab] = useState("checklist");
   const [queryText, setQueryText] = useState("");
   const [evidencias, setEvidencias] = useState([]);
@@ -1114,6 +1117,12 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   const obraId = selectedObraId || selectedObra?.id || "";
   const tritonOsOpenedRef = useRef(false);
   const seededSpecsObrasRef = useRef(new Set());
+
+  useEffect(() => {
+    const handler = () => setPrintReport(null);
+    window.addEventListener("afterprint", handler);
+    return () => window.removeEventListener("afterprint", handler);
+  }, []);
 
   useEffect(() => {
     if (!authUser || loadingAuth || tritonOsOpenedRef.current) return;
@@ -1354,6 +1363,18 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   async function deleteSpec(specId) {
     if (!obraId || !window.confirm("¿Eliminar este punto del checklist? Ya no aparecerá para las casas de esta obra.")) return;
     await deleteDoc(doc(db, "obras", obraId, "qualitySpecs", specId));
+  }
+
+  function generateQualityReport() {
+    const tipos = [];
+    if (reportSelection.aseguramiento) tipos.push("aseguramiento");
+    if (reportSelection.entrega) tipos.push("entrega");
+    if (!tipos.length) { alert("Elige al menos un tipo de reporte (Aseguramiento y/o Entrega)."); return; }
+    const houseIds = reportSelection.scope === "all" ? visibleHouses.map((h) => h.id) : reportSelection.houseIds;
+    if (!houseIds.length) { alert("Elige al menos una casa para el reporte."); return; }
+    setPrintReport({ tipos, houseIds, obraName: selectedObra?.name || selectedObraId, generatedAt: new Date().toLocaleString("es-MX"), generatedBy: profile?.name || authUser?.email || "" });
+    setReportModalOpen(false);
+    window.setTimeout(() => window.print(), 200);
   }
 
   useEffect(() => {
@@ -2368,6 +2389,9 @@ const reviewBlockMessage =
                 Configurar checklist
               </button>
             ) : null}
+            <button onClick={() => setReportModalOpen(true)} style={buttonStyle("secondary")}>
+              Generar reporte PDF
+            </button>
             <div
               style={{
                 display: "flex",
@@ -3797,6 +3821,131 @@ const reviewBlockMessage =
               </div>
             )}
           </div>
+        </div>
+      ) : null}
+
+      {reportModalOpen ? (
+        <div
+          onClick={() => setReportModalOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1100 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ ...cardStyle(), width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto", padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>Generar reporte de calidad</div>
+              <button onClick={() => setReportModalOpen(false)} style={buttonStyle("secondary", { padding: "8px 12px" })}>Cerrar</button>
+            </div>
+            <div style={{ color: c.muted, fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
+              Se abrirá el diálogo de impresión de tu navegador; ahí puedes elegir "Guardar como PDF" para descargarlo.
+            </div>
+
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: c.text }}>¿Qué checklist incluir?</div>
+            <div style={{ display: "flex", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: c.text, cursor: "pointer" }}>
+                <input type="checkbox" checked={reportSelection.aseguramiento} onChange={(e) => setReportSelection({ ...reportSelection, aseguramiento: e.target.checked })} />
+                🔧 Aseguramiento
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: c.text, cursor: "pointer" }}>
+                <input type="checkbox" checked={reportSelection.entrega} onChange={(e) => setReportSelection({ ...reportSelection, entrega: e.target.checked })} />
+                🏁 Control de Calidad (Entrega)
+              </label>
+            </div>
+
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: c.text }}>¿Qué casas?</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: c.text, cursor: "pointer" }}>
+                <input type="radio" name="reportScope" checked={reportSelection.scope === "all"} onChange={() => setReportSelection({ ...reportSelection, scope: "all" })} />
+                Todas las casas ({visibleHouses.length})
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: c.text, cursor: "pointer" }}>
+                <input type="radio" name="reportScope" checked={reportSelection.scope === "select"} onChange={() => setReportSelection({ ...reportSelection, scope: "select" })} />
+                Elegir casas
+              </label>
+            </div>
+
+            {reportSelection.scope === "select" ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, maxHeight: 220, overflow: "auto", border: `1px solid ${c.border}`, borderRadius: 14, padding: 10, marginBottom: 18 }}>
+                {visibleHouses.map((h) => {
+                  const checked = reportSelection.houseIds.includes(h.id);
+                  return (
+                    <label key={h.id} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${checked ? c.primary : c.border}`, borderRadius: 10, padding: "6px 8px", cursor: "pointer", background: checked ? c.primarySoft : "#fff", fontSize: 12, fontWeight: 700, color: c.text }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const next = e.target.checked ? [...reportSelection.houseIds, h.id] : reportSelection.houseIds.filter((id) => id !== h.id);
+                          setReportSelection({ ...reportSelection, houseIds: next });
+                        }}
+                      />
+                      {h.name}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <button onClick={generateQualityReport} style={buttonStyle("primary", { width: "100%" })}>Generar e imprimir / guardar PDF</button>
+          </div>
+        </div>
+      ) : null}
+
+      {printReport ? (
+        <div className="print-only">
+          {printReport.houseIds.map((houseId) => {
+            const house = houses.find((h) => h.id === houseId);
+            if (!house) return null;
+            return printReport.tipos.map((tipo) => {
+              const stages = tipo === "entrega" ? house.entregas || [] : house.partidas || [];
+              const score = getHouseQualityScore(house, tipo === "entrega" ? "entregas" : "partidas");
+              return (
+                <div key={`${houseId}-${tipo}`} className="print-page" style={{ padding: 32, fontFamily: "Montserrat, Arial, sans-serif", color: "#242322" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #242322", paddingBottom: 12, marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 900 }}>{tipo === "entrega" ? "Control de Calidad · Reporte de Entrega" : "Aseguramiento de Calidad · Reporte de Avance"}</div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>Obra: {printReport.obraName} · Casa: {house.name} · Bloque: {house.block || "-"}</div>
+                    </div>
+                    <div style={{ textAlign: "right", fontSize: 11, color: "#555" }}>
+                      <div>Generado: {printReport.generatedAt}</div>
+                      <div>Por: {printReport.generatedBy}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 24, marginBottom: 18 }}>
+                    <div><b>Avance:</b> {score.avance}%</div>
+                    <div><b>{tipo === "entrega" ? "Calificación de entrega" : "Calidad"}:</b> {score.calidad}%</div>
+                    <div><b>Etapas/zonas completas:</b> {score.stagesComplete}/{score.stagesTotal}</div>
+                  </div>
+                  {stages.map((stage) => (
+                    <div key={stage.id} className="print-avoid-break" style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 14, fontWeight: 900, background: "#f2f2f2", padding: "6px 10px", borderRadius: 6 }}>{stage.name} — {stage.status}</div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 6, fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1px solid #999", textAlign: "left" }}>
+                            <th style={{ padding: "4px 6px" }}>Código</th>
+                            <th style={{ padding: "4px 6px" }}>Punto de verificación</th>
+                            <th style={{ padding: "4px 6px" }}>Resultado</th>
+                            <th style={{ padding: "4px 6px" }}>Fotos</th>
+                            <th style={{ padding: "4px 6px" }}>Observación</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(stage.checklist || []).map((item) => (
+                            <tr key={item.id} style={{ borderBottom: "1px solid #ddd" }}>
+                              <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>{item.code}</td>
+                              <td style={{ padding: "4px 6px" }}>{item.label}</td>
+                              <td style={{ padding: "4px 6px", fontWeight: 700 }}>
+                                {item.resultado === "cumple" ? "Cumple" : item.resultado === "no_cumple" ? "No cumple" : item.resultado === "observacion" ? "Observación" : item.resultado === "na" ? "No aplica" : "Pendiente"}
+                              </td>
+                              <td style={{ padding: "4px 6px" }}>{(item.photos || []).length}</td>
+                              <td style={{ padding: "4px 6px" }}>{item.note || ""}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              );
+            });
+          })}
         </div>
       ) : null}
 
