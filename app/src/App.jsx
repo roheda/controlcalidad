@@ -16,6 +16,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { zonaTemplates, zonaAliases, aseguramientoManualSpecs, entregaManualSpecs } from "./qualityManualSeed";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBzk_jZfpv4j7PxroeTISwx11LffEB3TWQ",
@@ -136,7 +137,9 @@ const checklistByPartida = {
 const qualityPartidaAliases = { PL: "preliminares", EX: "excavacion", CI: "cimentacion", CO: "colado", ES: "estructura", LO: "losa", AL: "albanileria", IH: "hidraulicas", IE: "electricas", AP: "aplanados", PI: "pisos", IM: "impermeabilizante", CA: "canceleria", GE: "general" };
 function qualityPartidaIdFromSpec(spec = {}) {
   const codePrefix = String(spec.clave || spec.code || "").split("-")[1];
+  if (spec.checklistType === "entrega") return spec.partidaId || zonaAliases[codePrefix] || "general";
   if (qualityPartidaAliases[codePrefix]) return qualityPartidaAliases[codePrefix];
+  if (zonaAliases[codePrefix]) return zonaAliases[codePrefix];
   const raw = slugify(spec.partida || "").replace(/-/g, "_");
   const map = { preliminares: "preliminares", excavacion: "excavacion", cimentacion: "cimentacion", colado: "colado", estructura: "estructura", losa: "losa", albanileria: "albanileria", hidraulicas: "hidraulicas", instalaciones_hidraulicas: "hidraulicas", electricas: "electricas", instalaciones_electricas: "electricas", aplanados: "aplanados", pisos: "pisos", impermeabilizacion: "impermeabilizante", impermeabilizante: "impermeabilizante", canceleria: "canceleria", general: "general" };
   return map[raw] || raw || "general";
@@ -425,6 +428,31 @@ function getHouseProgress(house) {
 function getProjectProgress(houses) {
   if (!houses?.length) return 0;
   return Math.round(houses.reduce((acc, h) => acc + getHouseProgress(h), 0) / houses.length);
+}
+
+function getHouseQualityScore(house, key) {
+  const stages = house?.[key] || [];
+  let totalItems = 0;
+  let doneItems = 0;
+  let sumScore = 0;
+  let scoredStages = 0;
+  let stagesComplete = 0;
+  stages.forEach((stage) => {
+    const items = stage.checklist || [];
+    totalItems += items.length;
+    doneItems += items.filter((item) => item.resultado).length;
+    if (items.length && items.every((item) => item.resultado)) stagesComplete += 1;
+    if (items.some((item) => item.resultado)) {
+      sumScore += evaluarPartida(stage).score;
+      scoredStages += 1;
+    }
+  });
+  return {
+    avance: totalItems ? Math.round((doneItems / totalItems) * 100) : 0,
+    calidad: scoredStages ? Math.round(sumScore / scoredStages) : 0,
+    stagesTotal: stages.length,
+    stagesComplete,
+  };
 }
 
 function ChecklistPhotoGrid({ photos, onPreview }) {
@@ -878,6 +906,149 @@ function LoginScreen() {
   );
 }
 
+function ZonaResultButtons({ item, onSetResultado }) {
+  const options = [
+    { value: "cumple", label: "✅ Cumple", bg: c.successBg, text: c.successText },
+    { value: "observacion", label: "⚠️ Observación", bg: c.warnBg, text: c.warnText },
+    { value: "no_cumple", label: "❌ No cumple", bg: c.dangerBg, text: c.dangerText },
+  ];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+      {options.map((opt) => {
+        const active = item.resultado === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onSetResultado(item.id, opt.value)}
+            style={{
+              ...buttonStyle("secondary", { padding: "12px 8px", fontSize: 13, fontWeight: 800 }),
+              background: active ? opt.bg : "#fff",
+              color: active ? opt.text : c.text,
+              border: active ? `2px solid ${opt.text}` : `1px solid ${c.border}`,
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ZonaChecklistItemCard({ item, uploading, onSetResultado, onNoteChange, onUploadPhoto, onDeletePhoto, onPreviewPhoto }) {
+  const requiredPhotos = Number(item.evidenceRequired || 0);
+  const photosNeeded = Math.max(0, requiredPhotos - (item.photos?.length || 0));
+  const statusColor = item.resultado === "cumple" ? c.successText : item.resultado === "no_cumple" ? c.dangerText : item.resultado === "observacion" ? c.warnText : c.muted;
+  return (
+    <div style={{ ...cardStyle(), padding: 16, borderLeft: `6px solid ${statusColor}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ fontWeight: 800, color: c.text, fontSize: 15 }}>{item.code} · {item.label}</div>
+        {item.resultado ? <span style={badgeStyle(item.resultado === "cumple" ? "Aprobada" : item.resultado === "no_cumple" ? "Rechazada" : "Pendiente")}>{item.resultado === "cumple" ? "Cumple" : item.resultado === "no_cumple" ? "No cumple" : "Observación"}</span> : <span style={badgeStyle("Pendiente")}>Pendiente</span>}
+      </div>
+
+      {item.criterioAceptacion ? (
+        <div style={{ marginTop: 10, padding: 12, borderRadius: 14, background: c.panelSoft, color: c.text, fontSize: 13.5, lineHeight: 1.5 }}>
+          {item.criterioAceptacion}
+        </div>
+      ) : null}
+
+      {item.formaVerificacion ? (
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: "pointer", color: c.primaryText, fontWeight: 700, fontSize: 13 }}>¿Cómo revisar este punto?</summary>
+          <div style={{ marginTop: 6, color: c.muted, fontSize: 13, lineHeight: 1.5 }}>{item.formaVerificacion}</div>
+        </details>
+      ) : null}
+
+      <div style={{ marginTop: 12 }}>
+        <ChecklistPhotoGrid photos={item.photos || []} onPreview={onPreviewPhoto} />
+        {(item.photos || []).length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+            {(item.photos || []).map((photo) => (
+              <button key={`del-${photo.id}`} onClick={() => onDeletePhoto(item.id, photo.id)} style={buttonStyle("danger", { padding: "6px 10px", fontSize: 11 })}>
+                Borrar {photo.fileName || "foto"}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <label style={buttonStyle("secondary", { display: "inline-flex", alignItems: "center", marginTop: 8 })}>
+          {uploading ? "Subiendo..." : photosNeeded > 0 ? `Agregar foto (faltan ${photosNeeded})` : "Agregar foto"}
+          <input type="file" accept="image/*" multiple style={{ display: "none" }} disabled={uploading} onChange={(e) => { onUploadPhoto(item.id, e.target.files); e.target.value = ""; }} />
+        </label>
+        {photosNeeded > 0 ? (
+          <div style={{ fontSize: 11, color: c.warnText, marginTop: 6 }}>Este punto requiere {requiredPhotos} foto(s) de evidencia.</div>
+        ) : null}
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <ZonaResultButtons item={item} onSetResultado={onSetResultado} />
+      </div>
+
+      <textarea
+        value={item.note || ""}
+        onChange={(e) => onNoteChange(item.id, e.target.value)}
+        placeholder="Observaciones (opcional)"
+        style={inputStyle({ marginTop: 10, minHeight: 56, resize: "vertical" })}
+      />
+    </div>
+  );
+}
+
+function ZonaDetailPanel({ isMobile, selectedHouse, zona, onBack, showCompletedItems, setShowCompletedItems, onSetResultado, onNoteChange, onUploadPhoto, onDeletePhoto, uploading, onPreviewPhoto }) {
+  const evaluacion = evaluarPartida(zona);
+  const checklist = zona.checklist || [];
+  const pending = checklist.filter((item) => item.resultado !== "cumple");
+  const itemsToShow = showCompletedItems ? checklist : pending;
+  const completedCount = checklist.length - pending.length;
+
+  return (
+    <div style={{ ...cardStyle(), padding: 20 }}>
+      {isMobile ? (
+        <>
+          <button onClick={onBack} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Otra zona</button>
+          <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, marginBottom: 4 }}>Paso 3 de 3 · {selectedHouse?.name}</div>
+        </>
+      ) : null}
+
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: c.text }}>{zona.name}</div>
+          <div style={{ color: c.muted, marginTop: 4 }}>Revisión de entrega por zona · fotos de evidencia obligatorias por punto</div>
+          <div style={{ marginTop: 10, fontWeight: 800, color: c.text }}>
+            Calificación: {evaluacion.score.toFixed(0)}% · {checklist.length - checklist.filter((i) => !i.resultado).length}/{checklist.length} puntos revisados
+          </div>
+        </div>
+        <span style={badgeStyle(zona.status)}>{zona.status}</span>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+        <button onClick={() => setShowCompletedItems((v) => !v)} style={buttonStyle("secondary", { padding: "7px 12px", fontSize: 12.5 })}>
+          {showCompletedItems ? "Ocultar puntos cumplidos" : `Ver puntos cumplidos (${completedCount})`}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 14 }}>
+        {itemsToShow.length === 0 ? (
+          <div style={{ padding: 20, textAlign: "center", color: c.successText, fontWeight: 700 }}>✅ Todos los puntos de esta zona están cumplidos.</div>
+        ) : (
+          itemsToShow.map((item) => (
+            <ZonaChecklistItemCard
+              key={item.id}
+              item={item}
+              uploading={uploading[item.id]}
+              onSetResultado={onSetResultado}
+              onNoteChange={onNoteChange}
+              onUploadPhoto={onUploadPhoto}
+              onDeletePhoto={onDeletePhoto}
+              onPreviewPhoto={onPreviewPhoto}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ title, value, children }) {
   return (
     <div style={{ ...cardStyle(), padding: 20 }}>
@@ -908,6 +1079,13 @@ export default function App() {
   const [checklistDetailOpen, setChecklistDetailOpen] = useState({});
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [selectedPartidaId, setSelectedPartidaId] = useState("cimentacion");
+  const [qualityMode, setQualityMode] = useState("aseguramiento");
+  const [selectedZonaId, setSelectedZonaId] = useState(zonaTemplates[0]?.id || "fachada");
+  const [showCompletedStages, setShowCompletedStages] = useState(false);
+  const [showCompletedItems, setShowCompletedItems] = useState(false);
+  const [zonaUploading, setZonaUploading] = useState({});
+  const [specsManagerOpen, setSpecsManagerOpen] = useState(false);
+  const [specForm, setSpecForm] = useState(null);
   const [tab, setTab] = useState("checklist");
   const [queryText, setQueryText] = useState("");
   const [evidencias, setEvidencias] = useState([]);
@@ -928,6 +1106,7 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   const selectedObra = obras.find((obra) => obra.id === selectedObraId) || null;
   const obraId = selectedObraId || selectedObra?.id || "";
   const tritonOsOpenedRef = useRef(false);
+  const seededSpecsObrasRef = useRef(new Set());
 
   useEffect(() => {
     if (!authUser || loadingAuth || tritonOsOpenedRef.current) return;
@@ -1019,9 +1198,19 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
       return;
     }
     const specsRef = collection(db, "obras", obraId, "qualitySpecs");
-    const unsub = onSnapshot(specsRef, (snapshot) => {
+    const unsub = onSnapshot(specsRef, async (snapshot) => {
       const specs = snapshot.docs.map((item) => ({ id: item.id, ...item.data(), partidaId: item.data().partidaId || qualityPartidaIdFromSpec(item.data()) }));
       setQualitySpecs(specs);
+      if (snapshot.empty && !seededSpecsObrasRef.current.has(obraId)) {
+        seededSpecsObrasRef.current.add(obraId);
+        try {
+          for (const spec of [...aseguramientoManualSpecs, ...entregaManualSpecs]) {
+            await setDoc(doc(db, "obras", obraId, "qualitySpecs", spec.clave), spec, { merge: true });
+          }
+        } catch (error) {
+          console.error("No se pudo precargar el checklist de calidad desde los manuales.", error);
+        }
+      }
     });
     return () => unsub();
   }, [authUser, obraId]);
@@ -1082,6 +1271,19 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
             createdAt: serverTimestamp(),
           }, { merge: true });
         }
+        for (const zona of zonaTemplates) {
+          await setDoc(doc(db, "obras", obra.id, "casas", houseId, "entrega", zona.id), {
+            id: zona.id,
+            name: zona.name,
+            weight: zona.weight,
+            status: "Pendiente",
+            progress: 0,
+            checklist: buildChecklist(zona.id, null, [], qualitySpecs),
+            evidenceCount: { photos: 0, videos: 0 },
+            createdFromTemplate: true,
+            createdAt: serverTimestamp(),
+          }, { merge: true });
+        }
       }
     } catch (error) {
       console.error(error);
@@ -1120,6 +1322,33 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     await deleteDoc(doc(db, "obras", obraId, "bloques", bloqueId));
   }
 
+  async function saveSpecForm() {
+    if (!specForm || !obraId) return;
+    const clave = String(specForm.clave || "").trim().toUpperCase();
+    const concepto = String(specForm.concepto || "").trim();
+    if (!clave || !concepto) { alert("Captura al menos el código y el punto de verificación."); return; }
+    const payload = {
+      checklistType: specForm.checklistType,
+      partidaId: specForm.partidaId,
+      clave,
+      concepto,
+      criterioAceptacion: String(specForm.criterioAceptacion || "").trim(),
+      formaVerificacion: String(specForm.formaVerificacion || "").trim(),
+      evidenceRequired: Math.max(0, Number(specForm.evidenceRequired ?? 1)),
+      clasificacion: specForm.clasificacion || "menor",
+      peso: Math.max(1, Number(specForm.peso ?? 1)),
+      active: true,
+    };
+    const docId = specForm.id || clave;
+    await setDoc(doc(db, "obras", obraId, "qualitySpecs", docId), payload, { merge: true });
+    setSpecForm(null);
+  }
+
+  async function deleteSpec(specId) {
+    if (!obraId || !window.confirm("¿Eliminar este punto del checklist? Ya no aparecerá para las casas de esta obra.")) return;
+    await deleteDoc(doc(db, "obras", obraId, "qualitySpecs", specId));
+  }
+
   useEffect(() => {
     if (!authUser || !obraId) {
       setHouses([]);
@@ -1140,10 +1369,31 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
         snapshot.docs.map(async (houseDoc) => {
           const partidasRef = collection(db, "obras", obraId, "casas", houseDoc.id, "partidas");
           const partidasSnap = await getDocs(query(partidasRef, orderBy("weight", "asc")));
+          const entregaRef = collection(db, "obras", obraId, "casas", houseDoc.id, "entrega");
+          const entregaSnap = await getDocs(entregaRef);
+          if (entregaSnap.empty) {
+            zonaTemplates.forEach((zona) => {
+              setDoc(doc(db, "obras", obraId, "casas", houseDoc.id, "entrega", zona.id), {
+                id: zona.id,
+                name: zona.name,
+                weight: zona.weight,
+                status: "Pendiente",
+                progress: 0,
+                checklist: buildChecklist(zona.id, null, [], qualitySpecs),
+                evidenceCount: { photos: 0, videos: 0 },
+                createdFromTemplate: true,
+                createdAt: serverTimestamp(),
+              }, { merge: true }).catch(() => {});
+            });
+          }
+          const entregas = entregaSnap.empty
+            ? zonaTemplates.map((zona) => normalizePartida({ id: zona.id, name: zona.name, weight: zona.weight, status: "Pendiente", evidenceCount: { photos: 0, videos: 0 } }, qualitySpecs))
+            : entregaSnap.docs.map((p) => normalizePartida({ id: p.id, ...p.data() }, qualitySpecs));
           return {
             id: houseDoc.id,
             ...houseDoc.data(),
             partidas: partidasSnap.docs.map((p) => normalizePartida({ id: p.id, ...p.data() }, qualitySpecs)),
+            entregas,
           };
         })
       );
@@ -1191,6 +1441,10 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
   const selectedHouse = visibleHouses.find((h) => h.id === selectedHouseId) || null;
   const selectedPartida =
     selectedHouse?.partidas?.find((p) => p.id === selectedPartidaId) || selectedHouse?.partidas?.[0] || null;
+  const selectedZona =
+    selectedHouse?.entregas?.find((z) => z.id === selectedZonaId) || selectedHouse?.entregas?.[0] || null;
+  const aseguramientoScore = selectedHouse ? getHouseQualityScore(selectedHouse, "partidas") : { avance: 0, calidad: 0, stagesTotal: 0, stagesComplete: 0 };
+  const entregaScore = selectedHouse ? getHouseQualityScore(selectedHouse, "entregas") : { avance: 0, calidad: 0, stagesTotal: 0, stagesComplete: 0 };
   const currentUserMentionHandle = userMentionHandle({ id: authUser?.uid, uid: authUser?.uid, name: profile?.name, email: authUser?.email });
   const allMentionUsers = useMemo(
     () => mergeMentionUsers(users, {
@@ -1319,6 +1573,95 @@ const [generalCommentDraft, setGeneralCommentDraft] = useState("");
     await updatePartida({ checklist: nextChecklist, checkedItems });
   }
 
+  function zonaStatusFromChecklist(checklist = []) {
+    if (!checklist.length) return "Pendiente";
+    const pendientes = checklist.filter((item) => !item.resultado);
+    if (pendientes.length === checklist.length) return "Pendiente";
+    if (pendientes.length > 0) return "En proceso";
+    if (checklist.some((item) => item.resultado === "no_cumple")) return "Con observaciones";
+    return "Aprobada";
+  }
+
+  async function updateZona(payload) {
+    if (!selectedHouse || !selectedZona) return;
+    const previousHouses = houses;
+    setHouses((prev) =>
+      prev.map((house) => {
+        if (house.id !== selectedHouse.id) return house;
+        return {
+          ...house,
+          entregas: (house.entregas || []).map((zona) =>
+            zona.id === selectedZona.id ? normalizePartida({ ...zona, ...payload }, qualitySpecs) : zona
+          ),
+        };
+      })
+    );
+    try {
+      const zonaRef = doc(db, "obras", obraId, "casas", selectedHouse.id, "entrega", selectedZona.id);
+      await setDoc(zonaRef, payload, { merge: true });
+    } catch (error) {
+      console.error(error);
+      setHouses(previousHouses);
+      alert("No se pudo guardar el cambio en el checklist de entrega.");
+    }
+  }
+
+  async function updateChecklistItemZona(itemId, patch) {
+    if (!selectedZona) return;
+    const nextChecklist = (selectedZona.checklist || []).map((item) =>
+      item.id === itemId ? { ...item, ...patch } : item
+    );
+    await updateZona({ checklist: nextChecklist, status: zonaStatusFromChecklist(nextChecklist) });
+  }
+
+  async function handleZonaChecklistPhotoUpload(itemId, files) {
+    if (!files?.length || !selectedHouse || !selectedZona) return;
+    setZonaUploading((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const checklistItem = (selectedZona.checklist || []).find((item) => item.id === itemId);
+      if (!checklistItem) return;
+      const uploadedPhotos = [];
+      for (const file of Array.from(files)) {
+        const filePath = `obras/${obraId}/${selectedHouse.id}/entrega/${selectedZona.id}/checklist/${itemId}/${Date.now()}-${file.name}`;
+        const storageRef = ref(storage, filePath);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        uploadedPhotos.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          url,
+          fileName: file.name,
+          size: file.size,
+          storagePath: filePath,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: authUser?.uid || null,
+          uploadedByName: profile?.name || authUser?.email || "Usuario",
+        });
+      }
+      const nextPhotos = [...(checklistItem.photos || []), ...uploadedPhotos];
+      const nextChecklist = (selectedZona.checklist || []).map((item) =>
+        item.id === itemId ? { ...item, photos: nextPhotos } : item
+      );
+      await updateZona({ checklist: nextChecklist, status: zonaStatusFromChecklist(nextChecklist) });
+    } finally {
+      setZonaUploading((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }
+
+  async function deleteZonaChecklistPhoto(itemId, photoId) {
+    const checklistItem = (selectedZona?.checklist || []).find((item) => item.id === itemId);
+    const photo = (checklistItem?.photos || []).find((p) => p.id === photoId);
+    if (!checklistItem || !photo) return;
+    if (!window.confirm(`¿Borrar la foto ${photo.fileName || ""}?`)) return;
+    if (photo.storagePath) {
+      try {
+        await deleteObject(ref(storage, photo.storagePath));
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    const nextPhotos = (checklistItem.photos || []).filter((p) => p.id !== photoId);
+    await updateChecklistItemZona(itemId, { photos: nextPhotos });
+  }
 
   function scopesForChecklistItem(item) {
     if (!item) return [];
@@ -2014,6 +2357,11 @@ const reviewBlockMessage =
                 Bloques y equipos
               </button>
             ) : null}
+            {isSupervisora ? (
+              <button onClick={() => setSpecsManagerOpen(true)} style={buttonStyle("secondary")}>
+                Configurar checklist
+              </button>
+            ) : null}
             <div
               style={{
                 display: "flex",
@@ -2142,21 +2490,80 @@ const reviewBlockMessage =
               <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, display: isMobile ? "block" : "none" }}>Paso 2 de 3</div>
               <div style={{ fontSize: 24, fontWeight: 900, color: c.text }}>{selectedHouse?.name || "Selecciona una casa"}</div>
               <div style={{ color: c.muted, marginTop: 4 }}>
-                Bloque {selectedHouse?.block || "-"} · Avance {selectedHouse ? getHouseProgress(selectedHouse) : 0}%{isMobile ? " · Toca una partida. Las pendientes aparecen primero." : ""}
+                Bloque {selectedHouse?.block || "-"}
               </div>
 
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
                   gap: 12,
                   marginTop: 18,
                 }}
               >
-                {[...(selectedHouse?.partidas || [])].sort((a, b) => {
-                  const rank = (p) => (p.status === "Aprobada" ? 2 : ["Lista para revisión", "En revisión"].includes(p.status) ? 1 : 0);
-                  return rank(a) - rank(b);
-                }).map((partida) => (
+                <button
+                  onClick={() => setQualityMode("aseguramiento")}
+                  style={{
+                    ...cardStyle(qualityMode === "aseguramiento"),
+                    textAlign: "left",
+                    padding: 16,
+                    cursor: "pointer",
+                    background: qualityMode === "aseguramiento" ? "#fff" : c.surface,
+                  }}
+                >
+                  <div style={{ fontWeight: 900, color: c.text, fontSize: 15 }}>🔧 Aseguramiento</div>
+                  <div style={{ fontSize: 12, color: c.muted, marginTop: 2, marginBottom: 8 }}>Calidad durante la obra, por etapa</div>
+                  <ProgressBar value={aseguramientoScore.avance} />
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12.5, color: c.muted }}>
+                    <span>Avance {aseguramientoScore.avance}%</span>
+                    <span style={{ fontWeight: 800, color: aseguramientoScore.calidad >= 90 ? c.successText : aseguramientoScore.calidad >= 70 ? c.warnText : c.dangerText }}>Calidad {aseguramientoScore.calidad}%</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setQualityMode("entrega")}
+                  style={{
+                    ...cardStyle(qualityMode === "entrega"),
+                    textAlign: "left",
+                    padding: 16,
+                    cursor: "pointer",
+                    background: qualityMode === "entrega" ? "#fff" : c.surface,
+                  }}
+                >
+                  <div style={{ fontWeight: 900, color: c.text, fontSize: 15 }}>🏁 Control de Calidad · Entrega</div>
+                  <div style={{ fontSize: 12, color: c.muted, marginTop: 2, marginBottom: 8 }}>Revisión final por zona, antes de entregar</div>
+                  <ProgressBar value={entregaScore.avance} />
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12.5, color: c.muted }}>
+                    <span>Avance {entregaScore.avance}%</span>
+                    <span style={{ fontWeight: 800, color: entregaScore.calidad >= 90 ? c.successText : entregaScore.calidad >= 70 ? c.warnText : c.dangerText }}>Calificación {entregaScore.calidad}%</span>
+                  </div>
+                </button>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ color: c.muted, fontSize: 13 }}>{isMobile ? "Toca un punto pendiente para revisarlo." : "Las áreas pendientes aparecen primero."}</div>
+                <button
+                  onClick={() => setShowCompletedStages((v) => !v)}
+                  style={buttonStyle("secondary", { padding: "7px 12px", fontSize: 12.5 })}
+                >
+                  {showCompletedStages ? "Ocultar completadas" : "Ver completadas"}
+                </button>
+              </div>
+
+              {qualityMode === "aseguramiento" ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+                  gap: 12,
+                  marginTop: 14,
+                }}
+              >
+                {[...(selectedHouse?.partidas || [])]
+                  .filter((partida) => showCompletedStages || partida.status !== "Aprobada")
+                  .sort((a, b) => {
+                    const rank = (p) => (p.status === "Aprobada" ? 2 : ["Lista para revisión", "En revisión"].includes(p.status) ? 1 : 0);
+                    return rank(a) - rank(b);
+                  }).map((partida) => (
                   <button
                     key={partida.id}
                     onClick={() => { setSelectedPartidaId(partida.id); if (isMobile) setMobileStep("detalle"); }}
@@ -2180,16 +2587,62 @@ const reviewBlockMessage =
                     </div>
                   </button>
                 ))}
+                {!showCompletedStages && (selectedHouse?.partidas || []).every((p) => p.status !== "Aprobada") === false && (selectedHouse?.partidas || []).filter((p) => p.status !== "Aprobada").length === 0 ? (
+                  <div style={{ gridColumn: "1 / -1", color: c.successText, fontWeight: 700, padding: 12 }}>✅ Todas las etapas están aprobadas.</div>
+                ) : null}
               </div>
+              ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))",
+                  gap: 12,
+                  marginTop: 14,
+                }}
+              >
+                {[...(selectedHouse?.entregas || [])]
+                  .filter((zona) => showCompletedStages || zona.status !== "Aprobada")
+                  .sort((a, b) => {
+                    const rank = (z) => (z.status === "Aprobada" ? 2 : z.status === "En proceso" || z.status === "Con observaciones" ? 1 : 0);
+                    return rank(a) - rank(b);
+                  }).map((zona) => (
+                  <button
+                    key={zona.id}
+                    onClick={() => { setSelectedZonaId(zona.id); if (isMobile) setMobileStep("detalle"); }}
+                    style={{
+                      ...cardStyle(selectedZonaId === zona.id),
+                      textAlign: "left",
+                      padding: 16,
+                      cursor: "pointer",
+                      borderLeft: isMobile ? `6px solid ${zona.status === "Aprobada" ? c.successText : zona.status === "Con observaciones" ? c.dangerText : c.warnText}` : cardStyle(selectedZonaId === zona.id).border,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontWeight: 800, color: c.text, fontSize: isMobile ? 16 : 14 }}>{isMobile ? (zona.status === "Aprobada" ? "✅ " : "🕓 ") : ""}{zona.name}</div>
+                        <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>{(zona.checklist || []).filter((i) => i.resultado).length}/{(zona.checklist || []).length} puntos revisados</div>
+                      </div>
+                      <span style={badgeStyle(zona.status)}>{zona.status}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: c.muted, marginTop: 14 }}>
+                      Fotos {zona.evidenceCount?.photos || 0}
+                    </div>
+                  </button>
+                ))}
+                {!showCompletedStages && (selectedHouse?.entregas || []).filter((z) => z.status !== "Aprobada").length === 0 ? (
+                  <div style={{ gridColumn: "1 / -1", color: c.successText, fontWeight: 700, padding: 12 }}>✅ Todas las zonas están aprobadas. La casa está lista para entrega.</div>
+                ) : null}
+              </div>
+              )}
             </div>
             ) : null}
 
-            {(!isMobile || mobileStep === "detalle") && selectedPartida ? (
+            {(!isMobile || mobileStep === "detalle") && qualityMode === "aseguramiento" && selectedPartida ? (
               <>
                 <div style={{ ...cardStyle(), padding: 20 }}>
                   {isMobile ? (
                     <>
-                      <button onClick={() => setMobileStep("partidas")} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Otra partida</button>
+                      <button onClick={() => setMobileStep("partidas")} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Otra etapa</button>
                       <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, marginBottom: 4 }}>Paso 3 de 3 · {selectedHouse?.name}</div>
                     </>
                   ) : null}
@@ -3053,6 +3506,23 @@ const reviewBlockMessage =
                 </div>
               </>
             ) : null}
+
+            {(!isMobile || mobileStep === "detalle") && qualityMode === "entrega" && selectedZona ? (
+              <ZonaDetailPanel
+                isMobile={isMobile}
+                selectedHouse={selectedHouse}
+                zona={selectedZona}
+                onBack={() => setMobileStep("partidas")}
+                showCompletedItems={showCompletedItems}
+                setShowCompletedItems={setShowCompletedItems}
+                onSetResultado={(itemId, resultado) => updateChecklistItemZona(itemId, { resultado })}
+                onNoteChange={(itemId, note) => updateChecklistItemZona(itemId, { note })}
+                onUploadPhoto={handleZonaChecklistPhotoUpload}
+                onDeletePhoto={deleteZonaChecklistPhoto}
+                uploading={zonaUploading}
+                onPreviewPhoto={openPhotoPreview}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -3138,6 +3608,142 @@ const reviewBlockMessage =
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <button onClick={saveBloqueForm} style={buttonStyle("primary")}>Guardar bloque</button>
                   <button onClick={() => setBloqueForm(null)} style={buttonStyle("secondary")}>Cancelar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {specsManagerOpen ? (
+        <div
+          onClick={() => { setSpecsManagerOpen(false); setSpecForm(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 1100 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ ...cardStyle(), width: "100%", maxWidth: 820, maxHeight: "88vh", overflow: "auto", padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 6 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: c.text }}>Configurar checklist de calidad</div>
+              <button onClick={() => { setSpecsManagerOpen(false); setSpecForm(null); }} style={buttonStyle("secondary", { padding: "8px 12px" })}>Cerrar</button>
+            </div>
+            <div style={{ color: c.muted, fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
+              Estos son los puntos que verá cada casa de esta obra: los 39 puntos de Aseguramiento (por etapa, manual TR-AC-M01) y los 36 de Control de Calidad para Entrega (por zona, manual TR-CC-M01). Puedes editar el texto, agregar puntos nuevos o quitar los que no apliquen a este proyecto.
+            </div>
+
+            {!specForm ? (
+              <>
+                <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+                  <button onClick={() => setSpecForm({ checklistType: "aseguramiento", partidaId: partidaTemplates[0].id, clave: "", concepto: "", criterioAceptacion: "", formaVerificacion: "", evidenceRequired: 1, clasificacion: "menor", peso: 1 })} style={buttonStyle("primary", { fontSize: 13 })}>+ Punto de Aseguramiento</button>
+                  <button onClick={() => setSpecForm({ checklistType: "entrega", partidaId: zonaTemplates[0].id, clave: "", concepto: "", criterioAceptacion: "", formaVerificacion: "", evidenceRequired: 1, clasificacion: "menor", peso: 1 })} style={buttonStyle("primary", { fontSize: 13 })}>+ Punto de Entrega</button>
+                </div>
+
+                <div style={{ fontSize: 16, fontWeight: 900, color: c.text, marginBottom: 8 }}>🔧 Aseguramiento (por etapa)</div>
+                {partidaTemplates.map((template) => {
+                  const items = qualitySpecs.filter((s) => s.checklistType !== "entrega" && (s.partidaId || qualityPartidaIdFromSpec(s)) === template.id);
+                  if (!items.length) return null;
+                  return (
+                    <details key={template.id} style={{ marginBottom: 8, border: `1px solid ${c.border}`, borderRadius: 14, padding: "8px 12px" }}>
+                      <summary style={{ cursor: "pointer", fontWeight: 800, color: c.text }}>{template.name} <span style={{ color: c.muted, fontWeight: 600 }}>({items.length})</span></summary>
+                      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                        {items.map((spec) => (
+                          <div key={spec.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", padding: 10, border: `1px solid ${c.border}`, borderRadius: 12, background: c.panelSoft }}>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 13, color: c.text }}>{spec.clave} · {spec.concepto}</div>
+                              {spec.criterioAceptacion ? <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>{spec.criterioAceptacion}</div> : null}
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                              <button onClick={() => setSpecForm({ ...spec })} style={buttonStyle("secondary", { padding: "6px 10px", fontSize: 11 })}>Editar</button>
+                              <button onClick={() => deleteSpec(spec.id)} style={buttonStyle("danger", { padding: "6px 10px", fontSize: 11 })}>Eliminar</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
+
+                <div style={{ fontSize: 16, fontWeight: 900, color: c.text, marginTop: 20, marginBottom: 8 }}>🏁 Control de Calidad · Entrega (por zona)</div>
+                {zonaTemplates.map((zona) => {
+                  const items = qualitySpecs.filter((s) => s.checklistType === "entrega" && (s.partidaId || qualityPartidaIdFromSpec(s)) === zona.id);
+                  if (!items.length) return null;
+                  return (
+                    <details key={zona.id} style={{ marginBottom: 8, border: `1px solid ${c.border}`, borderRadius: 14, padding: "8px 12px" }}>
+                      <summary style={{ cursor: "pointer", fontWeight: 800, color: c.text }}>{zona.name} <span style={{ color: c.muted, fontWeight: 600 }}>({items.length})</span></summary>
+                      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                        {items.map((spec) => (
+                          <div key={spec.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", padding: 10, border: `1px solid ${c.border}`, borderRadius: 12, background: c.panelSoft }}>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 13, color: c.text }}>{spec.clave} · {spec.concepto}</div>
+                              {spec.criterioAceptacion ? <div style={{ fontSize: 12, color: c.muted, marginTop: 4 }}>{spec.criterioAceptacion}</div> : null}
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                              <button onClick={() => setSpecForm({ ...spec })} style={buttonStyle("secondary", { padding: "6px 10px", fontSize: 11 })}>Editar</button>
+                              <button onClick={() => deleteSpec(spec.id)} style={buttonStyle("danger", { padding: "6px 10px", fontSize: 11 })}>Eliminar</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
+                {qualitySpecs.length === 0 ? (
+                  <div style={{ border: `1px dashed ${c.border}`, borderRadius: 16, padding: 16, color: c.muted, fontSize: 13 }}>
+                    Cargando el checklist de los manuales por primera vez… si esto no cambia en unos segundos, recarga la página.
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Tipo de checklist</div>
+                    <select value={specForm.checklistType} onChange={(e) => { const checklistType = e.target.value; setSpecForm({ ...specForm, checklistType, partidaId: checklistType === "entrega" ? zonaTemplates[0].id : partidaTemplates[0].id }); }} style={inputStyle()}>
+                      <option value="aseguramiento">Aseguramiento (obra en proceso)</option>
+                      <option value="entrega">Control de Calidad (entrega)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>{specForm.checklistType === "entrega" ? "Zona" : "Etapa"}</div>
+                    <select value={specForm.partidaId} onChange={(e) => setSpecForm({ ...specForm, partidaId: e.target.value })} style={inputStyle()}>
+                      {(specForm.checklistType === "entrega" ? zonaTemplates : partidaTemplates).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Código (ej. AC-CI-01 o CC-BA-01)</div>
+                  <input value={specForm.clave} onChange={(e) => setSpecForm({ ...specForm, clave: e.target.value })} style={inputStyle()} />
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Punto de verificación (título corto)</div>
+                  <input value={specForm.concepto} onChange={(e) => setSpecForm({ ...specForm, concepto: e.target.value })} style={inputStyle()} />
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Criterio de aceptación</div>
+                  <textarea value={specForm.criterioAceptacion} onChange={(e) => setSpecForm({ ...specForm, criterioAceptacion: e.target.value })} style={inputStyle({ minHeight: 80 })} />
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Forma de verificación (cómo revisarlo)</div>
+                  <textarea value={specForm.formaVerificacion} onChange={(e) => setSpecForm({ ...specForm, formaVerificacion: e.target.value })} style={inputStyle({ minHeight: 80 })} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 14, marginBottom: 18 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Fotos requeridas</div>
+                    <input type="number" min={0} value={specForm.evidenceRequired} onChange={(e) => setSpecForm({ ...specForm, evidenceRequired: e.target.value })} style={inputStyle()} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Clasificación</div>
+                    <select value={specForm.clasificacion} onChange={(e) => setSpecForm({ ...specForm, clasificacion: e.target.value })} style={inputStyle()}>
+                      <option value="menor">Menor</option>
+                      <option value="critico">Crítico</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: c.text }}>Peso</div>
+                    <input type="number" min={1} value={specForm.peso} onChange={(e) => setSpecForm({ ...specForm, peso: e.target.value })} style={inputStyle()} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button onClick={saveSpecForm} style={buttonStyle("primary")}>Guardar punto</button>
+                  <button onClick={() => setSpecForm(null)} style={buttonStyle("secondary")}>Cancelar</button>
                 </div>
               </div>
             )}
