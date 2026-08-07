@@ -1291,9 +1291,7 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
   const [selectedId, setSelectedId] = useState(data.projects[0]?.id || "");
   const selected = data.projects.find((p) => p.id === selectedId) || data.projects[0] || {};
   const obrasList = useObrasList();
-  const [showCreateObra, setShowCreateObra] = useState(false);
-  const [savingObra, setSavingObra] = useState(false);
-  const [obraCreateError, setObraCreateError] = useState("");
+  const [savingProject, setSavingProject] = useState(false);
   const [showCreateCatalog, setShowCreateCatalog] = useState(false);
   const [catalogForm, setCatalogForm] = useState({ name: "", model: "", supplier: "" });
   const [catalogError, setCatalogError] = useState("");
@@ -1324,25 +1322,50 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
       setParsingCatalog(false);
     }
   }
-  async function createAndLinkObra() {
-    const name = String(form.name || "").trim();
-    if (!name) { setObraCreateError("Primero captura el nombre de la obra."); return; }
-    const totalUnits = Number(form.totalUnits || 0);
-    if (!totalUnits) { setObraCreateError("Captura las unidades totales antes de crear la obra en Calidad: sin unidades no se generan casas ni checklist."); return; }
-    setObraCreateError("");
-    setSavingObra(true);
-    try {
-      const existingIds = new Set(obrasList.obras.map((o) => o.id));
-      const id = await createFirestoreObra({ name, totalUnits, location: form.location, retentionPct: form.retentionPct, advancePct: form.advancePct, existingIds });
-      setForm((prev) => ({ ...prev, firestoreObraId: id }));
-      obrasList.refresh();
-      setShowCreateObra(false);
-    } catch (err) {
-      setObraCreateError(`${err?.message || "No se pudo crear la obra en Calidad."} Antes de reintentar, revisa la lista: si la conexión tardó pero el registro sí se guardó, ya debería aparecer aquí.`);
-      obrasList.refresh();
-    } finally {
-      setSavingObra(false);
-    }
+  // Toda obra de Calidad (Firestore) debe verse también aquí como "obra actual", aunque
+  // nadie la haya vinculado a mano: si no existe un proyecto local que apunte a ella, se
+  // crea automáticamente un espejo vinculado. Así ambas pantallas siempre listan lo mismo.
+  useEffect(() => {
+    if (obrasList.loading || !obrasList.obras.length) return;
+    setData((prev) => {
+      const linkedIds = new Set((prev.projects || []).map((p) => p.firestoreObraId).filter(Boolean));
+      const toAdd = obrasList.obras.filter((obra) => !linkedIds.has(obra.id));
+      if (!toAdd.length) return prev;
+      const now = todayIso();
+      const newProjects = toAdd.map((obra) => ({
+        id: uid("project"),
+        name: obra.name || obra.nombre || obra.id,
+        type: "Desarrollo habitacional",
+        status: obra.status === "activa" ? "Activo" : "Planeación",
+        location: obra.location || "",
+        owner: "TRITON",
+        budget: 0,
+        incomeTarget: 0,
+        totalUnits: Number(obra.totalUnits || 0),
+        units: [],
+        models: [],
+        estimateCatalogId: arennaThEstimateCatalogMeta.id,
+        retentionPct: Number(obra.estimationConfig?.retencionPorcentaje ?? 10),
+        advancePct: Number(obra.estimationConfig?.anticipoPorcentaje ?? 0),
+        notes: "",
+        firestoreObraId: obra.id,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "sistema (sincronizado desde Calidad)",
+      }));
+      return { ...prev, projects: [...newProjects, ...(prev.projects || [])] };
+    });
+  }, [obrasList.loading, obrasList.obras, setData]);
+  async function syncFirestoreObraFields(firestoreObraId, { name, totalUnits, location, retentionPct, advancePct }) {
+    await setDoc(doc(firestore, "obras", firestoreObraId), {
+      name: String(name || "").trim(),
+      totalUnits: Number(totalUnits || 0),
+      location: location || "",
+      estimationConfig: {
+        anticipoPorcentaje: Number(advancePct || 0),
+        retencionPorcentaje: Number(retentionPct || 0),
+      },
+    }, { merge: true });
   }
   function blankProject() {
     setForm({ name: "", type: "", status: "Planeación", location: "", owner: "TRITON", budget: "", incomeTarget: "", totalUnits: "", unitsText: "", modelsText: "", estimateCatalogId: arennaThEstimateCatalogMeta.id, retentionPct: 10, advancePct: 0, notes: "", firestoreObraId: "" });
@@ -1353,30 +1376,49 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
     setForm({ ...project, unitsText: Array.isArray(project.units) ? project.units.join(", ") : project.unitsText || "", modelsText: Array.isArray(project.models) ? project.models.join(", ") : project.modelsText || "", retentionPct: project.retentionPct ?? 10, advancePct: project.advancePct ?? 0, firestoreObraId: project.firestoreObraId || "" });
     setShowForm("operationProject");
   }
-  function saveProject() {
-    if (!String(form.name || "").trim()) { alert("Captura el nombre de la obra."); return; }
-    const payload = {
-      name: form.name || "Obra sin nombre",
-      type: form.type || "Desarrollo",
-      status: form.status || "Planeación",
-      location: form.location || "",
-      owner: form.owner || "TRITON",
-      budget: Number(form.budget || 0),
-      incomeTarget: Number(form.incomeTarget || 0),
-      totalUnits: Number(form.totalUnits || 0),
-      units: String(form.unitsText || "").split(",").map((x) => x.trim()).filter(Boolean),
-      models: String(form.modelsText || "").split(",").map((x) => x.trim()).filter(Boolean),
-      estimateCatalogId: form.estimateCatalogId ?? arennaThEstimateCatalogMeta.id,
-      retentionPct: Number(form.retentionPct ?? 10),
-      advancePct: Number(form.advancePct ?? 0),
-      notes: form.notes || "",
-      firestoreObraId: form.firestoreObraId || "",
-      updatedBy: firebaseAuth.currentUser?.email || "sistema",
-    };
-    if (form.id) updateRecord("projects", form.id, payload);
-    else addRecord("projects", { ...payload, createdBy: firebaseAuth.currentUser?.email || "sistema" });
-    setShowForm(null);
-    setForm({});
+  async function saveProject() {
+    const name = String(form.name || "").trim();
+    if (!name) { alert("Captura el nombre de la obra."); return; }
+    setSavingProject(true);
+    try {
+      let firestoreObraId = form.firestoreObraId || "";
+      const totalUnits = Number(form.totalUnits || 0);
+      const obraFields = { name, totalUnits, location: form.location, retentionPct: form.retentionPct ?? 10, advancePct: form.advancePct ?? 0 };
+      if (!firestoreObraId && totalUnits > 0) {
+        const existingIds = new Set(obrasList.obras.map((o) => o.id));
+        firestoreObraId = await createFirestoreObra({ ...obraFields, existingIds });
+        obrasList.refresh();
+      } else if (firestoreObraId) {
+        await syncFirestoreObraFields(firestoreObraId, obraFields);
+        obrasList.refresh();
+      }
+      const payload = {
+        name,
+        type: form.type || "Desarrollo",
+        status: form.status || "Planeación",
+        location: form.location || "",
+        owner: form.owner || "TRITON",
+        budget: Number(form.budget || 0),
+        incomeTarget: Number(form.incomeTarget || 0),
+        totalUnits,
+        units: String(form.unitsText || "").split(",").map((x) => x.trim()).filter(Boolean),
+        models: String(form.modelsText || "").split(",").map((x) => x.trim()).filter(Boolean),
+        estimateCatalogId: form.estimateCatalogId ?? arennaThEstimateCatalogMeta.id,
+        retentionPct: Number(form.retentionPct ?? 10),
+        advancePct: Number(form.advancePct ?? 0),
+        notes: form.notes || "",
+        firestoreObraId,
+        updatedBy: firebaseAuth.currentUser?.email || "sistema",
+      };
+      if (form.id) updateRecord("projects", form.id, payload);
+      else addRecord("projects", { ...payload, createdBy: firebaseAuth.currentUser?.email || "sistema" });
+      setShowForm(null);
+      setForm({});
+    } catch (err) {
+      alert(`${err?.message || "No se pudo crear/actualizar la obra en Calidad."} El proyecto no se guardó; intenta de nuevo cuando la conexión se restablezca.`);
+    } finally {
+      setSavingProject(false);
+    }
   }
   const operations = [
     { label: "Alta nueva", helper: "Empieza en blanco, sin matriz predefinida ni información pesada.", done: true },
@@ -1388,7 +1430,7 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
     <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}><SectionTitle title="Configuración de obra" helper="Proceso simple: primero alta/edición de obra, después se liga catálogo, unidades y reglas. Las nuevas obras empiezan en blanco para no saturar al usuario." /><Button onClick={blankProject}>Nueva obra en blanco</Button></div><ProgressLine items={operations.map((item) => ({ label: item.label, done: item.done, active: !item.done }))} /></Card>
     <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,.75fr) minmax(0,1.25fr)", gap: 16 }}>
       <Card><SectionTitle title="Obras actuales" helper="Da clic para revisar o editar." />
-        <div style={{ display: "grid", gap: 9 }}>{data.projects.map((project) => <button key={project.id} type="button" onClick={() => setSelectedId(project.id)} style={{ textAlign: "left", border: selectedId === project.id ? `2px solid ${c.primary}` : `1px solid ${c.border}`, borderRadius: 18, background: selectedId === project.id ? c.primarySoft : "white", padding: 12, cursor: "pointer" }}><b style={{ color: c.text }}>{project.name}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>{project.type || "Sin tipo"} · {project.status || "Sin estatus"}</div><div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}><Pill tone="primary">{money(project.budget)}</Pill><Pill>{Number(project.totalUnits || 0)} unidades</Pill></div></button>)}</div>
+        <div style={{ display: "grid", gap: 9 }}>{data.projects.map((project) => <button key={project.id} type="button" onClick={() => setSelectedId(project.id)} style={{ textAlign: "left", border: selectedId === project.id ? `2px solid ${c.primary}` : `1px solid ${c.border}`, borderRadius: 18, background: selectedId === project.id ? c.primarySoft : "white", padding: 12, cursor: "pointer" }}><b style={{ color: c.text }}>{project.name}</b><div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>{project.type || "Sin tipo"} · {project.status || "Sin estatus"}</div><div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}><Pill tone="primary">{money(project.budget)}</Pill><Pill>{Number(project.totalUnits || 0)} unidades</Pill><Pill tone={project.firestoreObraId ? "ok" : "warn"}>{project.firestoreObraId ? "En Calidad" : "Sin vincular"}</Pill></div></button>)}</div>
       </Card>
       <Card><div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><SectionTitle title={selected?.name || "Selecciona una obra"} helper="Ficha editable conectada con presupuestos, estimaciones, trámites y equipo de construcción." /><Button variant="secondary" onClick={() => editProject(selected)}>Editar obra</Button></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
@@ -1416,31 +1458,14 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
         <Field label="Ingresos proyectados"><input type="number" style={inputStyle()} value={form.incomeTarget || ""} onChange={(e) => setForm({ ...form, incomeTarget: e.target.value })} /></Field>
         <Field label="Retención obra %" help="Porcentaje que se retiene de cada estimación como garantía de obra bien ejecutada; se libera al cierre del contrato."><input type="number" style={inputStyle()} value={form.retentionPct ?? 10} onChange={(e) => setForm({ ...form, retentionPct: e.target.value })} /></Field>
         <Field label="Anticipo %" help="Porcentaje del contrato que se puede pagar por adelantado antes de que exista avance físico."><input type="number" style={inputStyle()} value={form.advancePct ?? 0} onChange={(e) => setForm({ ...form, advancePct: e.target.value })} /></Field>
-        <Field label="Obra vinculada en Calidad" help="Vincula esta obra con su obra real en el módulo de Calidad (Firestore). Sin este vínculo no se puede bloquear la estimación por checklist de calidad por casa.">
+        <Field label="Obra vinculada en Calidad" help="Toda obra que guardes aquí con unidades totales se crea (o se sincroniza, si ya existe) automáticamente en el módulo de Calidad: mismo nombre, misma cantidad de unidades. No hace falta un paso aparte.">
           <select style={inputStyle()} value={form.firestoreObraId || ""} onChange={(e) => setForm({ ...form, firestoreObraId: e.target.value })}>
-            <option value="">Sin vincular</option>
+            <option value="">{Number(form.totalUnits || 0) > 0 ? "Se creará al guardar" : "Sin vincular"}</option>
             {obrasList.obras.map((o) => <option key={o.id} value={o.id}>{o.nombre || o.name || o.id}</option>)}
           </select>
           {obrasList.loading ? <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>Cargando obras de Calidad...</div> : null}
-          {!obrasList.loading && !obrasList.obras.length ? <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>No hay obras dadas de alta en Calidad todavía.</div> : null}
+          {!form.firestoreObraId && !Number(form.totalUnits || 0) ? <div style={{ color: c.muted, fontSize: 12, marginTop: 4 }}>Captura las unidades totales para que se cree su obra en Calidad al guardar.</div> : null}
           {obrasList.error ? <div style={{ color: c.red, fontSize: 12, marginTop: 4 }}>{obrasList.error}</div> : null}
-          {!showCreateObra && !form.firestoreObraId ? (
-            <button type="button" onClick={() => setShowCreateObra(true)} style={{ marginTop: 6, background: "none", border: "none", padding: 0, color: c.primaryDark, fontWeight: 850, fontSize: 12, cursor: "pointer" }}>
-              + Es un proyecto nuevo: crear su obra en Calidad
-            </button>
-          ) : null}
-          {showCreateObra ? (
-            <div style={{ marginTop: 8, padding: 12, borderRadius: 14, background: c.soft, border: `1px solid ${c.border}` }}>
-              <div style={{ fontSize: 12, color: c.muted, marginBottom: 8, lineHeight: 1.4 }}>
-                Crea la obra en Calidad usando el nombre y las unidades totales capturados arriba ({form.name || "sin nombre"} · {Number(form.totalUnits || 0)} unidades). En cuanto alguien de supervisión la abra por primera vez, el sistema genera automáticamente cada casa y su checklist de 14 partidas.
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <Button style={{ padding: "7px 12px", fontSize: 12 }} onClick={createAndLinkObra} disabled={savingObra}>{savingObra ? "Creando..." : "Crear y vincular"}</Button>
-                <Button variant="secondary" style={{ padding: "7px 12px", fontSize: 12 }} onClick={() => { setShowCreateObra(false); setObraCreateError(""); }}>Cancelar</Button>
-              </div>
-              {obraCreateError ? <div style={{ color: c.red, fontSize: 12, marginTop: 6 }}>{obraCreateError}</div> : null}
-            </div>
-          ) : null}
         </Field>
         <Field label="Catálogo de conceptos (Estimaciones)" help="El catálogo trae las partidas, conceptos, unidades y precios sobre los que la constructora captura avance en Estimaciones. Cada obra puede tener el suyo.">
           <select style={inputStyle()} value={form.estimateCatalogId || ""} onChange={(e) => setForm({ ...form, estimateCatalogId: e.target.value })}>
@@ -1478,7 +1503,7 @@ function OperationWorksConfig({ data, projectMap, addRecord, updateRecord, setDa
       <Field label="Unidades / lotes" help="Lista separada por comas. Cada unidad podrá seleccionarse después al capturar estimaciones y checklist de calidad."><input style={inputStyle()} placeholder="TH01, TH02, Casa 1, Depto 101" value={form.unitsText || ""} onChange={(e) => setForm({ ...form, unitsText: e.target.value })} /></Field>
       <Field label="Modelos"><input style={inputStyle()} placeholder="TH, HAUS, Depto A" value={form.modelsText || ""} onChange={(e) => setForm({ ...form, modelsText: e.target.value })} /></Field>
       <Field label="Notas operativas"><textarea style={inputStyle({ minHeight: 80 })} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={saveProject}>Guardar obra</Button><Button variant="secondary" onClick={() => { setShowForm(null); setForm({}); }}>Cancelar</Button></div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button onClick={saveProject} disabled={savingProject}>{savingProject ? "Guardando..." : "Guardar obra"}</Button><Button variant="secondary" onClick={() => { setShowForm(null); setForm({}); }}>Cancelar</Button></div>
     </Card> : null}
   </div>;
 }
