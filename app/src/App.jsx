@@ -1008,7 +1008,12 @@ function ZonaDetailPanel({ isMobile, selectedHouse, zona, onBack, showCompletedI
           <button onClick={onBack} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Otra zona</button>
           <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, marginBottom: 4 }}>Paso 3 de 3 · {selectedHouse?.name}</div>
         </>
-      ) : null}
+      ) : (
+        <>
+          <button onClick={onBack} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>▲ Ocultar checklist</button>
+          <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, marginBottom: 4 }}>3. Checklist de {selectedHouse?.name}</div>
+        </>
+      )}
 
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div>
@@ -1076,6 +1081,8 @@ export default function App() {
   const [bloquesManagerOpen, setBloquesManagerOpen] = useState(false);
   const [bloqueForm, setBloqueForm] = useState(null);
   const [mobileStep, setMobileStep] = useState("unidad");
+  const [desktopHouseOpened, setDesktopHouseOpened] = useState(false);
+  const [desktopStageOpened, setDesktopStageOpened] = useState(false);
   const [checklistDetailOpen, setChecklistDetailOpen] = useState({});
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const [selectedPartidaId, setSelectedPartidaId] = useState("cimentacion");
@@ -2341,7 +2348,7 @@ const reviewBlockMessage =
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             {obras.length > 1 ? (
-              <select value={selectedObraId} onChange={(event) => { setSelectedObraId(event.target.value); setSelectedHouseId(""); }} style={{ ...inputStyle(), minWidth: 220, padding: "10px 12px" }}>
+              <select value={selectedObraId} onChange={(event) => { setSelectedObraId(event.target.value); setSelectedHouseId(""); setDesktopHouseOpened(false); setDesktopStageOpened(false); }} style={{ ...inputStyle(), minWidth: 220, padding: "10px 12px" }}>
                 {obras.map((obra) => <option key={obra.id} value={obra.id}>{obra.name || obra.id}</option>)}
               </select>
             ) : null}
@@ -2422,13 +2429,13 @@ const reviewBlockMessage =
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "340px 1fr",
+            gridTemplateColumns: "1fr",
             gap: 20,
           }}
         >
           {!isMobile || mobileStep === "unidad" ? (
           <div style={{ ...cardStyle(), padding: 18 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: c.text, marginBottom: 4 }}>{isMobile ? "Paso 1 de 3 · ¿Qué casa vas a revisar?" : "Casas"}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: c.text, marginBottom: 4 }}>{isMobile ? "Paso 1 de 3 · ¿Qué casa vas a revisar?" : "1. Elige la casa"}</div>
             {isMobile && isConstructora && myBloques.length ? (
               <div style={{ color: c.muted, fontSize: 13, marginBottom: 10 }}>Tu bloque asignado: <b style={{ color: c.text }}>{myBloques.map((b) => b.name).join(", ")}</b></div>
             ) : null}
@@ -2437,7 +2444,7 @@ const reviewBlockMessage =
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
               placeholder="Buscar por número o bloque"
-              style={inputStyle({ marginBottom: 16, marginTop: isMobile ? 10 : 0 })}
+              style={inputStyle({ marginBottom: 16, marginTop: isMobile ? 10 : 0, maxWidth: isMobile ? "none" : 420 })}
             />
 
             {isMobile && isConstructora && bloques.length > 0 && myBloques.length === 0 ? (
@@ -2445,35 +2452,54 @@ const reviewBlockMessage =
                 Todavía no tienes un bloque asignado. Pide a tu supervisor que te agregue a un bloque en "Bloques y equipos".
               </div>
             ) : (
-            <div style={{ maxHeight: isMobile ? "none" : 660, overflow: isMobile ? "visible" : "auto", paddingRight: 4 }}>
+            <div
+              style={{
+                display: isMobile ? "block" : "grid",
+                gridTemplateColumns: isMobile ? undefined : "repeat(auto-fill, minmax(210px, 1fr))",
+                gap: isMobile ? 0 : 12,
+                maxHeight: isMobile ? "none" : 460,
+                overflow: isMobile ? "visible" : "auto",
+                paddingRight: 4,
+              }}
+            >
               {filteredHouses.length === 0 ? (
                 <div style={{ color: c.muted, fontSize: 14 }}>No hay casas cargadas todavía.</div>
               ) : (
-                filteredHouses.map((house) => (
+                filteredHouses.map((house) => {
+                  const isSelected = selectedHouseId === house.id;
+                  const isOpen = isSelected && (isMobile || desktopHouseOpened);
+                  return (
                   <button
                     key={house.id}
-                    onClick={() => { setSelectedHouseId(house.id); if (isMobile) setMobileStep("partidas"); }}
+                    onClick={() => {
+                      if (isMobile) { setSelectedHouseId(house.id); setMobileStep("partidas"); return; }
+                      if (isSelected && desktopHouseOpened) { setDesktopHouseOpened(false); setDesktopStageOpened(false); return; }
+                      setSelectedHouseId(house.id);
+                      setDesktopHouseOpened(true);
+                      setDesktopStageOpened(false);
+                    }}
                     style={{
-                      ...cardStyle(selectedHouseId === house.id),
+                      ...cardStyle(isOpen),
                       width: "100%",
                       textAlign: "left",
                       padding: 16,
-                      marginBottom: 10,
+                      marginBottom: isMobile ? 10 : 0,
                       cursor: "pointer",
-                      background: selectedHouseId === house.id ? "#fff" : c.surface,
+                      background: isOpen ? "#fff" : c.surface,
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                       <div style={{ fontWeight: 800, color: c.text, fontSize: isMobile ? 17 : 14 }}>{house.name}</div>
-                      <span style={badgeStyle("Pendiente")}>Bloque {house.block || "-"}</span>
-                      {isMobile ? <span style={{ fontSize: 22, color: c.muted }}>›</span> : null}
+                      {isMobile ? <span style={{ fontSize: 22, color: c.muted }}>›</span> : <span style={{ fontSize: 16, color: c.muted, transition: "transform 150ms ease", transform: isOpen ? "rotate(90deg)" : "none" }}>›</span>}
                     </div>
+                    <div style={{ marginTop: 8 }}><span style={badgeStyle("Pendiente")}>Bloque {house.block || "-"}</span></div>
                     <div style={{ color: c.muted, fontSize: 12, marginTop: 10, marginBottom: 6 }}>
                       Avance {getHouseProgress(house)}%
                     </div>
                     <ProgressBar value={getHouseProgress(house)} />
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
             )}
@@ -2481,13 +2507,15 @@ const reviewBlockMessage =
           ) : null}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {(!isMobile || mobileStep === "partidas") && selectedHouse ? (
+            {((isMobile && mobileStep === "partidas") || (!isMobile && desktopHouseOpened)) && selectedHouse ? (
             <div style={{ ...cardStyle(), padding: 20 }}>
               {isMobile ? (
                 <button onClick={() => setMobileStep("unidad")} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Cambiar casa</button>
-              ) : null}
-              <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, display: isMobile ? "block" : "none" }}>Paso 2 de 3</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: c.text }}>{selectedHouse?.name || "Selecciona una casa"}</div>
+              ) : (
+                <button onClick={() => { setDesktopHouseOpened(false); setDesktopStageOpened(false); }} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>▲ Ocultar</button>
+              )}
+              <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText }}>{isMobile ? "Paso 2 de 3" : "2. Elige qué revisar"}</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: c.text }}>{selectedHouse?.name}</div>
               <div style={{ color: c.muted, marginTop: 4 }}>
                 Bloque {selectedHouse?.block || "-"}
               </div>
@@ -2501,7 +2529,7 @@ const reviewBlockMessage =
                 }}
               >
                 <button
-                  onClick={() => setQualityMode("aseguramiento")}
+                  onClick={() => { setQualityMode("aseguramiento"); setDesktopStageOpened(false); }}
                   style={{
                     ...cardStyle(qualityMode === "aseguramiento"),
                     textAlign: "left",
@@ -2519,7 +2547,7 @@ const reviewBlockMessage =
                   </div>
                 </button>
                 <button
-                  onClick={() => setQualityMode("entrega")}
+                  onClick={() => { setQualityMode("entrega"); setDesktopStageOpened(false); }}
                   style={{
                     ...cardStyle(qualityMode === "entrega"),
                     textAlign: "left",
@@ -2562,16 +2590,24 @@ const reviewBlockMessage =
                   .sort((a, b) => {
                     const rank = (p) => (p.status === "Aprobada" ? 2 : ["Lista para revisión", "En revisión"].includes(p.status) ? 1 : 0);
                     return rank(a) - rank(b);
-                  }).map((partida) => (
+                  }).map((partida) => {
+                  const isSelected = selectedPartidaId === partida.id;
+                  const isOpen = isSelected && (isMobile || desktopStageOpened);
+                  return (
                   <button
                     key={partida.id}
-                    onClick={() => { setSelectedPartidaId(partida.id); if (isMobile) setMobileStep("detalle"); }}
+                    onClick={() => {
+                      if (isMobile) { setSelectedPartidaId(partida.id); setMobileStep("detalle"); return; }
+                      if (isSelected && desktopStageOpened) { setDesktopStageOpened(false); return; }
+                      setSelectedPartidaId(partida.id);
+                      setDesktopStageOpened(true);
+                    }}
                     style={{
-                      ...cardStyle(selectedPartidaId === partida.id),
+                      ...cardStyle(isOpen),
                       textAlign: "left",
                       padding: 16,
                       cursor: "pointer",
-                      borderLeft: isMobile ? `6px solid ${partida.status === "Aprobada" ? c.successText : partida.status === "Rechazada" ? c.dangerText : c.warnText}` : cardStyle(selectedPartidaId === partida.id).border,
+                      borderLeft: isMobile ? `6px solid ${partida.status === "Aprobada" ? c.successText : partida.status === "Rechazada" ? c.dangerText : c.warnText}` : cardStyle(isOpen).border,
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
@@ -2585,7 +2621,8 @@ const reviewBlockMessage =
                       Fotos {partida.evidenceCount?.photos || 0} · Videos {partida.evidenceCount?.videos || 0}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
                 {!showCompletedStages && (selectedHouse?.partidas || []).every((p) => p.status !== "Aprobada") === false && (selectedHouse?.partidas || []).filter((p) => p.status !== "Aprobada").length === 0 ? (
                   <div style={{ gridColumn: "1 / -1", color: c.successText, fontWeight: 700, padding: 12 }}>✅ Todas las etapas están aprobadas.</div>
                 ) : null}
@@ -2604,16 +2641,24 @@ const reviewBlockMessage =
                   .sort((a, b) => {
                     const rank = (z) => (z.status === "Aprobada" ? 2 : z.status === "En proceso" || z.status === "Con observaciones" ? 1 : 0);
                     return rank(a) - rank(b);
-                  }).map((zona) => (
+                  }).map((zona) => {
+                  const isSelected = selectedZonaId === zona.id;
+                  const isOpen = isSelected && (isMobile || desktopStageOpened);
+                  return (
                   <button
                     key={zona.id}
-                    onClick={() => { setSelectedZonaId(zona.id); if (isMobile) setMobileStep("detalle"); }}
+                    onClick={() => {
+                      if (isMobile) { setSelectedZonaId(zona.id); setMobileStep("detalle"); return; }
+                      if (isSelected && desktopStageOpened) { setDesktopStageOpened(false); return; }
+                      setSelectedZonaId(zona.id);
+                      setDesktopStageOpened(true);
+                    }}
                     style={{
-                      ...cardStyle(selectedZonaId === zona.id),
+                      ...cardStyle(isOpen),
                       textAlign: "left",
                       padding: 16,
                       cursor: "pointer",
-                      borderLeft: isMobile ? `6px solid ${zona.status === "Aprobada" ? c.successText : zona.status === "Con observaciones" ? c.dangerText : c.warnText}` : cardStyle(selectedZonaId === zona.id).border,
+                      borderLeft: isMobile ? `6px solid ${zona.status === "Aprobada" ? c.successText : zona.status === "Con observaciones" ? c.dangerText : c.warnText}` : cardStyle(isOpen).border,
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
@@ -2627,7 +2672,8 @@ const reviewBlockMessage =
                       Fotos {zona.evidenceCount?.photos || 0}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
                 {!showCompletedStages && (selectedHouse?.entregas || []).filter((z) => z.status !== "Aprobada").length === 0 ? (
                   <div style={{ gridColumn: "1 / -1", color: c.successText, fontWeight: 700, padding: 12 }}>✅ Todas las zonas están aprobadas. La casa está lista para entrega.</div>
                 ) : null}
@@ -2636,7 +2682,7 @@ const reviewBlockMessage =
             </div>
             ) : null}
 
-            {(!isMobile || mobileStep === "detalle") && qualityMode === "aseguramiento" && selectedPartida ? (
+            {((isMobile && mobileStep === "detalle") || (!isMobile && desktopStageOpened)) && qualityMode === "aseguramiento" && selectedPartida ? (
               <>
                 <div style={{ ...cardStyle(), padding: 20 }}>
                   {isMobile ? (
@@ -2644,7 +2690,12 @@ const reviewBlockMessage =
                       <button onClick={() => setMobileStep("partidas")} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>← Otra etapa</button>
                       <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, marginBottom: 4 }}>Paso 3 de 3 · {selectedHouse?.name}</div>
                     </>
-                  ) : null}
+                  ) : (
+                    <>
+                      <button onClick={() => setDesktopStageOpened(false)} style={buttonStyle("secondary", { marginBottom: 14, padding: "8px 14px" })}>▲ Ocultar checklist</button>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: c.primaryText, marginBottom: 4 }}>3. Checklist de {selectedHouse?.name}</div>
+                    </>
+                  )}
                   <div
                     style={{
                       display: "flex",
@@ -3506,12 +3557,12 @@ const reviewBlockMessage =
               </>
             ) : null}
 
-            {(!isMobile || mobileStep === "detalle") && qualityMode === "entrega" && selectedZona ? (
+            {((isMobile && mobileStep === "detalle") || (!isMobile && desktopStageOpened)) && qualityMode === "entrega" && selectedZona ? (
               <ZonaDetailPanel
                 isMobile={isMobile}
                 selectedHouse={selectedHouse}
                 zona={selectedZona}
-                onBack={() => setMobileStep("partidas")}
+                onBack={() => (isMobile ? setMobileStep("partidas") : setDesktopStageOpened(false))}
                 showCompletedItems={showCompletedItems}
                 setShowCompletedItems={setShowCompletedItems}
                 onSetResultado={(itemId, resultado) => updateChecklistItemZona(itemId, { resultado })}
